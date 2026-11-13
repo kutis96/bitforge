@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>bitforge</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <noscript><p>bitforge needs JavaScript enabled.</p></noscript>
+
+  <header id="toolbar">
+    <div class="brand">bitforge</div>
+    <div class="fileops">
+      <button id="btn-new" type="button" title="New blank font (prompts for width &amp; height)">New</button>
+      <button id="btn-open" type="button" title="Import a PNG atlas (16x16)">Open PNG</button>
+      <button id="btn-export-png" type="button" title="Export a PNG atlas (16x16)">Export PNG</button>
+      <button id="btn-export-verilog" type="button" title="Export a Verilog $readmemb ROM">Export Verilog</button>
+      <label id="png-bg-label" title="Background for PNG export">
+        <input type="checkbox" id="chk-png-transparent"> transparent bg
+      </label>
+      <input id="file-png" type="file" accept="image/png" hidden>
+    </div>
+    <div id="dims" class="dims">W:8 H:16</div>
+  </header>
+
+  <main id="layout">
+    <aside id="sidebar">
+      <div id="sel-header" class="sel-header">0x00</div>
+      <div class="jumprow">
+        <input id="jump" type="text" placeholder="hex or char" spellcheck="false" autocomplete="off" aria-label="Jump to glyph">
+        <button id="btn-jump" type="button">Go</button>
+      </div>
+      <canvas id="selector" aria-label="Glyph selector (256 glyphs, 16 by 16)"></canvas>
+    </aside>
+
+    <section id="content">
+      <nav id="tabs" role="tablist">
+        <button class="tab active" data-tab="edit" type="button" role="tab">Edit</button>
+        <button class="tab" data-tab="preview" type="button" role="tab">Preview</button>
+        <button class="tab" data-tab="atlas" type="button" role="tab">Atlas</button>
+      </nav>
+
+      <div class="panel active" id="panel-edit" role="tabpanel">
+        <div class="panel-head">
+          <span id="edit-label">glyph</span>
+          <span class="spacer"></span>
+          <button id="btn-undo" type="button" title="Undo (Ctrl/&#8984;+Z)">&#8592; Undo</button>
+          <button id="btn-redo" type="button" title="Redo (Ctrl/&#8984;+Shift+Z)">&#8594; Redo</button>
+          <button id="btn-clear" type="button">Clear glyph</button>
+        </div>
+        <div class="canvas-wrap"><canvas id="editor"></canvas></div>
+      </div>
+
+      <div class="panel" id="panel-preview" role="tabpanel">
+        <div class="panel-head">
+          <label>Scale <input id="pv-scale" type="range" min="1" max="16" value="8"></label>
+          <label><input id="pv-bold" type="checkbox"> bold</label>
+          <label><input id="pv-italic" type="checkbox"> italic</label>
+          <label>baseline <input id="pv-baseline" type="number" min="0" step="1" value="5"></label>
+        </div>
+        <div class="preview-grid">
+          <div class="canvas-wrap"><canvas id="pv-glyph"></canvas></div>
+          <div class="textcol">
+            <textarea id="pv-text" spellcheck="false"
+              placeholder="Type text…  *bold*  _italic_  \u41  (markups nest; \uXX picks a code)"></textarea>
+            <div class="canvas-wrap"><canvas id="pv-text-canvas"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-atlas" role="tabpanel">
+        <div class="panel-head"><span>all 256 glyphs (0x00 top-left → 0xFF bottom-right)</span></div>
+        <div class="canvas-wrap"><canvas id="atlas"></canvas></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="js/core.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
