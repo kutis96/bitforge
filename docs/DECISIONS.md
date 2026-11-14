@@ -87,6 +87,9 @@ Requirements and design decisions agreed with the user. **Treat these as fixed**
 ## Preview layout (chunk I.6)
 53. **Preview tab becomes a vertical stack** (user request, 2026-11-14): markup input on top, rendered sample below; the **single-glyph zoom canvas is removed** (`drawPvGlyph` gone) — the user leaned that way ("maybe even remove"): the Edit tab already shows the selected glyph large, and the text sample covers bold/slant at any scale (reverting is a small chunk if ever wanted). Scale stays (drives the text render). Also: **Clear glyph gets a subtle reddish outline** (`button.btn-danger`) per user request ("probably" — they noted it's undoable; remove the class if unwanted).
 
+## Status pumping shortcuts (chunk I.7)
+54. **D / Shift+D** (user request, 2026-11-14, key choice was a suggestion): `D` cycles the *current* glyph's status (unfinished → wip → done → unfinished); `Shift+D` marks it **done** and selects the next glyph (clamped at 0xFF with a toast — no wrap, so a pumping session doesn't jump back to 0x00). Both go through `setStatus`/`selectGlyph` (buttons, tints, QA staleness all follow), are registered in the shortcut registry (keys card shows them), and are duplicated as **Edit-menu** items (Cycle glyph status / Mark done & next) for discoverability. Purpose: pump a large batch of glyphs — draw, Shift+D, draw, Shift+D.
+
 ## Deferred
 46. **Edge-ink lint — deferred.** Build only with a per-glyph *silence* mechanism: box-drawing/pseudographic glyphs intentionally reach the cell edges, so a naive edge check is noise for this font's real content.
 47. **Guideline-violation report — deferred** until the QA infra (chunk K) is proven.

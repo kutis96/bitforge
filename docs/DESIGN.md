@@ -63,7 +63,7 @@ Black-on-white, monospace UI, terminal-tool aesthetic. **No green/amber.**
   - **Preview**: a **multi-line text sample** driven by markup, rendered below the input (vertical stack; scale, bold, slant, baseline controls). There is no separate single-glyph zoom — the Edit tab shows the selected glyph large, and the text sample covers bold/slant at any scale. An **inverted toggle** switches preview surfaces to white-on-black (how the font will look in a real terminal); editor and sidebar stay black-on-white.
   - **Atlas**: all 256 glyphs in a 16×16 grid (same order as the PNG). **Honors the current bold/slant settings** (with extra column spacing while slant is on, so spill stays legible). Has its **own bold / italic / baseline / inverted controls in the panel head**, which drive the *same shared state* as the Preview tab's controls (kept in sync both ways; one settings entry). Cells are tinted by glyph status (WIP = light peach, unfinished = light pastel blue, done = white). Click selects a glyph; **right-click opens a status menu** (unfinished / WIP / done).
   - **QA**: reports about the font in a **violations table** with a **Refresh** button and a **stale badge** (the report is marked stale as soon as the font changes after the last refresh). First reports: **duplicate glyphs** and **what's left to draw** (status counts + clickable list of unfinished/WIP glyphs). Check set is extensible (see below).
-- **Menu bar (desktop-app style):** **File** — New (prompts W×H) · Open PNG/BDF · Export PNG (solid bg / transparent bg) · Export BDF · Export Verilog. **Edit** — Undo · Redo · Clear glyph · Copy glyph to clipboard. Menus are mouse-driven (click to open/toggle, hover to switch while open, outside-click or Escape to close); items show their keyboard shortcut hints. A **shortcut reference card** (toggle with `?`) lists every keyboard shortcut, rendered from the shortcut registry so it can't drift (see below).
+- **Menu bar (desktop-app style):** **File** — New (prompts W×H) · Open PNG/BDF · Export PNG (solid bg / transparent bg) · Export BDF · Export Verilog. **Edit** — Undo · Redo · Clear glyph · Cycle glyph status · Mark done & next · Copy glyph to clipboard. **About** — live font info line + About bitforge… (modal). Menus are mouse-driven (click to open/toggle, hover to switch while open, outside-click or Escape to close); items show their keyboard shortcut hints. A **shortcut reference card** (toggle with `?`) lists every keyboard shortcut, rendered from the shortcut registry so it can't drift (see below).
 
 ## Modules
 
@@ -150,6 +150,7 @@ Bindings (all via the registry; ⌘ = Ctrl):
 - **Tabs:** `E` Edit · `P` Preview · `A` Atlas · `Q` QA · `Ctrl+Q` QA tab *and* run the checks.
 - **Glyph nav:** `←/→` ±1 · `↑/↓` ±16 (atlas row) · `Home/End` row start/end · `PgUp/PgDn` 0x00/0xFF.
 - **Glyph shift:** `Ctrl/⌘+arrows` shift current glyph ±1px (clipped ink is dropped, with a toast if anything was lost; one undo step per shift).
+- **Status pumping:** `D` cycle the current glyph's status (unf → wip → done → unf) · `Shift+D` mark it done and move to the next glyph (clamped at 0xFF with a toast — the pump-the-font workflow).
 - **Misc:** `Ctrl/⌘+Z` undo · `Ctrl/⌘+Shift+Z` / `Ctrl+Y` redo · `?` reference card.
 
 ## Glyph status & QA

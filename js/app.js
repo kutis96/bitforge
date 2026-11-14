@@ -238,6 +238,18 @@
     saveLS();
   }
 
+  // Status pumping (DECISIONS #54): D cycles the current glyph's status
+  // (unf -> wip -> done -> unf); Shift+D marks it done and moves on.
+  function cycleStatusAction() {
+    setStatus(state.selected, (state.font.status[state.selected] + 1) % 3);
+  }
+  function doneNextAction() {
+    var code = state.selected;
+    if (state.font.status[code] !== 2) setStatus(code, 2);
+    if (code >= 255) { toast("Already at the last glyph (0xFF)"); return; }
+    selectGlyph(code + 1);
+  }
+
   // Edit-tab status buttons: highlight the one matching the selected glyph.
   function renderGlyphStatus() {
     if (!el.stUnfinished) return; // before init
@@ -976,6 +988,7 @@
       miExportPngSolid: $("mi-export-png-solid"), miExportPngTransparent: $("mi-export-png-transparent"),
       miExportBdf: $("mi-export-bdf"), miExportVerilog: $("mi-export-verilog"),
       miUndo: $("mi-undo"), miRedo: $("mi-redo"), miClearGlyph: $("mi-clear-glyph"), miCopyGlyph: $("mi-copy-glyph"),
+      miCycleStatus: $("mi-cycle-status"), miDoneNext: $("mi-done-next"),
       btnClear: $("btn-clear"), btnUndo: $("btn-undo"), btnRedo: $("btn-redo"),
       stUnfinished: $("st-unfinished"), stWip: $("st-wip"), stDone: $("st-done"),
       editor: $("editor"), editLabel: $("edit-label"),
@@ -1026,6 +1039,8 @@
     menuItem("miUndo", undo);
     menuItem("miRedo", redo);
     menuItem("miClearGlyph", clearGlyphAction);
+    menuItem("miCycleStatus", cycleStatusAction);
+    menuItem("miDoneNext", doneNextAction);
     menuItem("miCopyGlyph", copyGlyphToClipboard);
 
     // Edit-tab status buttons (DECISIONS #50): mark the current glyph, then
@@ -1139,6 +1154,8 @@
     shortcuts.register({ combo: "a", description: "Show the Atlas tab", handler: function () { setActiveTab("atlas"); } });
     shortcuts.register({ combo: "q", description: "Show the QA tab", handler: function () { setActiveTab("qa"); } });
     shortcuts.register({ combo: "Ctrl+q", description: "QA tab + run checks", handler: function () { setActiveTab("qa"); qaRefresh(); } });
+    shortcuts.register({ combo: "d", description: "Cycle glyph status (unf \u2192 wip \u2192 done)", handler: cycleStatusAction });
+    shortcuts.register({ combo: "Shift+d", description: "Mark done & move to next glyph", handler: doneNextAction });
     shortcuts.register({ combo: "Ctrl+ArrowLeft", description: "Shift glyph left", handler: function () { shiftGlyphAction(-1, 0); } });
     shortcuts.register({ combo: "Ctrl+ArrowRight", description: "Shift glyph right", handler: function () { shiftGlyphAction(1, 0); } });
     shortcuts.register({ combo: "Ctrl+ArrowUp", description: "Shift glyph up", handler: function () { shiftGlyphAction(0, -1); } });

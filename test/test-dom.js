@@ -122,13 +122,14 @@ test("dom: shortcut card toggles; registry holds the full binding set", function
   assertEqual(els["keys-card"].hidden, false, "toggle shows it");
   app.toggleKeysCard();
   assertEqual(els["keys-card"].hidden, true, "toggle hides it");
-  // 8 nav + 6 file-ops + 5 tabs + 4 shift + 3 undo/redo + 1 card = 27
-  assertEqual(app.shortcuts.list.length, 27, "27 shortcuts registered");
+  // 8 nav + 6 file-ops + 5 tabs + 2 status + 4 shift + 3 undo/redo + 1 card = 29
+  assertEqual(app.shortcuts.list.length, 29, "29 shortcuts registered");
   var combos = {};
   for (var i = 0; i < app.shortcuts.list.length; i++) combos[app.shortcuts.list[i].combo] = true;
   assert(combos["Ctrl+ArrowLeft"] && combos["?"] && combos["Ctrl+z"] && combos["PageUp"], "expected combos present");
   assert(combos["Alt+n"] && combos["Alt+o"] && combos["Ctrl+s"] && combos["Ctrl+q"] && combos["e"] && combos["q"],
     "file-op/tab combos present");
+  assert(combos["d"] && combos["Shift+d"], "status-pumping combos present");
 });
 
 test("dom: preview settings persist via the settings API", function () {
@@ -437,4 +438,45 @@ test("dom: atlas render controls mirror the preview controls (shared state)", fu
   stub.dispatch("pv-baseline", "input", {});
   assertEqual(app.state.baseline, app.state.font.height - 1, "baseline clamps to font height");
   assertEqual(els["at-baseline"].value, String(app.state.font.height - 1), "atlas baseline follows clamped value");
+});
+
+// ---------- status pumping: D / Shift+D (DECISIONS #54) ----------
+
+test("dom: D cycles the glyph status; Shift+D marks done and advances", function () {
+  var app = globalThis.__stub.app;
+  var els = globalThis.__stub.els;
+  var stub = globalThis.__stub;
+  var key = function (k, extra) {
+    var evt = { key: k, preventDefault: function () {} };
+    for (var p in (extra || {})) evt[p] = extra[p];
+    app.shortcuts.dispatch(evt);
+  };
+  app.selectGlyph(0x50);
+  app.setStatus(0x50, 0);
+  key("d");
+  assertEqual(app.state.font.status[0x50], 1, "unf -> wip");
+  assert(els["st-wip"].classList.contains("active"), "Edit-tab buttons follow the cycle");
+  key("d");
+  assertEqual(app.state.font.status[0x50], 2, "wip -> done");
+  key("d");
+  assertEqual(app.state.font.status[0x50], 0, "done -> unf (wraps around)");
+  key("d", { shiftKey: true });
+  assertEqual(app.state.font.status[0x50], 2, "Shift+D marks done");
+  assertEqual(app.state.selected, 0x51, "and advances to the next glyph");
+  assertEqual(app.state.font.status[0x50], 2, "previous glyph stays done");
+  // At the end of the atlas it clamps with a toast (no wrap to 0x00)
+  app.selectGlyph(0xFF);
+  key("d", { shiftKey: true });
+  assertEqual(app.state.selected, 0xFF, "clamped at 0xFF");
+  assert(app.getLastToast().indexOf("last glyph") !== -1, "toast: " + app.getLastToast());
+  // The Edit-menu items do the same thing
+  app.selectGlyph(0x52);
+  app.setStatus(0x52, 0);
+  stub.dispatch("mb-edit", "click", {});
+  stub.dispatch("mi-cycle-status", "click", {});
+  assertEqual(app.state.font.status[0x52], 1, "menu item cycles");
+  stub.dispatch("mb-edit", "click", {});
+  stub.dispatch("mi-done-next", "click", {});
+  assertEqual(app.state.font.status[0x52], 2, "menu item marks done");
+  assertEqual(app.state.selected, 0x53, "menu item advances");
 });

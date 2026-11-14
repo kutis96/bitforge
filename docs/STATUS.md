@@ -21,6 +21,7 @@
 - [x] **[I.4] Menu bar** (2026-11-14): desktop-style File/Edit dropdowns; PNG bg → remembered `pngBg` setting — 101 tests
 - [x] **[I.5] Atlas render controls** (2026-11-14): bold/italic/baseline/inverted duplicated on the Atlas tab (shared state, two-way sync) — 102 tests
 - [x] **[I.6] Preview layout** (2026-11-14): vertical stack, single-glyph zoom removed; Clear glyph gets a reddish outline — 102 tests
+- [x] **[I.7] Status pumping shortcuts** (2026-11-14): `D` cycle status, `Shift+D` done + next — 103 tests
 - [ ] **[I] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -161,7 +162,13 @@ User request: stack the markup input and its rendered sample vertically, and dro
 - **Clear glyph** (Edit-tab button) gets `button.btn-danger`: a subtle reddish border/text to signal a destructive (but undoable) action.
 - No test-count change (layout/styling; the init smoke test still passes with the new structure). **Total 102 tests.**
 
-## Plan — remaining chunks (decisions locked in DECISIONS #32–53)
+### [I.7] Status pumping shortcuts (`app.js` + `index.html` + `test/`, 2026-11-14)
+User request (suggested key scheme, tweaks OK): cycle the selected glyph's status, and a Shift variant that marks done + advances — for pumping a large batch of glyphs.
+- **`D`** = `cycleStatusAction()` — cycles unf → wip → done → unf via `setStatus` (buttons/tints/QA staleness all follow). **`Shift+D`** = `doneNextAction()` — marks done (no-op if already done) then `selectGlyph(code+1)`, **clamped at 0xFF with a toast** (deliberate no-wrap: a pumping session must not jump back to 0x00).
+- Both registered in the shortcut registry (keys card shows them; registry total now **29**) and mirrored as Edit-menu items (**Cycle glyph status / Mark done & next**).
+- 1 new DOM test (full cycle wrap, done+advance, 0xFF clamp + toast, Edit-menu items, status buttons following). The registry-count assertion moved 27 → 29. **Total 103 tests.**
+
+## Plan — remaining chunks (decisions locked in DECISIONS #32–54)
 
 ### [M] Deferred QA checks (documented, NOT to build without re-greenlight)
 - Edge-ink lint — only with per-glyph silencing (box-drawing chars touch edges by design) (#46)
