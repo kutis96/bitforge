@@ -10,6 +10,8 @@ load("test/test-verilog.js");
 load("test/test-markup.js");
 load("test/test-slant.js");
 load("test/test-ink.js");
+load("test/test-nav.js");
+load("test/test-shift.js");
 
 // DOM smoke test: install the stub, load app.js (registers init as the
 // DOMContentLoaded handler), then run the test which invokes init under the stub.

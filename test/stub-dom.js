@@ -94,6 +94,10 @@
     removeItem: function (k) { delete store[k]; }
   };
 
+  // jsc lacks these browser globals (toast() uses clearTimeout)
+  if (!root.clearTimeout) root.clearTimeout = function () {};
+  if (!root.setTimeout) root.setTimeout = function () { return 0; };
+
   root.Image = function () { this.naturalWidth = 0; this.naturalHeight = 0; };
   root.URL = { createObjectURL: function () { return "blob:stub"; }, revokeObjectURL: function () {} };
   root.Blob = function (parts, opts) { this.parts = parts; this.type = opts && opts.type; };

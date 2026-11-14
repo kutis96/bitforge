@@ -26,7 +26,9 @@
     activeTab: "edit",
     history: [],       // undo: [{ code, snap }]
     redo: [],          // redo: [{ code, snap }]
-    glocked: true      // guidelines locked (can't drag) by default
+    glocked: true,     // guidelines locked (can't drag) by default
+    ref: null,         // reference glyph code for the editor underlay (session-only)
+    inverted: false    // preview surfaces: white on black
   };
   var editing = null;   // active editor stroke
   var guideDrag = null; // active guideline drag: { g, moved }
@@ -105,8 +107,107 @@
     } catch (e) { return null; }
   }
 
+  // ---------- settings (small persistable UI values) ----------
+  // ALL small persistable UI values go through this API (DECISIONS #40), never
+  // raw localStorage. New persistable value: add it to settingsDefaults.
+  var SETTINGS_KEY = "bitforge.settings.v1";
+  var settingsDefaults = {
+    pvText: "",
+    pvScale: 8,
+    pvBold: false,
+    pvItalic: false,
+    pvBaseline: 5,
+    inverted: false
+  };
+  var settingsCache = null;
+  function loadSettings() {
+    var out = {};
+    for (var k in settingsDefaults) out[k] = settingsDefaults[k];
+    try {
+      var raw = localStorage.getItem(SETTINGS_KEY);
+      if (raw) {
+        var o = JSON.parse(raw);
+        for (var k2 in settingsDefaults) {
+          if (!(k2 in o)) continue;
+          var want = typeof settingsDefaults[k2], v = o[k2];
+          if (want === "boolean" && typeof v === "boolean") out[k2] = v;
+          else if (want === "number" && typeof v === "number" && isFinite(v)) out[k2] = v;
+          else if (want === "string" && typeof v === "string") out[k2] = v;
+        }
+      }
+    } catch (e) { /* corrupted -> defaults */ }
+    return out;
+  }
+  function saveSettings() {
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settingsCache)); } catch (e) { /* ignore */ }
+  }
+  function settingsGet(k) { return settingsCache[k]; }
+  function settingsSet(k, v) { settingsCache[k] = v; saveSettings(); }
+
+  // ---------- shortcut registry (DECISIONS #35) ----------
+  // The ONLY way to bind an app shortcut: shortcuts.register({combo, description, handler}).
+  // The reference card is rendered from this registry, so it cannot drift.
+  // combo syntax: "Key" | "Ctrl+Key" | "Ctrl+Shift+Key" (⌘ counts as Ctrl; letters lowercase).
+  var shortcuts = {
+    list: [],
+    register: function (o) { this.list.push(o); },
+    comboOf: function (evt) {
+      var parts = [];
+      if (evt.ctrlKey || evt.metaKey) parts.push("Ctrl");
+      if (evt.shiftKey) parts.push("Shift");
+      var k = evt.key || "";
+      if (k.length === 1) k = k.toLowerCase();
+      parts.push(k);
+      return parts.join("+");
+    },
+    dispatch: function (evt) {
+      var t = document.activeElement;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT")) return;
+      var combo = shortcuts.comboOf(evt);
+      var i;
+      for (i = 0; i < shortcuts.list.length; i++)
+        if (shortcuts.list[i].combo === combo) { shortcuts.list[i].handler(evt); evt.preventDefault(); return; }
+      // Symbols like "?" need Shift to type; retry the bare combo for those.
+      if (combo.indexOf("Shift+") === 0) {
+        var bare = combo.slice(6);
+        if (bare.length === 1 && !/[a-z0-9]/.test(bare)) {
+          for (i = 0; i < shortcuts.list.length; i++)
+            if (shortcuts.list[i].combo === bare) { shortcuts.list[i].handler(evt); evt.preventDefault(); return; }
+        }
+      }
+    }
+  };
+
+  function toggleKeysCard() { el.keysCard.hidden = !el.keysCard.hidden; }
+  function renderKeysCard() {
+    var ul = el.keysList;
+    ul.innerHTML = "";
+    for (var i = 0; i < shortcuts.list.length; i++) {
+      var li = document.createElement("li");
+      var b = document.createElement("b"); b.textContent = shortcuts.list[i].combo;
+      var sp = document.createElement("span"); sp.textContent = "  " + shortcuts.list[i].description;
+      li.appendChild(b); li.appendChild(sp);
+      ul.appendChild(li);
+    }
+  }
+
+  function shiftGlyphAction(dx, dy) {
+    var code = state.selected;
+    var snap = snapshotGlyph(code);
+    var res = BF.shiftGlyph(state.font, code, dx, dy);
+    if (!res.changed) return;
+    state.history.push({ code: code, snap: snap });
+    if (state.history.length > 100) state.history.shift();
+    state.redo = [];
+    redrawAll();
+    saveLS();
+    if (res.clipped > 0) toast("Shift clipped " + res.clipped + " px", true);
+  }
+
   // ---------- rendering (canvas) ----------
-  // Draw one glyph, ink-only, at integer scale. opts: { bold, italic, baseline, red }.
+  // Draw one glyph, ink-only, at integer scale.
+  // opts: { bold, italic, baseline, red, color } — color overrides the ink color
+  // (e.g. the reference-glyph underlay is drawn in gray).
   function drawGlyphTo(ctx, code, px, py, scale, opts) {
     opts = opts || {};
     var f = state.font;
@@ -115,7 +216,7 @@
       ctx.fillRect(px, py, f.width * scale, f.height * scale);
       return;
     }
-    ctx.fillStyle = "#111";
+    ctx.fillStyle = opts.color || "#111";
     var passes = opts.bold ? [0, 1] : [0]; // artificial bold: also draw +1px right
     for (var p = 0; p < passes.length; p++) {
       var shift = passes[p];
@@ -158,6 +259,11 @@
     return { min: min, max: max };
   }
 
+  // Ink + background colors for the preview surfaces (inverted = white on black,
+  // how the font will look in a real terminal; editor/sidebar stay black-on-white).
+  function inkColor() { return state.inverted ? "#eee" : "#111"; }
+  function bgColor() { return state.inverted ? "#111" : "#fff"; }
+
   function drawEditor() {
     var f = state.font, c = el.editor, ctx = c.getContext("2d");
     var s = editorScale();
@@ -167,6 +273,10 @@
     for (var gx = 0; gx <= f.width; gx++) { ctx.moveTo(gx * s + 0.5, 0); ctx.lineTo(gx * s + 0.5, c.height); }
     for (var gy = 0; gy <= f.height; gy++) { ctx.moveTo(0, gy * s + 0.5); ctx.lineTo(c.width, gy * s + 0.5); }
     ctx.stroke();
+    // reference glyph underlay (Shift-click in the sidebar), behind the ink
+    if (state.ref != null && state.ref !== state.selected) {
+      drawGlyphTo(ctx, state.ref, 0, 0, s, { color: "#b5b5b5" });
+    }
     ctx.fillStyle = "#111";
     for (var y = 0; y < f.height; y++)
       for (var x = 0; x < f.width; x++)
@@ -197,6 +307,10 @@
     var sc = state.selected;
     ctx.strokeStyle = "#111"; ctx.lineWidth = 2;
     ctx.strokeRect((sc % 16) * cell + 1, ((sc / 16) | 0) * cell + 1, cell - 2, cell - 2);
+    if (state.ref != null) {
+      ctx.strokeStyle = "#888"; ctx.lineWidth = 2;
+      ctx.strokeRect((state.ref % 16) * cell + 2, ((state.ref / 16) | 0) * cell + 2, cell - 4, cell - 4);
+    }
   }
 
   function drawPvGlyph() {
@@ -207,12 +321,12 @@
     var wpx = f.width + (e.max + boldExtra) - e.min + pad * 2;
     var hpx = f.height + pad * 2;
     setCanvasSize(c, Math.ceil(wpx * s), Math.ceil(hpx * s));
-    ctx.clearRect(0, 0, c.width, c.height);
+    ctx.fillStyle = bgColor(); ctx.fillRect(0, 0, c.width, c.height);
     // faint outline of the nominal glyph cell
-    ctx.strokeStyle = "rgba(0,0,0,0.18)"; ctx.lineWidth = 1;
+    ctx.strokeStyle = state.inverted ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.18)"; ctx.lineWidth = 1;
     ctx.strokeRect((pad - e.min) * s + 0.5, (pad) * s + 0.5, f.width * s - 1, f.height * s - 1);
     drawGlyphTo(ctx, state.selected, (pad - e.min) * s, pad * s, s,
-      { bold: state.bold, italic: state.italic, baseline: state.baseline });
+      { bold: state.bold, italic: state.italic, baseline: state.baseline, color: inkColor() });
   }
 
   function drawPvText() {
@@ -241,14 +355,14 @@
     var wpx = cols * f.width + (e.max + boldExtra) - e.min + pad * 2;
     var hpx = rows.length * f.height + pad * 2;
     setCanvasSize(c, Math.ceil(wpx * s), Math.ceil(hpx * s));
-    ctx.clearRect(0, 0, c.width, c.height);
+    ctx.fillStyle = bgColor(); ctx.fillRect(0, 0, c.width, c.height);
     for (r = 0; r < rows.length; r++) {
       for (var i2 = 0; i2 < rows[r].length; i2++) {
         var it = rows[r][i2];
         var gx = (pad + i2 * f.width - e.min) * s;
         var gy = (pad + r * f.height) * s;
         drawGlyphTo(ctx, it.ok ? it.code : -1, gx, gy, s,
-          { bold: it.bold, italic: it.italic, baseline: state.baseline, red: !it.ok });
+          { bold: it.bold, italic: it.italic, baseline: state.baseline, red: !it.ok, color: inkColor() });
       }
     }
   }
@@ -256,15 +370,23 @@
   function drawAtlas() {
     var f = state.font, c = el.atlas, ctx = c.getContext("2d");
     var s = clamp(Math.floor(640 / (16 * f.width)), 1, 8);
-    setCanvasSize(c, 16 * f.width * s, 16 * f.height * s);
-    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+    // Atlas honors the current bold/slant (DECISIONS #37): add column spacing for
+    // slant spill / bold overdraw, and a left pad so left-spill isn't clipped.
+    var e = slantExtent();
+    var boldExtra = state.bold ? 1 : 0;
+    var extra = (state.italic || state.bold) ? e.max + boldExtra : 0;
+    var pad = state.italic ? -e.min : 0;
+    var colW = f.width + extra;
+    setCanvasSize(c, (pad + 16 * colW) * s, 16 * f.height * s);
+    ctx.fillStyle = bgColor(); ctx.fillRect(0, 0, c.width, c.height);
     for (var code = 0; code < 256; code++) {
       var col = code % 16, row = (code / 16) | 0;
-      drawGlyphTo(ctx, code, col * f.width * s, row * f.height * s, s, {});
+      drawGlyphTo(ctx, code, (pad + col * colW) * s, row * f.height * s, s,
+        { bold: state.bold, italic: state.italic, baseline: state.baseline, color: inkColor() });
     }
-    ctx.strokeStyle = "rgba(0,0,0,0.08)"; ctx.lineWidth = 1; ctx.beginPath();
+    ctx.strokeStyle = state.inverted ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"; ctx.lineWidth = 1; ctx.beginPath();
     for (var i = 0; i <= 16; i++) {
-      var gx = i * f.width * s + 0.5; ctx.moveTo(gx, 0); ctx.lineTo(gx, c.height);
+      var gx = (pad + i * colW) * s + 0.5; ctx.moveTo(gx, 0); ctx.lineTo(gx, c.height);
       var gy = i * f.height * s + 0.5; ctx.moveTo(0, gy); ctx.lineTo(c.width, gy);
     }
     ctx.stroke();
@@ -558,8 +680,11 @@
       editor: $("editor"), editLabel: $("edit-label"),
       glock: $("glock"), glist: $("glist"),
       pvScale: $("pv-scale"), pvBold: $("pv-bold"), pvItalic: $("pv-italic"), pvBaseline: $("pv-baseline"),
+      pvInverted: $("pv-inverted"),
       pvGlyph: $("pv-glyph"), pvText: $("pv-text"), pvTextCanvas: $("pv-text-canvas"),
-      atlas: $("atlas"), toast: $("toast")
+      atlas: $("atlas"), toast: $("toast"),
+      keysCard: $("keys-card"), keysList: $("keys-list"),
+      btnKeys: $("btn-keys"), btnKeysClose: $("btn-keys-close")
     };
 
     var tabs = document.querySelectorAll(".tab");
@@ -602,41 +727,87 @@
     el.btnJump.addEventListener("click", doJump);
     el.jump.addEventListener("keydown", function (e) { if (e.key === "Enter") doJump(); });
 
-    // atlas selector: click a mini-glyph to select it
+    // atlas selector: click a mini-glyph to select it; Shift-click sets the
+    // reference glyph (editor underlay), Shift-click again clears it
     el.selector.style.cursor = "pointer";
     el.selector.addEventListener("click", function (evt) {
       var r = this.getBoundingClientRect();
       var col = Math.floor((evt.clientX - r.left) / 16);
       var row = Math.floor((evt.clientY - r.top) / 16);
       if (row < 0 || row > 15 || col < 0 || col > 15) return;
-      selectGlyph(row * 16 + col);
+      var code = row * 16 + col;
+      if (evt.shiftKey) {
+        state.ref = (state.ref === code) ? null : code;
+        drawSelector(); drawEditor();
+        return;
+      }
+      selectGlyph(code);
     });
 
     el.pvScale.addEventListener("input", function () {
       state.scale = clamp(parseInt(this.value, 10) || 1, 1, 64);
+      settingsSet("pvScale", state.scale);
       drawPvGlyph(); drawPvText();
     });
-    el.pvBold.addEventListener("change", function () { state.bold = this.checked; drawPvGlyph(); });
-    el.pvItalic.addEventListener("change", function () { state.italic = this.checked; drawPvGlyph(); drawPvText(); });
+    el.pvBold.addEventListener("change", function () { state.bold = this.checked; settingsSet("pvBold", state.bold); drawPvGlyph(); drawPvText(); drawAtlas(); });
+    el.pvItalic.addEventListener("change", function () { state.italic = this.checked; settingsSet("pvItalic", state.italic); drawPvGlyph(); drawPvText(); drawAtlas(); });
     el.pvBaseline.addEventListener("input", function () {
       state.baseline = clamp(parseInt(this.value, 10) || 0, 0, state.font.height - 1);
-      drawPvGlyph(); drawPvText();
+      settingsSet("pvBaseline", state.baseline);
+      drawPvGlyph(); drawPvText(); drawAtlas();
     });
-    el.pvText.addEventListener("input", function () { drawPvText(); });
+    el.pvInverted.addEventListener("change", function () { state.inverted = this.checked; settingsSet("inverted", state.inverted); drawPvGlyph(); drawPvText(); drawAtlas(); });
+    el.pvText.addEventListener("input", function () { settingsSet("pvText", this.value); drawPvText(); });
 
-    window.addEventListener("keydown", function (e) {
-      var mod = e.ctrlKey || e.metaKey;
-      if (!mod) return;
-      var k = e.key.toLowerCase();
-      if (k === "z") { e.preventDefault(); if (e.shiftKey) redo(); else undo(); }
-      else if (k === "y") { e.preventDefault(); redo(); }
-    });
+    // shortcut card
+    el.btnKeys.addEventListener("click", toggleKeysCard);
+    el.btnKeysClose.addEventListener("click", toggleKeysCard);
 
-    state.scale = clamp(parseInt(el.pvScale.value, 10) || 8, 1, 64);
+    // shortcut registry (DECISIONS #35) — the card and the behavior share this list
+    var navDirs = [
+      ["ArrowLeft", "left", "Previous glyph"],
+      ["ArrowRight", "right", "Next glyph"],
+      ["ArrowUp", "up", "Glyph one row up"],
+      ["ArrowDown", "down", "Glyph one row down"],
+      ["Home", "rowStart", "Start of row"],
+      ["End", "rowEnd", "End of row"],
+      ["PageUp", "top", "First glyph (0x00)"],
+      ["PageDown", "bottom", "Last glyph (0xFF)"]
+    ];
+    for (var ni = 0; ni < navDirs.length; ni++)
+      shortcuts.register({ combo: navDirs[ni][0], description: navDirs[ni][2],
+        handler: (function (dir) { return function () { selectGlyph(BF.navigate(state.selected, dir)); }; })(navDirs[ni][1]) });
+    shortcuts.register({ combo: "Ctrl+ArrowLeft", description: "Shift glyph left", handler: function () { shiftGlyphAction(-1, 0); } });
+    shortcuts.register({ combo: "Ctrl+ArrowRight", description: "Shift glyph right", handler: function () { shiftGlyphAction(1, 0); } });
+    shortcuts.register({ combo: "Ctrl+ArrowUp", description: "Shift glyph up", handler: function () { shiftGlyphAction(0, -1); } });
+    shortcuts.register({ combo: "Ctrl+ArrowDown", description: "Shift glyph down", handler: function () { shiftGlyphAction(0, 1); } });
+    shortcuts.register({ combo: "Ctrl+z", description: "Undo", handler: undo });
+    shortcuts.register({ combo: "Ctrl+Shift+z", description: "Redo", handler: redo });
+    shortcuts.register({ combo: "Ctrl+y", description: "Redo", handler: redo });
+    shortcuts.register({ combo: "?", description: "Toggle this card", handler: toggleKeysCard });
+    window.addEventListener("keydown", function (e) { shortcuts.dispatch(e); });
+    renderKeysCard();
+
+    settingsCache = loadSettings();
     var font = loadLS() || BF.makeFont(8, 16);
-    state.baseline = clamp(parseInt(el.pvBaseline.value, 10) || 5, 0, font.height - 1);
+    state.scale = clamp(settingsGet("pvScale") | 0, 1, 64);
+    state.bold = !!settingsGet("pvBold");
+    state.italic = !!settingsGet("pvItalic");
+    state.inverted = !!settingsGet("inverted");
+    state.baseline = clamp(settingsGet("pvBaseline") | 0, 0, font.height - 1);
+    el.pvScale.value = String(state.scale);
+    el.pvBold.checked = state.bold;
+    el.pvItalic.checked = state.italic;
+    el.pvInverted.checked = state.inverted;
+    el.pvBaseline.value = String(state.baseline);
+    el.pvText.value = settingsGet("pvText");
     setFont(font);
   }
+
+  // Test seam: only under the jsc DOM stub (harmless in the browser). Lets the
+  // headless tests drive the shortcut registry and inspect app state.
+  if (typeof globalThis !== "undefined" && globalThis.__stub)
+    globalThis.__stub.app = { state: state, shortcuts: shortcuts, selectGlyph: selectGlyph, toggleKeysCard: toggleKeysCard };
 
   if (typeof document !== "undefined") {
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

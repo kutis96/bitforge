@@ -21,8 +21,14 @@
       </label>
       <input id="file-png" type="file" accept="image/png" hidden>
     </div>
+    <button id="btn-keys" type="button" title="Keyboard shortcuts (?)">?</button>
     <div id="dims" class="dims">W:8 H:16</div>
   </header>
+
+  <div id="keys-card" class="keys-card" hidden>
+    <div class="keys-head"><b>Keyboard shortcuts</b><button id="btn-keys-close" type="button" title="Close">&#215;</button></div>
+    <ul id="keys-list"></ul>
+  </div>
 
   <main id="layout">
     <aside id="sidebar">
@@ -73,6 +79,7 @@
           <label><input id="pv-bold" type="checkbox"> bold</label>
           <label><input id="pv-italic" type="checkbox"> italic</label>
           <label>baseline <input id="pv-baseline" type="number" min="0" step="1" value="5"></label>
+          <label title="Preview surfaces only (white on black); the editor stays black on white"><input id="pv-inverted" type="checkbox"> inverted</label>
         </div>
         <div class="preview-grid">
           <div class="canvas-wrap"><canvas id="pv-glyph"></canvas></div>

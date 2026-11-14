@@ -9,6 +9,8 @@
  *   [3] Preview markup parser (done)
  *   [4] Slant offsets (done)
  *   [5] Ink / luminance test for PNG import (done)
+ *   [6] Atlas navigation (done)
+ *   [7] Glyph shift (done)
  */
 (function (root) {
   "use strict";
@@ -191,6 +193,58 @@
   }
 
   /* ============================================================
+   * [6] Atlas navigation
+   * The 256 glyphs form a 16x16 grid (row-major, 0x00 top-left).
+   * dir: "left" | "right" | "up" | "down" | "rowStart" | "rowEnd"
+   *      | "top" | "bottom"
+   * Clamps at the edges (no wrap). rowStart/rowEnd = col 0/15 of the
+   * CURRENT row (DECISIONS #32).
+   * ============================================================ */
+
+  function navigate(code, dir) {
+    var c = code | 0;
+    switch (dir) {
+      case "left":     return c > 0 ? c - 1 : c;
+      case "right":    return c < NUM_GLYPHS - 1 ? c + 1 : c;
+      case "up":       return c >= 16 ? c - 16 : c;
+      case "down":     return c <= NUM_GLYPHS - 17 ? c + 16 : c;
+      case "rowStart": return c & ~15;          // col 0 of the current row
+      case "rowEnd":   return (c & ~15) + 15;   // col 15 of the current row
+      case "top":      return 0;
+      case "bottom":   return NUM_GLYPHS - 1;
+      default:         return c;
+    }
+  }
+
+  /* ============================================================
+   * [7] Glyph shift
+   * Shift one glyph's ink by (dx, dy) pixels. Ink that would land outside
+   * the cell is dropped. Mutates font. Returns { clipped, changed }.
+   * (DECISIONS #34: keyboard-only shift; clipped ink => app shows a toast.)
+   * ============================================================ */
+
+  function shiftGlyph(font, code, dx, dy) {
+    if (code < 0 || code >= NUM_GLYPHS) throw new Error("shiftGlyph bad code " + code);
+    var w = font.width, h = font.height;
+    var base = (code * h) * w;
+    var tmp = new Uint8Array(w * h);
+    var clipped = 0, changed = false, y, x, i;
+    for (y = 0; y < h; y++) {
+      for (x = 0; x < w; x++) {
+        if (!font.data[base + y * w + x]) continue;
+        var nx = x + dx, ny = y + dy;
+        if (nx < 0 || nx >= w || ny < 0 || ny >= h) { clipped++; continue; }
+        tmp[ny * w + nx] = 1;
+      }
+    }
+    for (i = 0; i < w * h; i++) {
+      if (font.data[base + i] !== tmp[i]) changed = true;
+      font.data[base + i] = tmp[i];
+    }
+    return { clipped: clipped, changed: changed };
+  }
+
+  /* ============================================================
    * API
    * ============================================================ */
   var api = {
@@ -212,7 +266,11 @@
     slantRowOffset: slantRowOffset,
     // ink / luminance
     luminance: luminance,
-    isInk: isInk
+    isInk: isInk,
+    // navigation
+    navigate: navigate,
+    // shift
+    shiftGlyph: shiftGlyph
   };
 
   if (typeof module !== "undefined" && module.exports) {

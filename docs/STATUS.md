@@ -12,8 +12,8 @@
 - [x] **[F] DOM layer** — `index.html` + `css/style.css` + `js/app.js` (45 tests incl. 2 DOM smoke)
 - [x] **[G] Editor guidelines** — per-font H/V guides in the editor (preset add, drag, lock, list); test count unchanged (DOM-only, smoke-covered)
 - [x] **[H] Selector click-to-select** — click a mini-glyph in the left sidebar atlas to select it (user request); 1 new headless test via stub event dispatch
-- [ ] **[J] Ergonomics update** ← planned (awaiting user greenlight): keyboard nav, reference glyph, keyboard glyph shift, shortcut registry + reference card, inverted preview, atlas bold/slant, settings persistence
-- [ ] **[K] QA update** ← planned: glyph status (unfinished/WIP/done), QA tab with stale indicator, duplicate + "left to draw" checks
+- [x] **[J] Ergonomics update** (2026-11-14): keyboard nav, reference glyph, keyboard glyph shift, shortcut registry + reference card, inverted preview, atlas bold/slant, settings persistence — 65 tests
+- [ ] **[K] QA update** ← next: glyph status (unfinished/WIP/done), QA tab with stale indicator, duplicate + "left to draw" checks
 - [ ] **[L] Interop** ← planned (after J/K): BDF import/export, copy glyph to clipboard
 - [ ] **[I] polish** — catch-all (edge cases, cosmetic)
 
@@ -86,18 +86,23 @@ User requested: clicking the left-sidebar atlas (mini-glyph grid) selects the gl
 - **New headless test** (`test-dom.js`): the DOM stub now records listeners per element and exposes `__stub.dispatch(id, type, evt)`; the test synthesizes clicks on three cells (0x21 printable, 0x00, 0xFF) and asserts the selection header updates. Total 46 tests.
 - Browser-verified by the user (guidelines + this, 2026-11-14).
 
-## Plan — next chunks (designed 2026-11-14, **awaiting user greenlight**; decisions locked in DECISIONS #32–47)
+## Completed
 
-### [J] Ergonomics update
-- [ ] J1 Keyboard glyph navigation: `←/→` ±1, `↑/↓` ±16, `Home/End` = current row start/end, `PgUp/PgDn` = 0x00/0xFF; suppressed while a text input has focus (DECISIONS #32)
-- [ ] J2 Reference glyph: Shift-click in sidebar sets/clears; light-gray underlay in the editor; session-only (#33)
-- [ ] J3 Glyph shift: `Ctrl/⌘+arrows` ±1px, clipped ink dropped + toast, one undo step (#34)
-- [ ] J4 Shortcut registry `shortcuts.register({combo, description, handler})` + reference card rendered from it (`?` toggle + toolbar button); migrate existing undo/redo; **all future shortcuts must go through it** (#35). Document the API in DESIGN.md (done) — remind future agents here too
-- [ ] J5 Inverted (white-on-black) preview toggle: preview surfaces + atlas only; editor/sidebar stay black-on-white (#36)
-- [ ] J6 Atlas renders with current bold/slant; extra column spacing while slant is on (#37)
-- [ ] J7 Settings API (`settings.get/set` + defaults table, `bitforge.settings.v1`); persist preview text/scale/bold/italic/baseline/inverted; **no raw localStorage for settings** (#40)
+### [J] Ergonomics update (`core.js` + `app.js` + `index.html` + `css/style.css`, 2026-11-14)
+- **J1 Navigation:** `BF.navigate(code, dir)` in `core.js` (left/right ±1, up/down ±16, **rowStart/rowEnd = col 0/15 of current row**, top/bottom, clamps). Wired via shortcuts. 5 tests.
+- **J2 Reference glyph:** Shift-click in the sidebar sets/clears `state.ref` (session-only); drawn as a gray underlay in the editor (`drawGlyphTo` gained `opts.color`); gray outline on the ref cell in the selector.
+- **J3 Glyph shift:** `BF.shiftGlyph(font, code, dx, dy)` in `core.js` (clips out-of-bounds ink, returns `{clipped, changed}`); `Ctrl/⌘+arrows`; one undo step; toast when ink is clipped. 7 tests.
+- **J4 Shortcut registry:** `shortcuts.register({combo, description, handler})` in `app.js`; one global keydown dispatcher (suppressed while an input/textarea has focus; `⌘` = Ctrl; `?` works despite needing Shift). The **reference card** (toolbar `?` button or `?` key) renders from the registry — no drift. All 16 bindings (8 nav + 4 shift + 3 undo/redo + 1 card) registered; old raw keydown removed.
+- **J5 Inverted preview:** `pv-inverted` checkbox; `inkColor()`/`bgColor()` helpers; preview glyph/text/atlas surfaces flip to white-on-black; editor + sidebar untouched.
+- **J6 Atlas effects:** atlas renders with the current bold/italic/baseline; column spacing `+maxSlant/bold` while on, left pad so left-spill isn't clipped (regression-tested: slanted atlas width).
+- **J7 Settings API:** `settingsGet/settingsSet` + `settingsDefaults` table over `bitforge.settings.v1` (type-checked on load, corrupted ⇒ defaults). Persists pvText/pvScale/pvBold/pvItalic/pvBaseline/inverted; controls wired through it. **Rule: new persistable value ⇒ defaults table + API.**
+- **Test seam:** `__stub.app = { state, shortcuts, selectGlyph, toggleKeysCard }` (only under the jsc stub) — 7 new headless DOM tests drive the registry and settings. **Total 65 tests.**
+- Stub gained a `clearTimeout`/`setTimeout` polyfill (jsc lacks them; `toast()` uses them).
+- **Not yet done:** browser visual check (card layout, inverted look, atlas spacing) — user to verify.
 
-### [K] QA update
+## Plan — remaining chunks (decisions locked in DECISIONS #32–47)
+
+### [K] QA update (next)
 - [ ] K1 `Font.status` (0 unfinished / 1 WIP / 2 done), persisted with the font blob (sanitized on load, like guidelines); absent ⇒ unfinished (#38)
 - [ ] K2 Atlas tab: left-click = select, right-click = 3-choice status menu; status tints (peach/blue/white) in atlas + subtle tint in sidebar selector (#39)
 - [ ] K3 QA tab (4th): violations table + Refresh + stale badge via monotonic font-version counter bumped on every mutation (#41)
