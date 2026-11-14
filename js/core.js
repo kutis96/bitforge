@@ -11,6 +11,7 @@
  *   [5] Ink / luminance test for PNG import (done)
  *   [6] Atlas navigation (done)
  *   [7] Glyph shift (done)
+ *   [8] Glyph status + QA checks (done)
  */
 (function (root) {
   "use strict";
@@ -40,7 +41,8 @@
       width: width,
       height: height,
       data: new Uint8Array(NUM_GLYPHS * height * width),
-      guidelines: [] // editor guides, per-font (shared across glyphs); NOT exported to ROM
+      guidelines: [], // editor guides, per-font (shared across glyphs); NOT exported to ROM
+      status: new Uint8Array(NUM_GLYPHS) // 0=unfinished 1=wip 2=done (DECISIONS #38); NOT exported
     };
   }
 
@@ -245,6 +247,59 @@
   }
 
   /* ============================================================
+   * [8] Glyph status + QA checks
+   * status: Uint8Array(256), 0=unfinished (default) 1=wip 2=done.
+   * Persisted with the font, never exported (DECISIONS #38).
+   * ============================================================ */
+
+  function inkCount(font, code) {
+    if (code < 0 || code >= NUM_GLYPHS) return 0;
+    var base = (code * font.height) * font.width, n = 0;
+    for (var i = 0; i < font.width * font.height; i++) n += font.data[base + i];
+    return n;
+  }
+
+  // Status tallies for all 256 codes and for the printable range 0x20..0x7E.
+  // Returns { all: {unfinished, wip, done}, printable: {unfinished, wip, done} }.
+  function statusCounts(font) {
+    var all = { unfinished: 0, wip: 0, done: 0 };
+    var printable = { unfinished: 0, wip: 0, done: 0 };
+    var s = font.status;
+    for (var code = 0; code < NUM_GLYPHS; code++) {
+      var st = (s && s[code]) || 0;
+      if (st === 2) all.done++; else if (st === 1) all.wip++; else all.unfinished++;
+      if (code >= 0x20 && code <= 0x7e) {
+        if (st === 2) printable.done++; else if (st === 1) printable.wip++; else printable.unfinished++;
+      }
+    }
+    return { all: all, printable: printable };
+  }
+
+  // Groups of 2+ codepoints sharing an identical bitmap (DECISIONS #42).
+  // The all-empty group is excluded (pre-drawing noise).
+  // Returns [{ codes: [ints ascending], ink: int }] in first-code order.
+  function findDuplicates(font) {
+    var w = font.width, h = font.height;
+    var map = {}, order = [];
+    for (var code = 0; code < NUM_GLYPHS; code++) {
+      var key = "";
+      for (var y = 0; y < h; y++) key += rowBitsString(font, code, y);
+      var g = map[key];
+      if (!g) { g = map[key] = { key: key, codes: [] }; order.push(g); }
+      g.codes.push(code);
+    }
+    var emptyKey = "";
+    for (var i = 0; i < w * h; i++) emptyKey += "0";
+    var out = [];
+    for (var k = 0; k < order.length; k++) {
+      var gg = order[k];
+      if (gg.codes.length < 2 || gg.key === emptyKey) continue;
+      out.push({ codes: gg.codes, ink: inkCount(font, gg.codes[0]) });
+    }
+    return out;
+  }
+
+  /* ============================================================
    * API
    * ============================================================ */
   var api = {
@@ -270,7 +325,11 @@
     // navigation
     navigate: navigate,
     // shift
-    shiftGlyph: shiftGlyph
+    shiftGlyph: shiftGlyph,
+    // status / QA
+    inkCount: inkCount,
+    statusCounts: statusCounts,
+    findDuplicates: findDuplicates
   };
 
   if (typeof module !== "undefined" && module.exports) {

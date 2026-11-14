@@ -155,6 +155,37 @@ button:active { background: #e4e4e4; }
 .gdel:hover { color: #f00; }
 .gnone { color: var(--muted); font-style: italic; }
 
+/* ---------- glyph status menu + QA ---------- */
+.status-menu {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #111;
+  background: #fff;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.15);
+}
+.status-menu button {
+  border: none;
+  background: #fff;
+  padding: 3px 12px 3px 8px;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.status-menu button:hover { background: #eee; }
+
+.qa-badge { color: #a00; font-size: 12px; }
+.qa-hint { color: var(--muted); font-size: 12px; }
+.qa-empty { color: var(--muted); padding: 10px; font-size: 13px; }
+.qa-table-wrap { overflow: auto; max-height: calc(100vh - 190px); }
+#qa-table { border-collapse: collapse; width: 100%; font-size: 12px; }
+#qa-table th, #qa-table td { border-bottom: 1px solid var(--line); padding: 2px 8px; text-align: left; white-space: nowrap; }
+#qa-table th { background: var(--panel); position: sticky; top: 0; }
+.qa-code { border: none; background: transparent; font: inherit; color: #111; text-decoration: underline; cursor: pointer; padding: 0; }
+.qa-code:hover { color: #a00; }
+
 /* ---------- shortcut reference card ---------- */
 .keys-card {
   position: fixed;

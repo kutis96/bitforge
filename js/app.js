@@ -28,10 +28,12 @@
     redo: [],          // redo: [{ code, snap }]
     glocked: true,     // guidelines locked (can't drag) by default
     ref: null,         // reference glyph code for the editor underlay (session-only)
-    inverted: false    // preview surfaces: white on black
+    inverted: false,   // preview surfaces: white on black
+    fontVersion: 0     // bumped on every font mutation; drives QA staleness
   };
   var editing = null;   // active editor stroke
   var guideDrag = null; // active guideline drag: { g, moved }
+  var atlasGeo = { s: 1, pad: 0, colW: 8 }; // last drawAtlas geometry (click mapping)
   var el = {};
 
   // ---------- tiny helpers ----------
@@ -55,12 +57,21 @@
     state.font = font;
     state.history = [];
     state.redo = [];
+    state.fontVersion = 0;
     state.baseline = clamp(state.baseline, 0, font.height - 1);
     el.pvBaseline.max = String(font.height - 1);
     el.pvBaseline.value = String(state.baseline);
+    qaReset();
     redrawAll();
     renderGuideList();
     saveLS();
+  }
+
+  // Every font mutation (stroke end, clear, shift, status change) bumps this;
+  // a QA report is "stale" whenever the version moved since its last refresh.
+  function bumpFontVersion() {
+    state.fontVersion++;
+    updateQaBadge();
   }
 
   function newFont() {
@@ -82,7 +93,8 @@
       localStorage.setItem(LS_KEY, JSON.stringify({
         w: f.width, h: f.height,
         d: Array.prototype.slice.call(f.data),
-        g: f.guidelines
+        g: f.guidelines,
+        s: Array.prototype.slice.call(f.status)
       }));
     } catch (e) { /* quota / privacy mode — ignore */ }
   }
@@ -101,6 +113,12 @@
           var e = o.g[k];
           if (e && (e.o === "h" || e.o === "v") && isFinite(e.off) && e.off === (e.off | 0))
             font.guidelines.push({ o: e.o, off: e.off, label: String(e.label != null ? e.label : e.o), color: String(e.color != null ? e.color : "#444444") });
+        }
+      }
+      if (Array.isArray(o.s) && o.s.length === BF.NUM_GLYPHS) {
+        for (var m = 0; m < BF.NUM_GLYPHS; m++) {
+          var sv = o.s[m];
+          font.status[m] = (sv === 1 || sv === 2) ? sv : 0;
         }
       }
       return font;
@@ -201,7 +219,137 @@
     state.redo = [];
     redrawAll();
     saveLS();
+    bumpFontVersion();
     if (res.clipped > 0) toast("Shift clipped " + res.clipped + " px", true);
+  }
+
+  // ---------- glyph status (DECISIONS #38/#39) ----------
+  function setStatus(code, st) {
+    state.font.status[code] = (st === 1 || st === 2) ? st : 0;
+    bumpFontVersion();
+    drawAtlas(); drawSelector();
+    saveLS();
+  }
+
+  // Map a pointer event on the atlas canvas to a glyph code (or null).
+  function atlasCellAt(evt) {
+    if (!el.atlas) return null;
+    var r = el.atlas.getBoundingClientRect();
+    var x = evt.clientX - r.left, y = evt.clientY - r.top;
+    var g = atlasGeo;
+    var col = Math.floor((x - g.pad * g.s) / (g.colW * g.s));
+    var row = Math.floor(y / (state.font.height * g.s));
+    if (col < 0 || col > 15 || row < 0 || row > 15) return null;
+    return row * 16 + col;
+  }
+
+  // Floating 3-choice status menu (right-click on the atlas).
+  var statusMenu = null;
+  function closeStatusMenu() {
+    if (statusMenu && statusMenu.parentNode) statusMenu.parentNode.removeChild(statusMenu);
+    statusMenu = null;
+  }
+  function openStatusMenu(code, clientX, clientY) {
+    closeStatusMenu();
+    statusMenu = document.createElement("div");
+    statusMenu.className = "status-menu";
+    statusMenu.style.left = clientX + "px";
+    statusMenu.style.top = clientY + "px";
+    var names = ["unfinished", "wip", "done"];
+    for (var i = 0; i < 3; i++) (function (st, label) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = label;
+      b.addEventListener("click", function (e) {
+        e.stopPropagation();
+        setStatus(code, st);
+        closeStatusMenu();
+      });
+      statusMenu.appendChild(b);
+    })(i, names[i]);
+    document.body.appendChild(statusMenu);
+  }
+
+  // ---------- QA tab (DECISIONS #41/#42) ----------
+  // Checks are data: each is { id, run(font) -> rows[] }, row =
+  // { check, codes (string), detail, code? (int => clickable) }.
+  function codeLabel(code) { var p = printable(code); return p ? hex2(code) + " \u00b7 " + p : hex2(code); }
+  function codeList(codes) {
+    var s = "";
+    for (var i = 0; i < codes.length; i++) s += (i ? ", " : "") + codeLabel(codes[i]);
+    return s;
+  }
+  var qaChecks = [
+    {
+      id: "duplicates", name: "duplicate glyphs",
+      run: function (f) {
+        var groups = BF.findDuplicates(f), rows = [];
+        for (var i = 0; i < groups.length; i++) {
+          var g = groups[i];
+          rows.push({ check: "duplicate glyphs", codes: codeList(g.codes),
+            detail: g.codes.length + " identical bitmaps (" + g.ink + " ink px)", code: g.codes[0] });
+        }
+        return rows;
+      }
+    },
+    {
+      id: "leftto", name: "what's left to draw",
+      run: function (f) {
+        var c = BF.statusCounts(f), rows = [];
+        rows.push({ check: "what's left to draw", codes: "\u2014",
+          detail: "done " + c.all.done + "/256 \u00b7 wip " + c.all.wip + " \u00b7 unfinished " + c.all.unfinished +
+                  "   (printable: done " + c.printable.done + "/95, wip " + c.printable.wip + ")" });
+        var st, code;
+        for (st = 0; st < 2; st++) // list unfinished first, then wip
+          for (code = 0; code < 256; code++)
+            if (f.status[code] === st)
+              rows.push({ check: "what's left to draw", codes: codeLabel(code), detail: st === 0 ? "unfinished" : "wip", code: code });
+        return rows;
+      }
+    }
+  ];
+  var qaLastVersion = null; // fontVersion the current table was computed at
+  function qaComputeRows() {
+    var rows = [];
+    for (var i = 0; i < qaChecks.length; i++) rows = rows.concat(qaChecks[i].run(state.font));
+    return rows;
+  }
+  function qaStale() { return qaLastVersion !== null && qaLastVersion !== state.fontVersion; }
+  function updateQaBadge() {
+    if (!el.qaBadge) return;
+    el.qaBadge.hidden = !qaStale();
+    if (qaStale()) el.qaBadge.textContent = "stale \u2014 press Refresh";
+  }
+  function qaReset() {
+    qaLastVersion = null;
+    if (el.qaEmpty) el.qaEmpty.hidden = false;
+    if (el.qaTable) el.qaTable.hidden = true;
+    if (el.qaTbody) el.qaTbody.innerHTML = "";
+    updateQaBadge();
+  }
+  function qaRefresh() {
+    qaLastVersion = state.fontVersion;
+    var rows = qaComputeRows();
+    el.qaEmpty.hidden = rows.length > 0;
+    el.qaTable.hidden = rows.length === 0;
+    el.qaTbody.innerHTML = "";
+    for (var i = 0; i < rows.length; i++) (function (row) {
+      var tr = document.createElement("tr");
+      var td1 = document.createElement("td"); td1.textContent = row.check;
+      var td2 = document.createElement("td");
+      if (row.code != null) {
+        var b = document.createElement("button");
+        b.type = "button"; b.className = "qa-code"; b.textContent = row.codes;
+        b.addEventListener("click", function () { selectGlyph(row.code); setActiveTab("edit"); });
+        td2.appendChild(b);
+      } else {
+        td2.textContent = row.codes;
+      }
+      var td3 = document.createElement("td"); td3.textContent = row.detail;
+      tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
+      el.qaTbody.appendChild(tr);
+    })(rows[i]);
+    updateQaBadge();
   }
 
   // ---------- rendering (canvas) ----------
@@ -264,6 +412,13 @@
   function inkColor() { return state.inverted ? "#eee" : "#111"; }
   function bgColor() { return state.inverted ? "#111" : "#fff"; }
 
+  // Glyph status tints (DECISIONS #39): WIP = light peach, unfinished = light
+  // pastel blue, done = plain background. Dark variants for inverted surfaces.
+  function statusTint(st, inverted) {
+    if (inverted) return st === 1 ? "#3a2a22" : (st === 0 ? "#20293a" : null);
+    return st === 1 ? "#ffe8dd" : (st === 0 ? "#eef4ff" : null);
+  }
+
   function drawEditor() {
     var f = state.font, c = el.editor, ctx = c.getContext("2d");
     var s = editorScale();
@@ -300,6 +455,8 @@
     var ms = clamp(Math.floor((cell - 2) / Math.max(f.width, f.height)), 1, cell - 2);
     for (var code = 0; code < 256; code++) {
       var col = code % 16, row = (code / 16) | 0;
+      var tint = statusTint(f.status[code], false);
+      if (tint) { ctx.fillStyle = tint; ctx.fillRect(col * cell, row * cell, cell, cell); }
       var ox = col * cell + ((cell - f.width * ms) >> 1);
       var oy = row * cell + ((cell - f.height * ms) >> 1);
       drawGlyphTo(ctx, code, ox, oy, ms, {});
@@ -378,10 +535,14 @@
     var pad = state.italic ? -e.min : 0;
     var colW = f.width + extra;
     setCanvasSize(c, (pad + 16 * colW) * s, 16 * f.height * s);
+    atlasGeo = { s: s, pad: pad, colW: colW }; // for click -> cell mapping
     ctx.fillStyle = bgColor(); ctx.fillRect(0, 0, c.width, c.height);
     for (var code = 0; code < 256; code++) {
       var col = code % 16, row = (code / 16) | 0;
-      drawGlyphTo(ctx, code, (pad + col * colW) * s, row * f.height * s, s,
+      var cx = (pad + col * colW) * s, cy = row * f.height * s;
+      var tint = statusTint(f.status[code], state.inverted);
+      if (tint) { ctx.fillStyle = tint; ctx.fillRect(cx, cy, f.width * s, f.height * s); }
+      drawGlyphTo(ctx, code, cx, cy, s,
         { bold: state.bold, italic: state.italic, baseline: state.baseline, color: inkColor() });
     }
     ctx.strokeStyle = state.inverted ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"; ctx.lineWidth = 1; ctx.beginPath();
@@ -536,6 +697,7 @@
       state.history.push({ code: editing.code, snap: editing.snapshot });
       if (state.history.length > 100) state.history.shift();
       state.redo = [];
+      bumpFontVersion();
     }
     editing = null;
     redrawAll();
@@ -684,7 +846,9 @@
       pvGlyph: $("pv-glyph"), pvText: $("pv-text"), pvTextCanvas: $("pv-text-canvas"),
       atlas: $("atlas"), toast: $("toast"),
       keysCard: $("keys-card"), keysList: $("keys-list"),
-      btnKeys: $("btn-keys"), btnKeysClose: $("btn-keys-close")
+      btnKeys: $("btn-keys"), btnKeysClose: $("btn-keys-close"),
+      qaRefresh: $("btn-qa-refresh"), qaBadge: $("qa-badge"), qaTable: $("qa-table"),
+      qaTbody: $("qa-tbody"), qaEmpty: $("qa-empty")
     };
 
     var tabs = document.querySelectorAll(".tab");
@@ -705,6 +869,7 @@
       state.redo = [];
       redrawAll();
       saveLS();
+      bumpFontVersion();
     });
     el.btnUndo.addEventListener("click", undo);
     el.btnRedo.addEventListener("click", redo);
@@ -743,6 +908,22 @@
       }
       selectGlyph(code);
     });
+
+    // atlas: left-click selects, right-click opens the status menu (suppress the
+    // browser context menu)
+    el.atlas.style.cursor = "pointer";
+    el.atlas.addEventListener("click", function (evt) {
+      var code = atlasCellAt(evt);
+      if (code != null) selectGlyph(code);
+    });
+    el.atlas.addEventListener("contextmenu", function (evt) {
+      evt.preventDefault();
+      var code = atlasCellAt(evt);
+      if (code != null) openStatusMenu(code, evt.clientX, evt.clientY);
+    });
+    document.addEventListener("click", closeStatusMenu);
+
+    el.qaRefresh.addEventListener("click", qaRefresh);
 
     el.pvScale.addEventListener("input", function () {
       state.scale = clamp(parseInt(this.value, 10) || 1, 1, 64);
@@ -805,9 +986,10 @@
   }
 
   // Test seam: only under the jsc DOM stub (harmless in the browser). Lets the
-  // headless tests drive the shortcut registry and inspect app state.
+  // headless tests drive the shortcut registry, status and QA and inspect state.
   if (typeof globalThis !== "undefined" && globalThis.__stub)
-    globalThis.__stub.app = { state: state, shortcuts: shortcuts, selectGlyph: selectGlyph, toggleKeysCard: toggleKeysCard };
+    globalThis.__stub.app = { state: state, shortcuts: shortcuts, selectGlyph: selectGlyph, toggleKeysCard: toggleKeysCard,
+      setStatus: setStatus, qaRefresh: qaRefresh, qaRows: qaComputeRows, qaStale: qaStale, atlasCellAt: atlasCellAt };
 
   if (typeof document !== "undefined") {
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

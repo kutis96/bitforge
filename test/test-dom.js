@@ -143,6 +143,64 @@ test("dom: preview settings persist via the settings API", function () {
   assertEqual(JSON.parse(globalThis.localStorage.getItem("bitforge.settings.v1")).pvBold, false, "unbold persisted");
 });
 
+test("dom: glyph status persists with the font and bumps the version", function () {
+  var app = globalThis.__stub.app;
+  var f = app.state.font;
+  var v0 = app.state.fontVersion;
+  app.setStatus(5, 1);
+  assertEqual(f.status[5], 1, "wip stored");
+  assert(app.state.fontVersion > v0, "version bumped");
+  var raw = JSON.parse(globalThis.localStorage.getItem("bitforge.font.v1"));
+  assertEqual(raw.s[5], 1, "status persisted in the font blob");
+  app.setStatus(5, 2);
+  assertEqual(f.status[5], 2, "done stored");
+  app.setStatus(5, 0);
+  assertEqual(f.status[5], 0, "reset to unfinished");
+  app.setStatus(5, 99);
+  assertEqual(f.status[5], 0, "invalid status coerced to unfinished");
+});
+
+test("dom: QA refresh computes rows; report goes stale on mutation", function () {
+  var app = globalThis.__stub.app;
+  var f = app.state.font;
+  // build a duplicate pair: glyph 10 = glyph 12
+  BF.setPixel(f, 10, 2, 2, 1);
+  BF.setPixel(f, 12, 2, 2, 1);
+  app.setStatus(3, 2); // any mutation bumps the version
+  app.qaRefresh();
+  var rows = app.qaRows();
+  assert(rows.length > 0, "rows computed");
+  var dupRow = null, summary = null;
+  for (var i = 0; i < rows.length; i++) {
+    if (rows[i].check === "duplicate glyphs" && rows[i].codes.indexOf("0x0A") !== -1) dupRow = rows[i];
+    if (rows[i].check === "what's left to draw" && rows[i].code == null) summary = rows[i];
+  }
+  assert(dupRow, "duplicate row found (0x0A/0x0C)");
+  assert(summary, "summary row present");
+  assert(summary.detail.indexOf("done 1/256") !== -1, "summary counts the done glyph: " + summary.detail);
+  assert(!app.qaStale(), "not stale right after refresh");
+  app.setStatus(4, 1); // mutate
+  assert(app.qaStale(), "stale after mutation");
+  app.qaRefresh();
+  assert(!app.qaStale(), "refresh clears staleness");
+});
+
+test("dom: atlas click maps pointer to glyph (plain and slanted geometry)", function () {
+  var app = globalThis.__stub.app;
+  var els = globalThis.__stub.els;
+  // plain geometry: s=5, colW=8, pad=0; click cell (col 2, row 1)
+  assertEqual(app.atlasCellAt({ clientX: (2 * 8 + 3) * 5, clientY: (1 * 16 + 3) * 5 }), 18, "plain cell (2,1) -> 0x12");
+  // slanted geometry (from the earlier italic toggle test the atlas is plain again):
+  els["pv-italic"].checked = true;
+  globalThis.__stub.dispatch("pv-italic", "change", {});
+  // now s=5, pad=3, colW=13; click cell (col 0, row 0) near its left edge
+  assertEqual(app.atlasCellAt({ clientX: 3 * 5 + 2, clientY: 2 }), 0, "slanted cell (0,0) -> 0x00");
+  assertEqual(app.atlasCellAt({ clientX: (3 + 15 * 13 + 5) * 5, clientY: (15 * 16 + 3) * 5 }), 255, "slanted cell (15,15) -> 0xFF");
+  assertEqual(app.atlasCellAt({ clientX: 2, clientY: 2 }), null, "left of the pad is outside");
+  els["pv-italic"].checked = false;
+  globalThis.__stub.dispatch("pv-italic", "change", {});
+});
+
 test("dom: atlas widens for slant spill and returns to plain width", function () {
   var app = globalThis.__stub.app;
   var els = globalThis.__stub.els;

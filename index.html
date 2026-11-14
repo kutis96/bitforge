@@ -45,6 +45,7 @@
         <button class="tab active" data-tab="edit" type="button" role="tab">Edit</button>
         <button class="tab" data-tab="preview" type="button" role="tab">Preview</button>
         <button class="tab" data-tab="atlas" type="button" role="tab">Atlas</button>
+        <button class="tab" data-tab="qa" type="button" role="tab">QA</button>
       </nav>
 
       <div class="panel active" id="panel-edit" role="tabpanel">
@@ -92,8 +93,24 @@
       </div>
 
       <div class="panel" id="panel-atlas" role="tabpanel">
-        <div class="panel-head"><span>all 256 glyphs (0x00 top-left → 0xFF bottom-right)</span></div>
+        <div class="panel-head"><span>all 256 glyphs (0x00 top-left → 0xFF bottom-right) · click to select · right-click to set status</span></div>
         <div class="canvas-wrap"><canvas id="atlas"></canvas></div>
+      </div>
+
+      <div class="panel" id="panel-qa" role="tabpanel">
+        <div class="panel-head">
+          <button id="btn-qa-refresh" type="button">Refresh checks</button>
+          <span id="qa-badge" class="qa-badge" hidden></span>
+          <span class="spacer"></span>
+          <span class="qa-hint">checks run on demand; the report goes stale when the font changes</span>
+        </div>
+        <div id="qa-table-wrap" class="qa-table-wrap">
+          <div id="qa-empty" class="qa-empty">Press <b>Refresh checks</b> to run the QA checks.</div>
+          <table id="qa-table" hidden>
+            <thead><tr><th>check</th><th>codes</th><th>detail</th></tr></thead>
+            <tbody id="qa-tbody"></tbody>
+          </table>
+        </div>
       </div>
     </section>
   </main>

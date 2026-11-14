@@ -13,8 +13,8 @@
 - [x] **[G] Editor guidelines** — per-font H/V guides in the editor (preset add, drag, lock, list); test count unchanged (DOM-only, smoke-covered)
 - [x] **[H] Selector click-to-select** — click a mini-glyph in the left sidebar atlas to select it (user request); 1 new headless test via stub event dispatch
 - [x] **[J] Ergonomics update** (2026-11-14): keyboard nav, reference glyph, keyboard glyph shift, shortcut registry + reference card, inverted preview, atlas bold/slant, settings persistence — 65 tests
-- [ ] **[K] QA update** ← next: glyph status (unfinished/WIP/done), QA tab with stale indicator, duplicate + "left to draw" checks
-- [ ] **[L] Interop** ← planned (after J/K): BDF import/export, copy glyph to clipboard
+- [x] **[K] QA update** (2026-11-14): glyph status (unfinished/WIP/done), QA tab with stale indicator, duplicate + "left to draw" checks — 77 tests
+- [ ] **[L] Interop** ← next: BDF import/export, copy glyph to clipboard
 - [ ] **[I] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -100,15 +100,17 @@ User requested: clicking the left-sidebar atlas (mini-glyph grid) selects the gl
 - Stub gained a `clearTimeout`/`setTimeout` polyfill (jsc lacks them; `toast()` uses them).
 - **Not yet done:** browser visual check (card layout, inverted look, atlas spacing) — user to verify.
 
+### [K] QA update (`core.js` + `app.js` + `index.html` + `css/style.css`, 2026-11-14)
+- **K1 Status:** `Font.status` = `Uint8Array(256)` in `BF.makeFont`; persisted in the font blob under key `s` (sanitized on load: only 0/1/2, length 256); absent ⇒ unfinished. `setStatus(code, st)` coerces invalid values.
+- **K2 Assignment/display:** Atlas tab left-click selects (geometry-aware `atlasCellAt` using the last `drawAtlas` geo, incl. slanted pad/colW), **right-click opens a floating 3-choice status menu** (browser context menu suppressed). Tints: WIP `#ffe8dd`, unfinished `#eef4ff`, done = plain (dark variants `#3a2a22`/`#20293a` when inverted); atlas + sidebar selector.
+- **K3 QA tab (4th):** violations table + **Refresh checks** button + **stale badge**. `state.fontVersion` bumps on every mutation (stroke end, clear, shift, status change; reset per font via `setFont`); report stores its computed version; mismatch ⇒ badge. `qaReset()` on font swap clears the table to the placeholder.
+- **K4 Checks (registered data, `qaChecks`):** **duplicate glyphs** (`BF.findDuplicates` — identical-bitmap groups, all-empty group excluded, ink count reported) and **what's left to draw** (`BF.statusCounts` — summary row + one clickable row per unfinished/WIP glyph; clicking jumps to Edit). 9 new core tests + 3 new DOM tests. **Total 77 tests.**
+- Seam extended: `setStatus`, `qaRefresh`, `qaRows`, `qaStale`, `atlasCellAt` on `__stub.app`.
+- **Not yet done:** browser visual check (tints, menu placement, table look) — user to verify.
+
 ## Plan — remaining chunks (decisions locked in DECISIONS #32–47)
 
-### [K] QA update (next)
-- [ ] K1 `Font.status` (0 unfinished / 1 WIP / 2 done), persisted with the font blob (sanitized on load, like guidelines); absent ⇒ unfinished (#38)
-- [ ] K2 Atlas tab: left-click = select, right-click = 3-choice status menu; status tints (peach/blue/white) in atlas + subtle tint in sidebar selector (#39)
-- [ ] K3 QA tab (4th): violations table + Refresh + stale badge via monotonic font-version counter bumped on every mutation (#41)
-- [ ] K4 First checks via registered `(font) → rows` functions: duplicate glyphs (all-empty group excluded) + what's left to draw (counts 256 & printable, clickable unfinished/WIP list) (#42)
-
-### [L] Interop (after J/K)
+### [L] Interop (next)
 - [ ] L1 BDF import (first face; `BW`/`DH` ⇒ W/H; malformed ⇒ error) + export (single face, 256 codes, hex rows, leftmost = MSB) (#43)
 - [ ] L2 Copy glyph to clipboard: PNG at 16×, transparent bg; download fallback; toast (#44)
 
