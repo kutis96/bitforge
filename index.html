@@ -11,22 +11,37 @@
 
   <header id="toolbar">
     <div class="brand">bitforge</div>
-    <div class="fileops">
-      <button id="btn-new" type="button" title="New blank font (prompts for width &amp; height)">New</button>
-      <button id="btn-open" type="button" title="Import a PNG atlas (16x16)">Open PNG</button>
-      <button id="btn-export-png" type="button" title="Export a PNG atlas (16x16)">Export PNG</button>
-      <button id="btn-export-verilog" type="button" title="Export a Verilog $readmemb ROM">Export Verilog</button>
-      <button id="btn-open-bdf" type="button" title="Import a BDF font (first face)">Open BDF</button>
-      <button id="btn-export-bdf" type="button" title="Export a BDF font (single face, 256 codes)">Export BDF</button>
-      <button id="btn-copy-glyph" type="button" title="Copy the current glyph as a PNG to the clipboard (16&times;, transparent background); downloads if the clipboard is unavailable">Copy glyph</button>
-      <label id="png-bg-label" title="Background for PNG export">
-        <input type="checkbox" id="chk-png-transparent"> transparent bg
-      </label>
-      <input id="file-png" type="file" accept="image/png" hidden>
-      <input id="file-bdf" type="file" accept=".bdf,text/plain" hidden>
-    </div>
+    <nav id="menubar" aria-label="Main menu">
+      <div class="menu" id="menu-file">
+        <button type="button" class="menu-btn" id="mb-file">File</button>
+        <div class="menu-items" id="mi-file">
+          <button type="button" id="mi-new" title="New blank font (prompts for width &amp; height)">New font<span class="mi-key">Alt+N</span></button>
+          <hr>
+          <button type="button" id="mi-open-png" title="Import a PNG atlas (16x16)">Open PNG&#8230;<span class="mi-key">Alt+O</span></button>
+          <button type="button" id="mi-open-bdf" title="Import a BDF font (first face)">Open BDF&#8230;<span class="mi-key">Alt+Shift+O</span></button>
+          <hr>
+          <button type="button" id="mi-export-png-solid" title="Export a PNG atlas with a white background">Export PNG (solid bg)<span class="mi-key">Ctrl+S</span></button>
+          <button type="button" id="mi-export-png-transparent" title="Export a PNG atlas with a transparent background">Export PNG (transparent bg)</button>
+          <button type="button" id="mi-export-bdf" title="Export a BDF font (single face, 256 codes)">Export BDF font<span class="mi-key">Alt+Shift+S</span></button>
+          <button type="button" id="mi-export-verilog" title="Export a Verilog $readmemb ROM">Export Verilog ROM<span class="mi-key">Ctrl+Shift+S</span></button>
+        </div>
+      </div>
+      <div class="menu" id="menu-edit">
+        <button type="button" class="menu-btn" id="mb-edit">Edit</button>
+        <div class="menu-items" id="mi-edit">
+          <button type="button" id="mi-undo" title="Undo (Ctrl/&#8984;+Z)">Undo<span class="mi-key">Ctrl+Z</span></button>
+          <button type="button" id="mi-redo" title="Redo (Ctrl/&#8984;+Shift+Z)">Redo<span class="mi-key">Ctrl+Shift+Z</span></button>
+          <button type="button" id="mi-clear-glyph" title="Clear the current glyph (undoable)">Clear glyph</button>
+          <hr>
+          <button type="button" id="mi-copy-glyph" title="Copy the current glyph as a PNG to the clipboard (16&times;, transparent background); downloads if the clipboard is unavailable">Copy glyph to clipboard</button>
+        </div>
+      </div>
+    </nav>
+    <span class="spacer"></span>
     <button id="btn-keys" type="button" title="Keyboard shortcuts (?)">?</button>
     <div id="dims" class="dims">W:8 H:16</div>
+    <input id="file-png" type="file" accept="image/png" hidden>
+    <input id="file-bdf" type="file" accept=".bdf,text/plain" hidden>
   </header>
 
   <div id="keys-card" class="keys-card" hidden>

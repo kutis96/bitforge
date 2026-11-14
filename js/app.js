@@ -132,6 +132,7 @@
   var SETTINGS_KEY = "bitforge.settings.v1";
   var settingsDefaults = {
     pvText: "",
+    pngBg: "solid",       // "solid" | "transparent" — last-used PNG export background
     pvScale: 8,
     pvBold: false,
     pvItalic: false,
@@ -721,6 +722,18 @@
     saveLS();
   }
 
+  // Shared by the Edit-tab button and the Edit-menu item (DECISIONS #51).
+  function clearGlyphAction() {
+    var code = state.selected;
+    state.history.push({ code: code, snap: snapshotGlyph(code) });
+    if (state.history.length > 100) state.history.shift();
+    BF.clearGlyph(state.font, code);
+    state.redo = [];
+    redrawAll();
+    saveLS();
+    bumpFontVersion();
+  }
+
   function undo() {
     if (!state.history.length) return;
     var entry = state.history.pop();
@@ -801,8 +814,11 @@
     toast("Imported " + cw + "×" + ch + " font from " + W + "×" + H + " PNG");
   }
 
-  function exportPng() {
-    var f = state.font, transparent = el.chkPngTransparent.checked;
+  function exportPng(bgMode) {
+    // bgMode "solid"/"transparent" (from the File-menu items) remembers the
+    // choice; a bare call (Ctrl+S) exports with the remembered mode.
+    if (bgMode === "solid" || bgMode === "transparent") settingsSet("pngBg", bgMode);
+    var f = state.font, transparent = settingsGet("pngBg") === "transparent";
     var W = 16 * f.width, H = 16 * f.height;
     var c = document.createElement("canvas");
     c.width = W; c.height = H;
@@ -907,6 +923,29 @@
     downloadBlob(new Blob([text], { type: "text/plain" }), filename);
   }
 
+  // ---------- menu bar (DECISIONS #51) ----------
+  // Desktop-style File/Edit dropdowns. Mouse-driven: click a menu title to
+  // open/toggle, hover to switch while one is open, outside mousedown or
+  // Escape to close. The document-level close listeners are no-ops under the
+  // jsc stub (document.addEventListener only captures DOMContentLoaded there).
+  var openMenu = null, menuEls = [];
+  function closeMenus() {
+    for (var i = 0; i < menuEls.length; i++) menuEls[i].classList.remove("open");
+    openMenu = null;
+  }
+  function toggleMenu(m) {
+    if (openMenu === m) { closeMenus(); return; }
+    closeMenus();
+    m.classList.add("open");
+    openMenu = m;
+  }
+  function hoverMenu(m) {
+    if (!openMenu || openMenu === m) return;
+    openMenu.classList.remove("open");
+    m.classList.add("open");
+    openMenu = m;
+  }
+
   // ---------- tabs ----------
   function setActiveTab(name) {
     state.activeTab = name;
@@ -924,11 +963,12 @@
     el = {
       selHeader: $("sel-header"), jump: $("jump"), btnJump: $("btn-jump"), selector: $("selector"),
       dims: $("dims"),
-      btnNew: $("btn-new"), btnOpen: $("btn-open"), filePng: $("file-png"),
-      btnExportPng: $("btn-export-png"), btnExportVerilog: $("btn-export-verilog"),
-      btnOpenBdf: $("btn-open-bdf"), fileBdf: $("file-bdf"), btnExportBdf: $("btn-export-bdf"),
-      btnCopyGlyph: $("btn-copy-glyph"),
-      chkPngTransparent: $("chk-png-transparent"),
+      filePng: $("file-png"), fileBdf: $("file-bdf"),
+      menuFile: $("menu-file"), menuEdit: $("menu-edit"), mbFile: $("mb-file"), mbEdit: $("mb-edit"),
+      miNew: $("mi-new"), miOpenPng: $("mi-open-png"), miOpenBdf: $("mi-open-bdf"),
+      miExportPngSolid: $("mi-export-png-solid"), miExportPngTransparent: $("mi-export-png-transparent"),
+      miExportBdf: $("mi-export-bdf"), miExportVerilog: $("mi-export-verilog"),
+      miUndo: $("mi-undo"), miRedo: $("mi-redo"), miClearGlyph: $("mi-clear-glyph"), miCopyGlyph: $("mi-copy-glyph"),
       btnClear: $("btn-clear"), btnUndo: $("btn-undo"), btnRedo: $("btn-redo"),
       stUnfinished: $("st-unfinished"), stWip: $("st-wip"), stDone: $("st-done"),
       editor: $("editor"), editLabel: $("edit-label"),
@@ -947,15 +987,38 @@
     for (var i = 0; i < tabs.length; i++)
       tabs[i].addEventListener("click", function () { setActiveTab(this.getAttribute("data-tab")); });
 
-    el.btnNew.addEventListener("click", newFont);
-    el.btnOpen.addEventListener("click", onOpenClick);
     el.filePng.addEventListener("change", onPngFile);
-    el.btnExportPng.addEventListener("click", exportPng);
-    el.btnExportVerilog.addEventListener("click", exportVerilog);
-    el.btnOpenBdf.addEventListener("click", onOpenBdfClick);
     el.fileBdf.addEventListener("change", onBdfFile);
-    el.btnExportBdf.addEventListener("click", exportBdf);
-    el.btnCopyGlyph.addEventListener("click", copyGlyphToClipboard);
+
+    // Menu bar: titles (open/toggle + hover-switch) and items (action + close).
+    menuEls = [el.menuFile, el.menuEdit];
+    var menuPairs = [[el.menuFile, el.mbFile], [el.menuEdit, el.mbEdit]];
+    for (var mp = 0; mp < menuPairs.length; mp++)
+      (function (cont, btn) {
+        btn.addEventListener("click", function () { toggleMenu(cont); });
+        btn.addEventListener("mouseenter", function () { hoverMenu(cont); });
+      })(menuPairs[mp][0], menuPairs[mp][1]);
+    document.addEventListener("mousedown", function (e) {
+      var inside = false;
+      for (var i = 0; i < menuPairs.length; i++)
+        if (e.target === menuPairs[i][0] || e.target === menuPairs[i][1]) inside = true;
+      if (!inside) closeMenus();
+    });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeMenus(); });
+    function menuItem(id, fn) {
+      el[id].addEventListener("click", function () { closeMenus(); fn(); });
+    }
+    menuItem("miNew", newFont);
+    menuItem("miOpenPng", onOpenClick);
+    menuItem("miOpenBdf", onOpenBdfClick);
+    menuItem("miExportPngSolid", function () { exportPng("solid"); });
+    menuItem("miExportPngTransparent", function () { exportPng("transparent"); });
+    menuItem("miExportBdf", exportBdf);
+    menuItem("miExportVerilog", exportVerilog);
+    menuItem("miUndo", undo);
+    menuItem("miRedo", redo);
+    menuItem("miClearGlyph", clearGlyphAction);
+    menuItem("miCopyGlyph", copyGlyphToClipboard);
 
     // Edit-tab status buttons (DECISIONS #50): mark the current glyph, then
     // move on to the next one (arrows / atlas click). Re-clicking the active
@@ -968,16 +1031,7 @@
         if (state.font.status[state.selected] !== st) setStatus(state.selected, st);
       }); })(stBtns[si][0], stBtns[si][1]);
 
-    el.btnClear.addEventListener("click", function () {
-      var code = state.selected;
-      state.history.push({ code: code, snap: snapshotGlyph(code) });
-      if (state.history.length > 100) state.history.shift();
-      BF.clearGlyph(state.font, code);
-      state.redo = [];
-      redrawAll();
-      saveLS();
-      bumpFontVersion();
-    });
+    el.btnClear.addEventListener("click", clearGlyphAction);
     el.btnUndo.addEventListener("click", undo);
     el.btnRedo.addEventListener("click", redo);
 
@@ -1071,7 +1125,7 @@
     shortcuts.register({ combo: "Alt+n", description: "New blank font", handler: newFont });
     shortcuts.register({ combo: "Alt+o", description: "Open PNG atlas", handler: onOpenClick });
     shortcuts.register({ combo: "Alt+Shift+o", description: "Open BDF font", handler: onOpenBdfClick });
-    shortcuts.register({ combo: "Ctrl+s", description: "Export PNG atlas", handler: exportPng });
+    shortcuts.register({ combo: "Ctrl+s", description: "Export PNG (last-used bg)", handler: function () { exportPng(); } });
     shortcuts.register({ combo: "Ctrl+Shift+s", description: "Export Verilog ROM", handler: exportVerilog });
     shortcuts.register({ combo: "Alt+Shift+s", description: "Export BDF font", handler: exportBdf });
     shortcuts.register({ combo: "e", description: "Show the Edit tab", handler: function () { setActiveTab("edit"); } });
@@ -1113,7 +1167,8 @@
       setStatus: setStatus, qaRefresh: qaRefresh, qaRows: qaComputeRows, qaStale: qaStale, atlasCellAt: atlasCellAt,
       importBdfText: importBdfText, exportBdf: exportBdf,
       copyGlyph: copyGlyphToClipboard, glyphCanvas: glyphCanvas,
-      getLastToast: function () { return lastToast; } };
+      getLastToast: function () { return lastToast; },
+      exportPng: exportPng, settingsGet: settingsGet, settingsSet: settingsSet };
 
   if (typeof document !== "undefined") {
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

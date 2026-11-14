@@ -18,6 +18,7 @@
 - [x] **[I.1] File-op & tab shortcuts** (2026-11-14): Alt/Ctrl file-op + E/P/A/Q/Ctrl+Q shortcuts, registry-based, input-suppressed — 93 tests
 - [x] **[I.2] Preview markup escapes** (2026-11-14): `\*` `\_` `\\` backslash escapes in the preview text — 98 tests
 - [x] **[I.3] Edit-tab glyph status** (2026-11-14): `unf`/`wip`/`done` buttons in the Edit panel head — 99 tests
+- [x] **[I.4] Menu bar** (2026-11-14): desktop-style File/Edit dropdowns; PNG bg → remembered `pngBg` setting — 101 tests
 - [ ] **[I] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -136,7 +137,15 @@ User request: mark the current glyph's status without leaving the Edit tab, for 
 - **Stub improvement:** the DOM stub's `classList` now actually tracks classes (`toggle`/`add`/`remove`/`contains`) so tests can assert active states (it was a no-op before).
 - 1 new DOM test covering set-via-button, selection following, no-op click, and atlas-path sync. **Total 99 tests.**
 
-## Plan — remaining chunks (decisions locked in DECISIONS #32–50)
+### [I.4] Menu bar (`index.html` + `css/style.css` + `app.js` + `test/`, 2026-11-14)
+User request: a desktop-app-style menu bar instead of a row of toolbar buttons.
+- **File**: New font · Open PNG · Open BDF · **Export PNG (solid bg)** · **Export PNG (transparent bg)** · Export BDF · Export Verilog. **Edit**: Undo · Redo · Clear glyph · Copy glyph to clipboard. Menu items show their keyboard-shortcut hints (static text, matching the registry).
+- **Behavior:** click a title to open/toggle; hover another title while one is open to switch; outside `mousedown` or `Escape` closes; an item click runs its action and closes. Mouse-only by design (every action already has a keyboard shortcut; the two document-level close listeners are no-ops under the jsc stub — browser-verified).
+- **PNG background:** the toolbar checkbox is gone. `exportPng(bgMode?)` — the menu items pass `"solid"`/`"transparent"`, which is remembered via the settings API as **`pngBg`** (default `"solid"`, added to `settingsDefaults`); a bare call (**Ctrl+S**) exports with the remembered mode.
+- **Removed from the toolbar:** all per-action buttons + the checkbox; the hidden `#file-png`/`#file-bdf` inputs stay (file pickers). `clearGlyphAction()` extracted so the Edit-tab button and the Edit-menu item share one implementation. No new `querySelectorAll` (menus tracked in an `menuEls` array — stub stays unchanged).
+- **Tests:** 2 new DOM tests (open/switch/hover/toggle/item-click-closes with a real action; `pngBg` remembering incl. bare-call behavior) via `__stub.dispatch` on `mb-*`/`mi-*` elements (the stub's real `classList` tracking from [I.3] makes the assertions possible). Seam gained `exportPng`, `settingsGet`, `settingsSet`. **Total 101 tests.**
+
+## Plan — remaining chunks (decisions locked in DECISIONS #32–51)
 
 ### [M] Deferred QA checks (documented, NOT to build without re-greenlight)
 - Edge-ink lint — only with per-glyph silencing (box-drawing chars touch edges by design) (#46)

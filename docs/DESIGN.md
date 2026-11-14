@@ -63,7 +63,7 @@ Black-on-white, monospace UI, terminal-tool aesthetic. **No green/amber.**
   - **Preview**: a large **single-glyph zoom** of the selected glyph (scale, bold, slant, baseline controls, faint cell outline so slant spill is visible) **and** a **multi-line text sample** box driven by markup. An **inverted toggle** switches preview surfaces to white-on-black (how the font will look in a real terminal); editor and sidebar stay black-on-white.
   - **Atlas**: all 256 glyphs in a 16×16 grid (same order as the PNG). **Honors the current bold/slant settings** (with extra column spacing while slant is on, so spill stays legible). Cells are tinted by glyph status (WIP = light peach, unfinished = light pastel blue, done = white). Click selects a glyph; **right-click opens a status menu** (unfinished / WIP / done).
   - **QA**: reports about the font in a **violations table** with a **Refresh** button and a **stale badge** (the report is marked stale as soon as the font changes after the last refresh). First reports: **duplicate glyphs** and **what's left to draw** (status counts + clickable list of unfinished/WIP glyphs). Check set is extensible (see below).
-- **Toolbar / file ops:** New (prompts W×H) · Open PNG / BDF · Export PNG / BDF / Verilog · Copy glyph (PNG to clipboard). A **shortcut reference card** (toggle with `?`) lists every keyboard shortcut, rendered from the shortcut registry so it can't drift (see below).
+- **Menu bar (desktop-app style):** **File** — New (prompts W×H) · Open PNG/BDF · Export PNG (solid bg / transparent bg) · Export BDF · Export Verilog. **Edit** — Undo · Redo · Clear glyph · Copy glyph to clipboard. Menus are mouse-driven (click to open/toggle, hover to switch while open, outside-click or Escape to close); items show their keyboard shortcut hints. A **shortcut reference card** (toggle with `?`) lists every keyboard shortcut, rendered from the shortcut registry so it can't drift (see below).
 
 ## Modules
 
@@ -90,7 +90,7 @@ The code is split into two files: **`js/core.js`** (pure, DOM-free, exposes glob
 - **Import:** W = imgWidth ÷ 16, H = imgHeight ÷ 16. **Error if either is not a whole number.**
   - Ink test per pixel: **composite the pixel over white, then luminance < 128 ⇒ ink.** (Handles black-on-white, transparent backgrounds, and light checkerboard cell borders.)
   - Char 0 is top-left; row-major: chars 0–15 on image row 1, 16–31 on image row 2, …
-- **Export:** image is exactly `16*W × 16*H` (1px per bit). Ink pixels = black. Background = **white or transparent** (user toggle).
+- **Export:** image is exactly `16*W × 16*H` (1px per bit). Ink pixels = black. Background = **white or transparent** — two File-menu items; the last-used mode is remembered (setting `pngBg`), and Ctrl+S exports with the remembered mode.
 
 ### Verilog `$readmemb` (export)
 - One line per glyph row; `width` binary bits per line; total `256 * height` lines.
@@ -102,10 +102,10 @@ The code is split into two files: **`js/core.js`** (pure, DOM-free, exposes glob
 - The classic X11 bitmap-font text format; a second working format for importing existing fonts (e.g. 3270font derivatives) and for human-readable interchange.
 - **Import:** parse the **first face** of a standard single-face BDF (`FONT`, `SIZE`, `BW`, `DH`, `CHARS`, per-char `CODES` + `BITMAP`). W = `BW`, H = `DH`; error on malformed files. Extra faces are ignored. Glyph status/guidelines start fresh on import.
 - **Export:** one face, all 256 codes in order, standard fields; BITMAP rows are hex strings, leftmost pixel = MSB (BDF convention). Unlike Verilog, a BDF *may* carry comments — it's a text interchange format, not a ROM.
-- **Wiring:** toolbar **Open BDF** (file input, text read, `BF.parseBDF` → new font via `setFont` — status/guidelines reset) and **Export BDF** (`BF.toBDF` → `bitforge-font.bdf`). Malformed file ⇒ error toast, current font untouched.
+- **Wiring:** File-menu **Open BDF** (file input, text read, `BF.parseBDF` → new font via `setFont` — status/guidelines reset) and **Export BDF** (`BF.toBDF` → `bitforge-font.bdf`). Malformed file ⇒ error toast, current font untouched.
 
 ### Copy glyph to clipboard
-- Toolbar **Copy glyph**: rasterizes the *current* glyph to an offscreen canvas at **16 display px per glyph pixel**, black ink on **transparent** background, `toBlob` → PNG.
+- Edit-menu **Copy glyph** (also toolbar-less by design — small ops live in the menu/keyboard, not as buttons): rasterizes the *current* glyph to an offscreen canvas at **16 display px per glyph pixel**, black ink on **transparent** background, `toBlob` → PNG.
 - If `navigator.clipboard.write` + `ClipboardItem` are available, the PNG goes to the clipboard as an `image/png` `ClipboardItem`; success/failure toasts.
 - Otherwise (e.g. `file://` where the clipboard API is unavailable/blocked) it **falls back to a PNG download** (`bitforge-glyph-XX.png`) and says so in a toast.
 

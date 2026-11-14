@@ -372,3 +372,42 @@ test("dom: Edit tab status buttons set the glyph status and follow the selection
   app.setStatus(0x42, 1);
   assert(els["st-wip"].classList.contains("active"), "setStatus (atlas path) updates the buttons");
 });
+
+// ---------- menu bar (DECISIONS #51) ----------
+
+test("dom: menu bar — open, switch, and item click closes", function () {
+  var els = globalThis.__stub.els;
+  var stub = globalThis.__stub;
+  stub.dispatch("mb-file", "click", {});
+  assert(els["menu-file"].classList.contains("open"), "File opens on click");
+  stub.dispatch("mb-edit", "click", {});
+  assert(els["menu-edit"].classList.contains("open"), "Edit opens on click");
+  assert(!els["menu-file"].classList.contains("open"), "File closes when switching to Edit");
+  // Hover-switch while a menu is open
+  stub.dispatch("mb-file", "mouseenter", {});
+  assert(els["menu-file"].classList.contains("open"), "hover switches to File");
+  assert(!els["menu-edit"].classList.contains("open"), "Edit closed by hover-switch");
+  // An item click runs its action and closes the menu
+  var app = globalThis.__stub.app;
+  stub.blob = null;
+  stub.dispatch("mb-edit", "click", {});
+  stub.dispatch("mi-copy-glyph", "click", {});
+  assert(!els["menu-edit"].classList.contains("open"), "menu closes after item click");
+  assert(app.getLastToast().indexOf("Could not rasterize") === 0, "item action ran: " + app.getLastToast());
+  // Clicking a closed title opens it; clicking the open title again toggles it closed
+  stub.dispatch("mb-file", "click", {});
+  assert(els["menu-file"].classList.contains("open"), "click re-opens");
+  stub.dispatch("mb-file", "click", {});
+  assert(!els["menu-file"].classList.contains("open"), "second click closes");
+});
+
+test("dom: PNG export background is a remembered setting (pngBg)", function () {
+  var app = globalThis.__stub.app;
+  assertEqual(app.settingsGet("pngBg"), "solid", "default is solid");
+  app.exportPng("transparent"); // File-menu item
+  assertEqual(app.settingsGet("pngBg"), "transparent", "menu choice is remembered");
+  app.exportPng();              // bare call (Ctrl+S)
+  assertEqual(app.settingsGet("pngBg"), "transparent", "Ctrl+S keeps the remembered mode");
+  app.exportPng("solid");
+  assertEqual(app.settingsGet("pngBg"), "solid", "switches back to solid");
+});

@@ -31,8 +31,24 @@ body { display: flex; flex-direction: column; }
   border-bottom: 1px solid var(--line-strong);
 }
 .brand { font-weight: 700; font-size: 16px; letter-spacing: 0.5px; }
-.fileops { display: flex; align-items: center; gap: 8px; flex: 1; flex-wrap: wrap; }
-.fileops label { font-size: 12px; color: var(--muted); display: inline-flex; gap: 4px; align-items: center; }
+/* Menu bar (File / Edit dropdowns, desktop-app style) */
+#menubar { display: flex; align-items: center; gap: 2px; flex: 1; }
+.menu { position: relative; }
+.menu-btn { border: none; background: none; border-radius: 3px; padding: 4px 10px; font: inherit; color: var(--ink); cursor: pointer; }
+.menu-btn:hover, .menu.open > .menu-btn { background: #e6e6e6; }
+.menu-items {
+  display: none; position: absolute; top: calc(100% + 2px); left: 0; z-index: 100;
+  min-width: 250px; padding: 4px 0; background: #fff;
+  border: 1px solid var(--line-strong); box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.12);
+}
+.menu.open .menu-items { display: block; }
+.menu-items button {
+  display: flex; width: 100%; align-items: baseline; justify-content: space-between; gap: 18px;
+  border: none; background: none; text-align: left; padding: 5px 14px; font: inherit; color: var(--ink); cursor: pointer;
+}
+.menu-items button:hover { background: #f0f0f0; }
+.menu-items .mi-key { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.menu-items hr { border: none; border-top: 1px solid var(--line); margin: 4px 0; }
 #dims { color: var(--muted); font-size: 12px; white-space: nowrap; }
 
 button {
