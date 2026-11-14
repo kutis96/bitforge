@@ -75,6 +75,9 @@ Requirements and design decisions agreed with the user. **Treat these as fixed**
 ## Preview markup escapes (chunk I.2)
 49. **Backslash escapes in preview markup** (user request, 2026-11-14): `\*` → literal `*`, `\_` → literal `_` (no formatting toggle), `\\` → literal backslash; `\uXX` unchanged; unknown `\x` → literal `\` then normal `x` (a lone/trailing backslash is always a literal — pre-existing behavior, kept). Implemented in `BF.parseMarkup` (core.js, DOM-free) with 5 new tests; placeholder text in the preview textarea updated.
 
+## Edit-tab glyph status (chunk I.3)
+50. **Glyph status from the Edit tab** (user request, 2026-11-14): compact `unf` / `wip` / `done` button group in the Edit panel head; clicking marks the *current* glyph (same `setStatus()` as the Atlas-tab right-click menu — single code path, so QA staleness, persistence, atlas/selector tints and the buttons all stay in sync). The active state is highlighted (inverted button) and follows the selection. Re-clicking the already-active state is a no-op (no spurious font-version bump). Motivation: mark a glyph done and immediately move on to the next while punching out a series.
+
 ## Deferred
 46. **Edge-ink lint — deferred.** Build only with a per-glyph *silence* mechanism: box-drawing/pseudographic glyphs intentionally reach the cell edges, so a naive edge check is noise for this font's real content.
 47. **Guideline-violation report — deferred** until the QA infra (chunk K) is proven.

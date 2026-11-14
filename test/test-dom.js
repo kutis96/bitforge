@@ -340,3 +340,35 @@ test("dom: shortcuts are suppressed while typing in an input or textarea", funct
   app.shortcuts.dispatch({ key: "e", preventDefault: function () {} });
   assertEqual(app.state.activeTab, "edit", "shortcuts work again once the input loses focus");
 });
+
+// ---------- Edit-tab glyph status buttons (DECISIONS #50) ----------
+
+test("dom: Edit tab status buttons set the glyph status and follow the selection", function () {
+  var app = globalThis.__stub.app;
+  var els = globalThis.__stub.els;
+  var stub = globalThis.__stub;
+  app.selectGlyph(0x41);
+  app.setStatus(0x41, 0); // earlier tests may have touched this glyph
+  assert(els["st-unfinished"].classList.contains("active"), "fresh glyph shows unfinished");
+  assert(!els["st-done"].classList.contains("active"), "done not active");
+  stub.dispatch("st-wip", "click", {});
+  assertEqual(app.state.font.status[0x41], 1, "wip set via button");
+  assert(els["st-wip"].classList.contains("active"), "wip button now active");
+  assert(!els["st-unfinished"].classList.contains("active"), "unfinished button deactivated");
+  stub.dispatch("st-done", "click", {});
+  assertEqual(app.state.font.status[0x41], 2, "done set via button");
+  assert(els["st-done"].classList.contains("active"), "done button now active");
+  // The workflow: mark done, move on — the next glyph starts fresh (unfinished).
+  app.selectGlyph(0x42);
+  app.setStatus(0x42, 0);
+  assert(els["st-unfinished"].classList.contains("active"), "next glyph shows unfinished");
+  assert(!els["st-done"].classList.contains("active"), "done does not carry over");
+  assertEqual(app.state.font.status[0x41], 2, "previous glyph still done");
+  // Re-clicking the active state is a no-op (no spurious font-version bump).
+  var v = app.state.fontVersion;
+  stub.dispatch("st-unfinished", "click", {});
+  assertEqual(app.state.fontVersion, v, "no version bump on no-op status click");
+  // Atlas-tab status changes are reflected on the Edit-tab buttons too.
+  app.setStatus(0x42, 1);
+  assert(els["st-wip"].classList.contains("active"), "setStatus (atlas path) updates the buttons");
+});

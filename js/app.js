@@ -234,7 +234,17 @@
     state.font.status[code] = (st === 1 || st === 2) ? st : 0;
     bumpFontVersion();
     drawAtlas(); drawSelector();
+    renderGlyphStatus();
     saveLS();
+  }
+
+  // Edit-tab status buttons: highlight the one matching the selected glyph.
+  function renderGlyphStatus() {
+    if (!el.stUnfinished) return; // before init
+    var st = state.font.status[state.selected];
+    el.stUnfinished.classList.toggle("active", st === 0);
+    el.stWip.classList.toggle("active", st === 1);
+    el.stDone.classList.toggle("active", st === 2);
   }
 
   // Map a pointer event on the atlas canvas to a glyph code (or null).
@@ -562,6 +572,7 @@
   function redrawAll() {
     updateSelHeader();
     updateDims();
+    renderGlyphStatus();
     drawSelector();
     drawEditor();
     drawPvGlyph();
@@ -733,6 +744,7 @@
     drawSelector();
     drawEditor();
     drawPvGlyph();
+    renderGlyphStatus();
   }
 
   function doJump() {
@@ -918,6 +930,7 @@
       btnCopyGlyph: $("btn-copy-glyph"),
       chkPngTransparent: $("chk-png-transparent"),
       btnClear: $("btn-clear"), btnUndo: $("btn-undo"), btnRedo: $("btn-redo"),
+      stUnfinished: $("st-unfinished"), stWip: $("st-wip"), stDone: $("st-done"),
       editor: $("editor"), editLabel: $("edit-label"),
       glock: $("glock"), glist: $("glist"),
       pvScale: $("pv-scale"), pvBold: $("pv-bold"), pvItalic: $("pv-italic"), pvBaseline: $("pv-baseline"),
@@ -943,6 +956,17 @@
     el.fileBdf.addEventListener("change", onBdfFile);
     el.btnExportBdf.addEventListener("click", exportBdf);
     el.btnCopyGlyph.addEventListener("click", copyGlyphToClipboard);
+
+    // Edit-tab status buttons (DECISIONS #50): mark the current glyph, then
+    // move on to the next one (arrows / atlas click). Re-clicking the active
+    // state is a no-op so it doesn't bump the font version for nothing.
+    var stBtns = [
+      [el.stUnfinished, 0], [el.stWip, 1], [el.stDone, 2]
+    ];
+    for (var si = 0; si < stBtns.length; si++)
+      (function (btn, st) { btn.addEventListener("click", function () {
+        if (state.font.status[state.selected] !== st) setStatus(state.selected, st);
+      }); })(stBtns[si][0], stBtns[si][1]);
 
     el.btnClear.addEventListener("click", function () {
       var code = state.selected;

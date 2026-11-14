@@ -29,7 +29,20 @@
       _listeners: {},
       addEventListener: function (t, cb) { (this._listeners[t] = this._listeners[t] || []).push(cb); },
       removeEventListener: function () {},
-      classList: { toggle: function () {}, add: function () {}, remove: function () {}, contains: function () { return false; } },
+      // Real (tiny) class tracking so tests can assert e.g. the active status button.
+      classList: (function () {
+        var set = {};
+        return {
+          toggle: function (c, force) {
+            var want = (force == null) ? !set[c] : !!force;
+            if (want) set[c] = true; else delete set[c];
+            return want;
+          },
+          add: function (c) { set[c] = true; },
+          remove: function (c) { delete set[c]; },
+          contains: function (c) { return !!set[c]; }
+        };
+      })(),
       value: "", max: "", checked: false, hidden: true, textContent: "",
       style: {}, clientWidth: 400, clientHeight: 300,
       width: 0, height: 0,

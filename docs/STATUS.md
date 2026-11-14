@@ -17,6 +17,7 @@
 - [x] **[L] Interop** (2026-11-14): BDF import/export (app wiring) + copy glyph to clipboard — 90 tests
 - [x] **[I.1] File-op & tab shortcuts** (2026-11-14): Alt/Ctrl file-op + E/P/A/Q/Ctrl+Q shortcuts, registry-based, input-suppressed — 93 tests
 - [x] **[I.2] Preview markup escapes** (2026-11-14): `\*` `\_` `\\` backslash escapes in the preview text — 98 tests
+- [x] **[I.3] Edit-tab glyph status** (2026-11-14): `unf`/`wip`/`done` buttons in the Edit panel head — 99 tests
 - [ ] **[I] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -128,7 +129,14 @@ User request: be able to *type* `*` and `_` in the preview text without toggling
 - Escapes inherit the current bold/italic flags like any other glyph (e.g. `*\**` → one bold `*`).
 - 5 new tests in `test/test-markup.js`; the preview textarea placeholder now mentions the escapes. **Total 98 tests.**
 
-## Plan — remaining chunks (decisions locked in DECISIONS #32–49)
+### [I.3] Edit-tab glyph status buttons (`app.js` + `index.html` + `css/style.css` + `test/`, 2026-11-14)
+User request: mark the current glyph's status without leaving the Edit tab, for the mark-done-and-move-on workflow.
+- Compact `unf` / `wip` / `done` button group in the Edit panel head (`#glyph-status`); active state rendered as an inverted (black) button. Clicking marks the **current** glyph via the existing `setStatus()` — same code path as the Atlas-tab right-click menu, so persistence, tints, QA staleness and the buttons can't drift apart.
+- `renderGlyphStatus()` highlights the selected glyph's state; called from `setStatus`, `selectGlyph`, and `redrawAll` (covers font swap/import). Re-clicking the active state is a deliberate no-op (no font-version bump, so no false QA staleness).
+- **Stub improvement:** the DOM stub's `classList` now actually tracks classes (`toggle`/`add`/`remove`/`contains`) so tests can assert active states (it was a no-op before).
+- 1 new DOM test covering set-via-button, selection following, no-op click, and atlas-path sync. **Total 99 tests.**
+
+## Plan — remaining chunks (decisions locked in DECISIONS #32–50)
 
 ### [M] Deferred QA checks (documented, NOT to build without re-greenlight)
 - Edge-ink lint — only with per-glyph silencing (box-drawing chars touch edges by design) (#46)
