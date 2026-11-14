@@ -43,7 +43,9 @@
       insertBefore: function () {},
       getContext: function () { if (!this._ctx) this._ctx = makeCtx(); return this._ctx; },
       getBoundingClientRect: function () { return { left: 0, top: 0, width: this.width, height: this.height }; },
-      toBlob: function (cb) { cb && cb(null); },
+      // Passes the stub's fake blob (null by default = rasterization failed).
+      // Tests set __stub.blob to exercise the success path (see copy-glyph tests).
+      toBlob: function (cb) { cb && cb(root.__stub.blob || null); },
       focus: function () {}, blur: function () {}, click: function () {}
     };
   }
@@ -101,10 +103,28 @@
   root.Image = function () { this.naturalWidth = 0; this.naturalHeight = 0; };
   root.URL = { createObjectURL: function () { return "blob:stub"; }, revokeObjectURL: function () {} };
   root.Blob = function (parts, opts) { this.parts = parts; this.type = opts && opts.type; };
+  root.FileReader = function () { this.result = ""; };
+  root.FileReader.prototype.readAsText = function () {};
+  // Clipboard API surface: off by default (exercises the download fallback);
+  // tests flip it on with __stub.setClipboard("available"). The stub's write()
+  // returns a synchronously-settling thenable so tests stay deterministic
+  // (no microtask flushing under jsc).
+  root.navigator = { clipboard: null };
+  root.ClipboardItem = function (o) { this.data = o; };
 
   root.__stub = {
     els: els,
     runInit: function () { documentStub._ready(); },
+    blob: null,            // fake canvas.toBlob result (null = failed)
+    clipboardCalls: [],    // ClipboardItem arrays passed to navigator.clipboard.write
+    setClipboard: function (mode) {
+      if (mode === "available")
+        root.navigator.clipboard = { write: function (items) {
+          root.__stub.clipboardCalls.push(items);
+          return { then: function (ok) { ok && ok(); return this; } };
+        } };
+      else root.navigator.clipboard = null;
+    },
     // Invoke event handlers registered on an element (for testing click wiring).
     dispatch: function (id, type, evt) {
       var x = els[id];

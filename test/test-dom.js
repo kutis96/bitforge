@@ -213,3 +213,72 @@ test("dom: atlas widens for slant spill and returns to plain width", function ()
   globalThis.__stub.dispatch("pv-italic", "change", {});
   assertEqual(els["atlas"].width, 16 * 8 * 5, "plain atlas width restored");
 });
+
+// ---------- chunk [L] interop: BDF + clipboard ----------
+
+test("dom: BDF import replaces the font and reports a toast", function () {
+  var app = globalThis.__stub.app;
+  var src = BF.makeFont(6, 4);
+  BF.setPixel(src, 0x41, 5, 3, 1);
+  BF.setPixel(src, 0x20, 0, 0, 1);
+  var before = app.state.font;
+  assert(app.importBdfText(BF.toBDF(src), "sample.bdf"), "import succeeds");
+  assert(app.state.font !== before, "font object replaced");
+  assertEqual(app.state.font.width, 6, "width from BW");
+  assertEqual(app.state.font.height, 4, "height from DH");
+  assertEqual(app.state.font.data[(0x41 * 4 + 3) * 6 + 5], 1, "ink pixel survived");
+  assertEqual(app.state.font.data[(0x20 * 4 + 0) * 6 + 0], 1, "second glyph ink pixel survived");
+  assert(app.getLastToast().indexOf("Imported 6\u00d74") === 0, "toast: " + app.getLastToast());
+  // import resets QA staleness state (fresh font)
+  assert(!app.qaStale() || app.qaStale() === undefined, "no crash on QA after import");
+});
+
+test("dom: BDF import of malformed text keeps the current font and toasts an error", function () {
+  var app = globalThis.__stub.app;
+  var before = app.state.font;
+  assertEqual(app.importBdfText("not a bdf at all"), false, "returns false");
+  assert(app.state.font === before, "font unchanged");
+  assert(app.getLastToast().indexOf("BDF:") !== -1, "error toast has the parser message: " + app.getLastToast());
+  assertEqual(app.importBdfText(""), false, "empty text is malformed");
+});
+
+test("dom: export BDF / Verilog smoke (download path runs under the stub)", function () {
+  var app = globalThis.__stub.app;
+  app.exportBdf(); // downloadText -> downloadBlob -> stub URL + anchor click; must not throw
+  assert(true, "no crash");
+});
+
+test("dom: glyphCanvas rasterizes at the requested scale", function () {
+  var app = globalThis.__stub.app;
+  var f = app.state.font;
+  var c = app.glyphCanvas(0x41, 16);
+  assertEqual(c.width, f.width * 16, "canvas width = glyph width * 16");
+  assertEqual(c.height, f.height * 16, "canvas height = glyph height * 16");
+});
+
+test("dom: copy glyph falls back to a download when the clipboard is unavailable", function () {
+  var app = globalThis.__stub.app;
+  var stub = globalThis.__stub;
+  stub.setClipboard("none");
+  stub.blob = { fake: true };
+  app.copyGlyph();
+  assert(app.getLastToast().indexOf("downloaded") !== -1, "fallback toast: " + app.getLastToast());
+  // rasterization failure toasts without crashing
+  stub.blob = null;
+  app.copyGlyph();
+  assert(app.getLastToast().indexOf("Could not rasterize") === 0, "rasterize-fail toast: " + app.getLastToast());
+});
+
+test("dom: copy glyph writes a PNG ClipboardItem when the clipboard is available", function () {
+  var app = globalThis.__stub.app;
+  var stub = globalThis.__stub;
+  stub.setClipboard("available");
+  stub.blob = { fake: true };
+  stub.clipboardCalls.length = 0;
+  app.copyGlyph();
+  assertEqual(stub.clipboardCalls.length, 1, "clipboard.write called once");
+  assert(stub.clipboardCalls[0][0] && stub.clipboardCalls[0][0].data["image/png"] === stub.blob, "PNG blob in the ClipboardItem");
+  assert(app.getLastToast().indexOf("Copied ") === 0, "success toast: " + app.getLastToast());
+  stub.blob = null;
+  stub.setClipboard("none"); // leave the stub in its default state
+});

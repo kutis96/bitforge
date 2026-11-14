@@ -43,8 +43,9 @@
   function printable(cp) { return (cp >= 0x20 && cp <= 0x7e) ? String.fromCharCode(cp) : ""; }
   function selLabel() { var c = state.selected, p = printable(c); return p ? hex2(c) + " · " + p : hex2(c); }
 
-  var toastTimer = null;
+  var toastTimer = null, lastToast = null;
   function toast(msg, isErr) {
+    lastToast = msg;
     el.toast.textContent = msg;
     el.toast.classList.toggle("error", !!isErr);
     el.toast.hidden = false;
@@ -807,6 +808,77 @@
     downloadText(BF.toVerilog(state.font), "bitforge-font.mem");
   }
 
+  // BDF import/export (DECISIONS #43). Import is text, not canvas — a
+  // different path from onPngFile. Status/guidelines start fresh on import
+  // because setFont() builds the font from parsed data only.
+  function onOpenBdfClick() { el.fileBdf.click(); }
+  function onBdfFile(evt) {
+    var file = evt.target.files && evt.target.files[0];
+    evt.target.value = "";
+    if (!file) return;
+    var done = function (text) { importBdfText(text, file.name); };
+    if (typeof file.text === "function") {
+      file.text().then(done, function () { toast("Could not read " + file.name, true); });
+    } else {
+      var r = new FileReader();
+      r.onload = function () { done(String(r.result)); };
+      r.onerror = function () { toast("Could not read " + file.name, true); };
+      r.readAsText(file);
+    }
+  }
+  // Returns true on success; toasts the error and returns false on malformed input.
+  function importBdfText(text, name) {
+    var p;
+    try { p = BF.parseBDF(text); }
+    catch (e) { toast(e.message || "BDF: malformed file", true); return false; }
+    var font = BF.makeFont(p.width, p.height);
+    var d = font.data;
+    for (var i = 0; i < d.length && i < p.data.length; i++) d[i] = p.data[i] ? 1 : 0;
+    setFont(font);
+    toast("Imported " + p.width + "\u00d7" + p.height + " font from BDF" + (name ? " (" + name + ")" : ""));
+    return true;
+  }
+
+  function exportBdf() {
+    downloadText(BF.toBDF(state.font), "bitforge-font.bdf");
+  }
+
+  // Copy glyph to clipboard (DECISIONS #44): PNG at 16 display px per glyph
+  // pixel, black ink on transparent background; download fallback when the
+  // clipboard API is unavailable (e.g. file:// without a secure context).
+  var COPY_SCALE = 16;
+  function glyphCanvas(code, scale) {
+    var f = state.font;
+    var c = document.createElement("canvas");
+    c.width = f.width * scale; c.height = f.height * scale;
+    var ctx = c.getContext("2d");
+    ctx.fillStyle = "#000";
+    for (var y = 0; y < f.height; y++)
+      for (var x = 0; x < f.width; x++)
+        if (BF.getPixel(f, code, x, y)) ctx.fillRect(x * scale, y * scale, scale, scale);
+    return c;
+  }
+  function copyGlyphToClipboard() {
+    var code = state.selected;
+    var name = "bitforge-glyph-" + hex2(code).replace("0x", "").toLowerCase() + ".png";
+    var c = glyphCanvas(code, COPY_SCALE);
+    c.toBlob(function (blob) {
+      if (!blob) { toast("Could not rasterize the glyph", true); return; }
+      var clip = (typeof navigator !== "undefined") ? navigator.clipboard : null;
+      if (clip && typeof clip.write === "function" && typeof ClipboardItem !== "undefined") {
+        clip.write([new ClipboardItem({ "image/png": blob })]).then(function () {
+          toast("Copied " + selLabel() + " to clipboard");
+        }, function () {
+          downloadBlob(blob, name);
+          toast("Clipboard write blocked \u2014 glyph downloaded as " + name, true);
+        });
+      } else {
+        downloadBlob(blob, name);
+        toast("Clipboard unavailable \u2014 glyph downloaded as " + name, true);
+      }
+    }, "image/png");
+  }
+
   function downloadBlob(blob, filename) {
     var url = URL.createObjectURL(blob);
     var a = document.createElement("a");
@@ -837,6 +909,8 @@
       dims: $("dims"),
       btnNew: $("btn-new"), btnOpen: $("btn-open"), filePng: $("file-png"),
       btnExportPng: $("btn-export-png"), btnExportVerilog: $("btn-export-verilog"),
+      btnOpenBdf: $("btn-open-bdf"), fileBdf: $("file-bdf"), btnExportBdf: $("btn-export-bdf"),
+      btnCopyGlyph: $("btn-copy-glyph"),
       chkPngTransparent: $("chk-png-transparent"),
       btnClear: $("btn-clear"), btnUndo: $("btn-undo"), btnRedo: $("btn-redo"),
       editor: $("editor"), editLabel: $("edit-label"),
@@ -860,6 +934,10 @@
     el.filePng.addEventListener("change", onPngFile);
     el.btnExportPng.addEventListener("click", exportPng);
     el.btnExportVerilog.addEventListener("click", exportVerilog);
+    el.btnOpenBdf.addEventListener("click", onOpenBdfClick);
+    el.fileBdf.addEventListener("change", onBdfFile);
+    el.btnExportBdf.addEventListener("click", exportBdf);
+    el.btnCopyGlyph.addEventListener("click", copyGlyphToClipboard);
 
     el.btnClear.addEventListener("click", function () {
       var code = state.selected;
@@ -989,7 +1067,10 @@
   // headless tests drive the shortcut registry, status and QA and inspect state.
   if (typeof globalThis !== "undefined" && globalThis.__stub)
     globalThis.__stub.app = { state: state, shortcuts: shortcuts, selectGlyph: selectGlyph, toggleKeysCard: toggleKeysCard,
-      setStatus: setStatus, qaRefresh: qaRefresh, qaRows: qaComputeRows, qaStale: qaStale, atlasCellAt: atlasCellAt };
+      setStatus: setStatus, qaRefresh: qaRefresh, qaRows: qaComputeRows, qaStale: qaStale, atlasCellAt: atlasCellAt,
+      importBdfText: importBdfText, exportBdf: exportBdf,
+      copyGlyph: copyGlyphToClipboard, glyphCanvas: glyphCanvas,
+      getLastToast: function () { return lastToast; } };
 
   if (typeof document !== "undefined") {
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

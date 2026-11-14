@@ -14,7 +14,7 @@
 - [x] **[H] Selector click-to-select** — click a mini-glyph in the left sidebar atlas to select it (user request); 1 new headless test via stub event dispatch
 - [x] **[J] Ergonomics update** (2026-11-14): keyboard nav, reference glyph, keyboard glyph shift, shortcut registry + reference card, inverted preview, atlas bold/slant, settings persistence — 65 tests
 - [x] **[K] QA update** (2026-11-14): glyph status (unfinished/WIP/done), QA tab with stale indicator, duplicate + "left to draw" checks — 77 tests
-- [ ] **[L] Interop** ← next: BDF import/export, copy glyph to clipboard
+- [x] **[L] Interop** (2026-11-14): BDF import/export (app wiring) + copy glyph to clipboard — 90 tests
 - [ ] **[I] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -86,8 +86,6 @@ User requested: clicking the left-sidebar atlas (mini-glyph grid) selects the gl
 - **New headless test** (`test-dom.js`): the DOM stub now records listeners per element and exposes `__stub.dispatch(id, type, evt)`; the test synthesizes clicks on three cells (0x21 printable, 0x00, 0xFF) and asserts the selection header updates. Total 46 tests.
 - Browser-verified by the user (guidelines + this, 2026-11-14).
 
-## Completed
-
 ### [J] Ergonomics update (`core.js` + `app.js` + `index.html` + `css/style.css`, 2026-11-14)
 - **J1 Navigation:** `BF.navigate(code, dir)` in `core.js` (left/right ±1, up/down ±16, **rowStart/rowEnd = col 0/15 of current row**, top/bottom, clamps). Wired via shortcuts. 5 tests.
 - **J2 Reference glyph:** Shift-click in the sidebar sets/clears `state.ref` (session-only); drawn as a gray underlay in the editor (`drawGlyphTo` gained `opts.color`); gray outline on the ref cell in the selector.
@@ -108,11 +106,14 @@ User requested: clicking the left-sidebar atlas (mini-glyph grid) selects the gl
 - Seam extended: `setStatus`, `qaRefresh`, `qaRows`, `qaStale`, `atlasCellAt` on `__stub.app`.
 - **Not yet done:** browser visual check (tints, menu placement, table look) — user to verify.
 
-## Plan — remaining chunks (decisions locked in DECISIONS #32–47)
+### [L] Interop (`core.js` + `app.js` + `index.html` + `test/`, 2026-11-14)
+- **L1 BDF import/export (app wiring):** the core `BF.parseBDF`/`BF.toBDF` (DECISIONS #43) landed first with 8 tests in `test/test-bdf.js`. Toolbar **Open BDF** (hidden `#file-bdf`, text read via `file.text()` with a `FileReader` fallback) → `importBdfText(text, name)`: `BF.parseBDF` → `BF.makeFont(w,h)` + data copy → `setFont()` (status/guidelines fresh) + toast; malformed ⇒ error toast with the parser message, current font untouched, returns `false`. **Export BDF** mirrors `exportVerilog`'s download pattern → `bitforge-font.bdf`.
+- **L2 Copy glyph to clipboard (DECISIONS #44):** toolbar **Copy glyph** → `glyphCanvas(code, 16)` (offscreen canvas, 16 display px per glyph px, black ink on transparent) → `toBlob` → PNG. `navigator.clipboard.write([new ClipboardItem({"image/png": blob})])` when available (success/failure toasts; a rejected write also falls back to a download); otherwise **PNG download fallback** (`bitforge-glyph-XX.png`) + explanatory toast (covers `file://`).
+- **Test seam/stub extensions:** seam gained `importBdfText`, `exportBdf`, `copyGlyph`, `glyphCanvas`, `getLastToast` (toast() now records `lastToast`). The DOM stub gained `navigator`/`ClipboardItem`/`FileReader` globals, a configurable `toBlob` (passes `__stub.blob || null`), and `__stub.setClipboard("available"|"none")` + `__stub.clipboardCalls` (synchronously-settling thenable — no reliance on jsc microtask flushing). See TESTING.md.
+- **6 new DOM tests** (BDF import success/malformed, export smoke, glyphCanvas size, clipboard fallback + rasterize-fail toast, clipboard success) → **total 90 tests.**
+- **Not yet done:** browser verification — BDF round-trip with a real file, clipboard copy, plus the still-unverified visuals from J & K (keys card layout, inverted preview look, atlas slant spacing, status tints, status menu placement, QA table look). The agent can't screenshot; the user verifies.
 
-### [L] Interop (next)
-- [ ] L1 BDF import (first face; `BW`/`DH` ⇒ W/H; malformed ⇒ error) + export (single face, 256 codes, hex rows, leftmost = MSB) (#43)
-- [ ] L2 Copy glyph to clipboard: PNG at 16×, transparent bg; download fallback; toast (#44)
+## Plan — remaining chunks (decisions locked in DECISIONS #32–47)
 
 ### [M] Deferred QA checks (documented, NOT to build without re-greenlight)
 - Edge-ink lint — only with per-glyph silencing (box-drawing chars touch edges by design) (#46)
@@ -121,7 +122,7 @@ User requested: clicking the left-sidebar atlas (mini-glyph grid) selects the gl
 ### [I] Polish (catch-all)
 Browser-verify the visuals and interactions (the agent can't screenshot). Likely small fixes: slant spill clipping, jump UX, preview wrap width, hover cursor on the editor, layout nits, guidelines visual polish (line thickness, colors).
 
-**Handover note for the next agent:** build J → K → L in order (K's status tints touch the atlas/selector renderers J also touches; L is independent). After each chunk: run `./test/run-tests.sh`, update this file's checkboxes + add a Completed section, commit. Pure-logic pieces (BDF parse/emit, duplicate detection, status counts, shift math) belong in `core.js` with tests; DOM wiring in `app.js`.
+**Handover note for the next agent:** A–L are done. Remaining: [M] deferred QA checks (**not to build without re-greenlight**) and [I] polish. After each chunk: run `./test/run-tests.sh`, update this file's checkboxes + add a Completed section, commit. Pure-logic pieces belong in `core.js` with tests; DOM wiring in `app.js`.
 
 **Fixed during review (user-reported):** editor click→cell mismatch + non-square cells. The canvas CSS size wasn't pinned, so flexbox stretched it to the panel and `getBoundingClientRect()` no longer matched the internal pixel size. Fix: `setCanvasSize()` pins `style.width/height` to the internal size; `.canvas-wrap canvas { flex: 0 0 auto }` stops the stretch; the wrapper scrolls instead. Now 1 internal px = 1 CSS px in all browsers. Regression-tested in `test-dom.js` (asserts CSS size == internal size).
 

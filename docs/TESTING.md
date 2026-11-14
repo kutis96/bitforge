@@ -103,3 +103,12 @@ Stub gotchas, learned the hard way:
 - **`querySelectorAll` returns fake element lists for the selectors `app.js` actually uses** (`.tab`, `.gadd button`). It used to return `[]` for everything, which silently skipped those wiring loops — that's how an infinite-loop bug in a guidelines loop shipped untested (the loop's index variable was wrong, but with zero elements the loop never ran). If you add a new `querySelectorAll` call in `app.js`, extend the stub so the loop actually executes.
 - **`run-tests.sh` has a 60 s watchdog** that kills `jsc` and fails the run if it hangs (exit 1). A hang almost always means an infinite loop in the code the stub now exercises.
 - The guidelines feature itself (presets, drag, lock, list UI) lives in the `app.js` closure and is **not** directly unit-testable headlessly — only covered by the `init()` smoke test plus browser verification.
+
+### Clipboard / file-I/O stubs (chunk [L])
+
+The stub also fakes the file/clipboard surface so the app's download and clipboard paths run headlessly:
+- `URL`, `Blob`, `FileReader`, `Image`, `navigator` (with `clipboard: null` by default), and `ClipboardItem` are provided as globals.
+- `canvas.toBlob(cb)` calls `cb(__stub.blob || null)` — by default `null` ("rasterization failed"); set `__stub.blob = {…}` to exercise the success path, and remember to reset it to `null` afterwards.
+- `__stub.setClipboard("available" | "none")` flips `navigator.clipboard`. In `"available"` mode `write(items)` records the items in `__stub.clipboardCalls` and returns a **synchronously-settling thenable** (the `ok` callback runs immediately) so tests stay deterministic — jsc microtask flushing at exit is not relied upon.
+- `app.js` records every toast in `lastToast`; the seam exposes `__stub.app.getLastToast()` for asserting toast messages (e.g. import success, clipboard fallback).
+- Seam additions from [L]: `importBdfText(text, name?)` (returns `true`/`false`), `exportBdf()`, `copyGlyph()`, `glyphCanvas(code, scale)`.

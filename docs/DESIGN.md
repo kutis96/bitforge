@@ -102,6 +102,12 @@ The code is split into two files: **`js/core.js`** (pure, DOM-free, exposes glob
 - The classic X11 bitmap-font text format; a second working format for importing existing fonts (e.g. 3270font derivatives) and for human-readable interchange.
 - **Import:** parse the **first face** of a standard single-face BDF (`FONT`, `SIZE`, `BW`, `DH`, `CHARS`, per-char `CODES` + `BITMAP`). W = `BW`, H = `DH`; error on malformed files. Extra faces are ignored. Glyph status/guidelines start fresh on import.
 - **Export:** one face, all 256 codes in order, standard fields; BITMAP rows are hex strings, leftmost pixel = MSB (BDF convention). Unlike Verilog, a BDF *may* carry comments — it's a text interchange format, not a ROM.
+- **Wiring:** toolbar **Open BDF** (file input, text read, `BF.parseBDF` → new font via `setFont` — status/guidelines reset) and **Export BDF** (`BF.toBDF` → `bitforge-font.bdf`). Malformed file ⇒ error toast, current font untouched.
+
+### Copy glyph to clipboard
+- Toolbar **Copy glyph**: rasterizes the *current* glyph to an offscreen canvas at **16 display px per glyph pixel**, black ink on **transparent** background, `toBlob` → PNG.
+- If `navigator.clipboard.write` + `ClipboardItem` are available, the PNG goes to the clipboard as an `image/png` `ClipboardItem`; success/failure toasts.
+- Otherwise (e.g. `file://` where the clipboard API is unavailable/blocked) it **falls back to a PNG download** (`bitforge-glyph-XX.png`) and says so in a toast.
 
 ## Rendering (high level)
 
