@@ -486,21 +486,9 @@
     }
   }
 
-  function drawPvGlyph() {
-    var f = state.font, c = el.pvGlyph, ctx = c.getContext("2d");
-    var s = state.scale, e = slantExtent();
-    var boldExtra = state.bold ? 1 : 0;
-    var pad = 1;
-    var wpx = f.width + (e.max + boldExtra) - e.min + pad * 2;
-    var hpx = f.height + pad * 2;
-    setCanvasSize(c, Math.ceil(wpx * s), Math.ceil(hpx * s));
-    ctx.fillStyle = bgColor(); ctx.fillRect(0, 0, c.width, c.height);
-    // faint outline of the nominal glyph cell
-    ctx.strokeStyle = state.inverted ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.18)"; ctx.lineWidth = 1;
-    ctx.strokeRect((pad - e.min) * s + 0.5, (pad) * s + 0.5, f.width * s - 1, f.height * s - 1);
-    drawGlyphTo(ctx, state.selected, (pad - e.min) * s, pad * s, s,
-      { bold: state.bold, italic: state.italic, baseline: state.baseline, color: inkColor() });
-  }
+  // (The single-glyph zoom canvas was removed in [I.6]; the selected glyph is
+  // already visible large in the Edit tab, and the text sample below covers
+  // bold/italic at any scale.)
 
   function drawPvText() {
     var f = state.font, c = el.pvTextCanvas, ctx = c.getContext("2d");
@@ -575,7 +563,6 @@
     renderGlyphStatus();
     drawSelector();
     drawEditor();
-    drawPvGlyph();
     drawPvText();
     drawAtlas();
   }
@@ -755,7 +742,6 @@
     updateSelHeader();
     drawSelector();
     drawEditor();
-    drawPvGlyph();
     renderGlyphStatus();
   }
 
@@ -927,13 +913,13 @@
   // controls, but they drive the SAME state as the Preview tab's. The setters
   // write state + settings, then syncRenderControls() pushes the values back
   // into both control sets so neither can show a stale checked/unchecked state.
-  function setBold(v) { state.bold = v; settingsSet("pvBold", v); syncRenderControls(); drawPvGlyph(); drawPvText(); drawAtlas(); }
-  function setItalic(v) { state.italic = v; settingsSet("pvItalic", v); syncRenderControls(); drawPvGlyph(); drawPvText(); drawAtlas(); }
-  function setInverted(v) { state.inverted = v; settingsSet("inverted", v); syncRenderControls(); drawPvGlyph(); drawPvText(); drawAtlas(); }
+  function setBold(v) { state.bold = v; settingsSet("pvBold", v); syncRenderControls(); drawPvText(); drawAtlas(); }
+  function setItalic(v) { state.italic = v; settingsSet("pvItalic", v); syncRenderControls(); drawPvText(); drawAtlas(); }
+  function setInverted(v) { state.inverted = v; settingsSet("inverted", v); syncRenderControls(); drawPvText(); drawAtlas(); }
   function setBaseline(v) {
     state.baseline = clamp(parseInt(v, 10), 0, state.font.height - 1);
     settingsSet("pvBaseline", state.baseline);
-    syncRenderControls(); drawPvGlyph(); drawPvText(); drawAtlas();
+    syncRenderControls(); drawPvText(); drawAtlas();
   }
   function syncRenderControls() {
     if (!el.pvBold || !state.font) return; // before init / before the first setFont
@@ -997,7 +983,7 @@
       pvScale: $("pv-scale"), pvBold: $("pv-bold"), pvItalic: $("pv-italic"), pvBaseline: $("pv-baseline"),
       pvInverted: $("pv-inverted"),
       atBold: $("at-bold"), atItalic: $("at-italic"), atBaseline: $("at-baseline"), atInverted: $("at-inverted"),
-      pvGlyph: $("pv-glyph"), pvText: $("pv-text"), pvTextCanvas: $("pv-text-canvas"),
+      pvText: $("pv-text"), pvTextCanvas: $("pv-text-canvas"),
       atlas: $("atlas"), toast: $("toast"),
       keysCard: $("keys-card"), keysList: $("keys-list"),
       btnKeys: $("btn-keys"), btnKeysClose: $("btn-keys-close"),
@@ -1111,7 +1097,7 @@
     el.pvScale.addEventListener("input", function () {
       state.scale = clamp(parseInt(this.value, 10) || 1, 1, 64);
       settingsSet("pvScale", state.scale);
-      drawPvGlyph(); drawPvText();
+      drawPvText();
     });
     function bindToggle(id, fn) { el[id].addEventListener("change", function () { fn(this.checked); }); }
     bindToggle("pvBold", setBold); bindToggle("atBold", setBold);

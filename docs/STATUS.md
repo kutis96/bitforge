@@ -20,6 +20,7 @@
 - [x] **[I.3] Edit-tab glyph status** (2026-11-14): `unf`/`wip`/`done` buttons in the Edit panel head — 99 tests
 - [x] **[I.4] Menu bar** (2026-11-14): desktop-style File/Edit dropdowns; PNG bg → remembered `pngBg` setting — 101 tests
 - [x] **[I.5] Atlas render controls** (2026-11-14): bold/italic/baseline/inverted duplicated on the Atlas tab (shared state, two-way sync) — 102 tests
+- [x] **[I.6] Preview layout** (2026-11-14): vertical stack, single-glyph zoom removed; Clear glyph gets a reddish outline — 102 tests
 - [ ] **[I] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -153,7 +154,14 @@ User request: the Atlas already honors bold/italic/baseline/inverted, but changi
 - **Bug found & fixed during the chunk:** a premature `syncRenderControls()` call at the end of `init()` (before `setFont`) crashed under the stub with `state.font` still null — 12 test failures immediately exposed it. Removed the call (`setFont` already syncs) and hardened the guard to `if (!el.pvBold || !state.font) return;`. This is why the headless DOM smoke test exists.
 - 1 new DOM test (both sync directions for checkbox + number input, incl. baseline clamping to font height). **Total 102 tests.**
 
-## Plan — remaining chunks (decisions locked in DECISIONS #32–52)
+### [I.6] Preview layout + destructive-action styling (`index.html` + `css/style.css` + `app.js`, 2026-11-14)
+User request: stack the markup input and its rendered sample vertically, and drop the single-glyph zoom ("maybe even remove it… it can already be previewed in other ways").
+- Preview panel is now just: controls row (scale/bold/italic/baseline/inverted) → `<textarea>` → rendered canvas (`.textcol` fills the panel). The `.preview-grid` two-column layout and the `#pv-glyph` canvas are gone.
+- **`drawPvGlyph()` deleted** along with all its call sites (redrawAll, selectGlyph, pv-scale, the four shared setters) — grep-verified no references remain. The Edit tab (large glyph + guides) and the text sample (bold/slant at any scale) cover the removed surface.
+- **Clear glyph** (Edit-tab button) gets `button.btn-danger`: a subtle reddish border/text to signal a destructive (but undoable) action.
+- No test-count change (layout/styling; the init smoke test still passes with the new structure). **Total 102 tests.**
+
+## Plan — remaining chunks (decisions locked in DECISIONS #32–53)
 
 ### [M] Deferred QA checks (documented, NOT to build without re-greenlight)
 - Edge-ink lint — only with per-glyph silencing (box-drawing chars touch edges by design) (#46)

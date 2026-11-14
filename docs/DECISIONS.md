@@ -84,6 +84,9 @@ Requirements and design decisions agreed with the user. **Treat these as fixed**
 ## Atlas render controls (chunk I.5)
 52. **Duplicate bold/italic/baseline/inverted on the Atlas tab** (user request, 2026-11-14): the Atlas already honors those settings but required switching to Preview to change them. The Atlas panel head gets its own four controls that drive the **same shared state and same settings entries** as Preview (no new settings keys). Shared setters (`setBold/setItalic/setInverted/setBaseline`) write state + settings, then `syncRenderControls()` pushes values back into **both** control sets, so switching tabs never shows a stale checkbox. Scale stays Preview-only (the atlas auto-scales).
 
+## Preview layout (chunk I.6)
+53. **Preview tab becomes a vertical stack** (user request, 2026-11-14): markup input on top, rendered sample below; the **single-glyph zoom canvas is removed** (`drawPvGlyph` gone) — the user leaned that way ("maybe even remove"): the Edit tab already shows the selected glyph large, and the text sample covers bold/slant at any scale (reverting is a small chunk if ever wanted). Scale stays (drives the text render). Also: **Clear glyph gets a subtle reddish outline** (`button.btn-danger`) per user request ("probably" — they noted it's undoable; remove the class if unwanted).
+
 ## Deferred
 46. **Edge-ink lint — deferred.** Build only with a per-glyph *silence* mechanism: box-drawing/pseudographic glyphs intentionally reach the cell edges, so a naive edge check is noise for this font's real content.
 47. **Guideline-violation report — deferred** until the QA infra (chunk K) is proven.

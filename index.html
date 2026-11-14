@@ -78,7 +78,7 @@
           </span>
           <button id="btn-undo" type="button" title="Undo (Ctrl/&#8984;+Z)">&#8592; Undo</button>
           <button id="btn-redo" type="button" title="Redo (Ctrl/&#8984;+Shift+Z)">&#8594; Redo</button>
-          <button id="btn-clear" type="button">Clear glyph</button>
+          <button id="btn-clear" type="button" class="btn-danger" title="Clear the current glyph (undoable)">Clear glyph</button>
         </div>
         <div id="guides" class="guides">
           <label class="glock" title="Lock all guidelines (locked = cannot drag to move)"><input type="checkbox" id="glock" checked> lock</label>
@@ -106,13 +106,10 @@
           <label>baseline <input id="pv-baseline" type="number" min="0" step="1" value="5"></label>
           <label title="Preview surfaces only (white on black); the editor stays black on white"><input id="pv-inverted" type="checkbox"> inverted</label>
         </div>
-        <div class="preview-grid">
-          <div class="canvas-wrap"><canvas id="pv-glyph"></canvas></div>
-          <div class="textcol">
-            <textarea id="pv-text" spellcheck="false"
-              placeholder="Type text…  *bold*  _italic_  \u41  \*  (markups nest; \ escapes: \* \_ \\)"></textarea>
-            <div class="canvas-wrap"><canvas id="pv-text-canvas"></canvas></div>
-          </div>
+        <div class="textcol">
+          <textarea id="pv-text" spellcheck="false"
+            placeholder="Type text…  *bold*  _italic_  \u41  \*  (markups nest; \ escapes: \* \_ \\)"></textarea>
+          <div class="canvas-wrap"><canvas id="pv-text-canvas"></canvas></div>
         </div>
       </div>
 
