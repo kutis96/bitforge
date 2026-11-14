@@ -12,20 +12,37 @@
 - [x] **[F] DOM layer** — `index.html` + `css/style.css` + `js/app.js` (45 tests incl. 2 DOM smoke)
 - [x] **[G] Editor guidelines** — per-font H/V guides in the editor (preset add, drag, lock, list); test count unchanged (DOM-only, smoke-covered)
 - [x] **[H] Selector click-to-select** — click a mini-glyph in the left sidebar atlas to select it (user request); 1 new headless test via stub event dispatch
-- [x] **[J] Ergonomics update** (2026-11-14): keyboard nav, reference glyph, keyboard glyph shift, shortcut registry + reference card, inverted preview, atlas bold/slant, settings persistence — 65 tests
-- [x] **[K] QA update** (2026-11-14): glyph status (unfinished/WIP/done), QA tab with stale indicator, duplicate + "left to draw" checks — 77 tests
-- [x] **[L] Interop** (2026-11-14): BDF import/export (app wiring) + copy glyph to clipboard — 90 tests
-- [x] **[I.1] File-op & tab shortcuts** (2026-11-14): Alt/Ctrl file-op + E/P/A/Q/Ctrl+Q shortcuts, registry-based, input-suppressed — 93 tests
-- [x] **[I.2] Preview markup escapes** (2026-11-14): `\*` `\_` `\\` backslash escapes in the preview text — 98 tests
-- [x] **[I.3] Edit-tab glyph status** (2026-11-14): `unf`/`wip`/`done` buttons in the Edit panel head — 99 tests
-- [x] **[I.4] Menu bar** (2026-11-14): desktop-style File/Edit dropdowns; PNG bg → remembered `pngBg` setting — 101 tests
-- [x] **[I.5] Atlas render controls** (2026-11-14): bold/italic/baseline/inverted duplicated on the Atlas tab (shared state, two-way sync) — 102 tests
-- [x] **[I.6] Preview layout** (2026-11-14): vertical stack, single-glyph zoom removed; Clear glyph gets a reddish outline — 102 tests
-- [x] **[I.7] Status pumping shortcuts** (2026-11-14): `D` cycle status, `Shift+D` done + next — 103 tests
-- [x] **[I.8] About menu + modal** (2026-11-14): live font info, About modal, W/H corner indicator removed; fixed the menu-item mousedown bug — 105 tests
-- [ ] **[I] polish** — catch-all (edge cases, cosmetic)
+- [x] **[I] Ergonomics update** (2026-11-14): keyboard nav, reference glyph, keyboard glyph shift, shortcut registry + reference card, inverted preview, atlas bold/slant, settings persistence — 65 tests
+- [x] **[J] QA update** (2026-11-14): glyph status (unfinished/WIP/done), QA tab with stale indicator, duplicate + "left to draw" checks — 77 tests
+- [x] **[K] Interop** (2026-11-14): BDF import/export (app wiring) + copy glyph to clipboard — 90 tests
+- [x] **[L.1] File-op & tab shortcuts** (2026-11-14): Alt/Ctrl file-op + E/P/A/Q/Ctrl+Q shortcuts, registry-based, input-suppressed — 93 tests
+- [x] **[L.2] Preview markup escapes** (2026-11-14): `\*` `\_` `\\` backslash escapes in the preview text — 98 tests
+- [x] **[L.3] Edit-tab glyph status** (2026-11-14): `unf`/`wip`/`done` buttons in the Edit panel head — 99 tests
+- [x] **[L.4] Menu bar** (2026-11-14): desktop-style File/Edit dropdowns; PNG bg → remembered `pngBg` setting — 101 tests
+- [x] **[L.5] Atlas render controls** (2026-11-14): bold/italic/baseline/inverted duplicated on the Atlas tab (shared state, two-way sync) — 102 tests
+- [x] **[L.6] Preview layout** (2026-11-14): vertical stack, single-glyph zoom removed; Clear glyph gets a reddish outline — 102 tests
+- [x] **[L.7] Status pumping shortcuts** (2026-11-14): `D` cycle status, `Shift+D` done + next — 103 tests
+- [x] **[L.8] About menu + modal** (2026-11-14): live font info, About modal, W/H corner indicator removed; fixed the menu-item mousedown bug — 105 tests
+- [x] **[M] About contents + versioning** (2026-11-15): "bitmap font editor" naming, FPGA framing dropped, credit line, `BF.VERSION` 0.13.0, chunk letters normalized — 106 tests
+- [ ] **[N] Deferred QA checks** (see Plan; **not to build without re-greenlight**)
+- [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
+
+## Versions
+
+`BF.VERSION` in `js/core.js` — shown in the About modal head and the browser tab. Bump rule ([DECISIONS.md #56](DECISIONS.md)): **0.MINOR.PATCH** — MINOR = the chunk's position (1-indexed) in the Current-state list above; PATCH = 0 for a single chunk, the sub-index for a wave. Bump in the same commit as the chunk; a headless test pins the exact value.
+
+| Version | Chunk |
+|---------|-------|
+| 0.1.0 – 0.8.0 | [A]–[H]: model · verilog · markup · slant · ink · DOM · guidelines · selector |
+| 0.9.0 | [I] Ergonomics |
+| 0.10.0 | [J] QA |
+| 0.11.0 | [K] Interop |
+| 0.12.1 – 0.12.8 | [L.1]–[L.8]: shortcuts · escapes · status buttons · menu bar · atlas controls · preview layout · pumping · About |
+| **0.13.0** (current) | [M] About contents + versioning |
+
+**Lettering note (2026-11-15, chunk M):** chunk letters drifted at some point (the I-wave landed after L); they now follow list position. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Git commit subjects still use the old letters.
 
 ## Verify work (no browser needed for pure logic)
 
@@ -94,82 +111,82 @@ User requested: clicking the left-sidebar atlas (mini-glyph grid) selects the gl
 - **New headless test** (`test-dom.js`): the DOM stub now records listeners per element and exposes `__stub.dispatch(id, type, evt)`; the test synthesizes clicks on three cells (0x21 printable, 0x00, 0xFF) and asserts the selection header updates. Total 46 tests.
 - Browser-verified by the user (guidelines + this, 2026-11-14).
 
-### [J] Ergonomics update (`core.js` + `app.js` + `index.html` + `css/style.css`, 2026-11-14)
-- **J1 Navigation:** `BF.navigate(code, dir)` in `core.js` (left/right ±1, up/down ±16, **rowStart/rowEnd = col 0/15 of current row**, top/bottom, clamps). Wired via shortcuts. 5 tests.
-- **J2 Reference glyph:** Shift-click in the sidebar sets/clears `state.ref` (session-only); drawn as a gray underlay in the editor (`drawGlyphTo` gained `opts.color`); gray outline on the ref cell in the selector.
-- **J3 Glyph shift:** `BF.shiftGlyph(font, code, dx, dy)` in `core.js` (clips out-of-bounds ink, returns `{clipped, changed}`); `Ctrl/⌘+arrows`; one undo step; toast when ink is clipped. 7 tests.
-- **J4 Shortcut registry:** `shortcuts.register({combo, description, handler})` in `app.js`; one global keydown dispatcher (suppressed while an input/textarea has focus; `⌘` = Ctrl; `?` works despite needing Shift). The **reference card** (toolbar `?` button or `?` key) renders from the registry — no drift. All 16 bindings (8 nav + 4 shift + 3 undo/redo + 1 card) registered; old raw keydown removed.
-- **J5 Inverted preview:** `pv-inverted` checkbox; `inkColor()`/`bgColor()` helpers; preview glyph/text/atlas surfaces flip to white-on-black; editor + sidebar untouched.
-- **J6 Atlas effects:** atlas renders with the current bold/italic/baseline; column spacing `+maxSlant/bold` while on, left pad so left-spill isn't clipped (regression-tested: slanted atlas width).
-- **J7 Settings API:** `settingsGet/settingsSet` + `settingsDefaults` table over `bitforge.settings.v1` (type-checked on load, corrupted ⇒ defaults). Persists pvText/pvScale/pvBold/pvItalic/pvBaseline/inverted; controls wired through it. **Rule: new persistable value ⇒ defaults table + API.**
+### [I] Ergonomics update (`core.js` + `app.js` + `index.html` + `css/style.css`, 2026-11-14)
+- **I1 Navigation:** `BF.navigate(code, dir)` in `core.js` (left/right ±1, up/down ±16, **rowStart/rowEnd = col 0/15 of current row**, top/bottom, clamps). Wired via shortcuts. 5 tests.
+- **I2 Reference glyph:** Shift-click in the sidebar sets/clears `state.ref` (session-only); drawn as a gray underlay in the editor (`drawGlyphTo` gained `opts.color`); gray outline on the ref cell in the selector.
+- **I3 Glyph shift:** `BF.shiftGlyph(font, code, dx, dy)` in `core.js` (clips out-of-bounds ink, returns `{clipped, changed}`); `Ctrl/⌘+arrows`; one undo step; toast when ink is clipped. 7 tests.
+- **I4 Shortcut registry:** `shortcuts.register({combo, description, handler})` in `app.js`; one global keydown dispatcher (suppressed while an input/textarea has focus; `⌘` = Ctrl; `?` works despite needing Shift). The **reference card** (toolbar `?` button or `?` key) renders from the registry — no drift. All 16 bindings (8 nav + 4 shift + 3 undo/redo + 1 card) registered; old raw keydown removed.
+- **I5 Inverted preview:** `pv-inverted` checkbox; `inkColor()`/`bgColor()` helpers; preview glyph/text/atlas surfaces flip to white-on-black; editor + sidebar untouched.
+- **I6 Atlas effects:** atlas renders with the current bold/italic/baseline; column spacing `+maxSlant/bold` while on, left pad so left-spill isn't clipped (regression-tested: slanted atlas width).
+- **I7 Settings API:** `settingsGet/settingsSet` + `settingsDefaults` table over `bitforge.settings.v1` (type-checked on load, corrupted ⇒ defaults). Persists pvText/pvScale/pvBold/pvItalic/pvBaseline/inverted; controls wired through it. **Rule: new persistable value ⇒ defaults table + API.**
 - **Test seam:** `__stub.app = { state, shortcuts, selectGlyph, toggleKeysCard }` (only under the jsc stub) — 7 new headless DOM tests drive the registry and settings. **Total 65 tests.**
 - Stub gained a `clearTimeout`/`setTimeout` polyfill (jsc lacks them; `toast()` uses them).
 - **Not yet done:** browser visual check (card layout, inverted look, atlas spacing) — user to verify.
 
-### [K] QA update (`core.js` + `app.js` + `index.html` + `css/style.css`, 2026-11-14)
-- **K1 Status:** `Font.status` = `Uint8Array(256)` in `BF.makeFont`; persisted in the font blob under key `s` (sanitized on load: only 0/1/2, length 256); absent ⇒ unfinished. `setStatus(code, st)` coerces invalid values.
-- **K2 Assignment/display:** Atlas tab left-click selects (geometry-aware `atlasCellAt` using the last `drawAtlas` geo, incl. slanted pad/colW), **right-click opens a floating 3-choice status menu** (browser context menu suppressed). Tints: WIP `#ffe8dd`, unfinished `#eef4ff`, done = plain (dark variants `#3a2a22`/`#20293a` when inverted); atlas + sidebar selector.
-- **K3 QA tab (4th):** violations table + **Refresh checks** button + **stale badge**. `state.fontVersion` bumps on every mutation (stroke end, clear, shift, status change; reset per font via `setFont`); report stores its computed version; mismatch ⇒ badge. `qaReset()` on font swap clears the table to the placeholder.
-- **K4 Checks (registered data, `qaChecks`):** **duplicate glyphs** (`BF.findDuplicates` — identical-bitmap groups, all-empty group excluded, ink count reported) and **what's left to draw** (`BF.statusCounts` — summary row + one clickable row per unfinished/WIP glyph; clicking jumps to Edit). 9 new core tests + 3 new DOM tests. **Total 77 tests.**
+### [J] QA update (`core.js` + `app.js` + `index.html` + `css/style.css`, 2026-11-14)
+- **J1 Status:** `Font.status` = `Uint8Array(256)` in `BF.makeFont`; persisted in the font blob under key `s` (sanitized on load: only 0/1/2, length 256); absent ⇒ unfinished. `setStatus(code, st)` coerces invalid values.
+- **J2 Assignment/display:** Atlas tab left-click selects (geometry-aware `atlasCellAt` using the last `drawAtlas` geo, incl. slanted pad/colW), **right-click opens a floating 3-choice status menu** (browser context menu suppressed). Tints: WIP `#ffe8dd`, unfinished `#eef4ff`, done = plain (dark variants `#3a2a22`/`#20293a` when inverted); atlas + sidebar selector.
+- **J3 QA tab (4th):** violations table + **Refresh checks** button + **stale badge**. `state.fontVersion` bumps on every mutation (stroke end, clear, shift, status change; reset per font via `setFont`); report stores its computed version; mismatch ⇒ badge. `qaReset()` on font swap clears the table to the placeholder.
+- **J4 Checks (registered data, `qaChecks`):** **duplicate glyphs** (`BF.findDuplicates` — identical-bitmap groups, all-empty group excluded, ink count reported) and **what's left to draw** (`BF.statusCounts` — summary row + one clickable row per unfinished/WIP glyph; clicking jumps to Edit). 9 new core tests + 3 new DOM tests. **Total 77 tests.**
 - Seam extended: `setStatus`, `qaRefresh`, `qaRows`, `qaStale`, `atlasCellAt` on `__stub.app`.
 - **Not yet done:** browser visual check (tints, menu placement, table look) — user to verify.
 
-### [L] Interop (`core.js` + `app.js` + `index.html` + `test/`, 2026-11-14)
-- **L1 BDF import/export (app wiring):** the core `BF.parseBDF`/`BF.toBDF` (DECISIONS #43) landed first with 8 tests in `test/test-bdf.js`. Toolbar **Open BDF** (hidden `#file-bdf`, text read via `file.text()` with a `FileReader` fallback) → `importBdfText(text, name)`: `BF.parseBDF` → `BF.makeFont(w,h)` + data copy → `setFont()` (status/guidelines fresh) + toast; malformed ⇒ error toast with the parser message, current font untouched, returns `false`. **Export BDF** mirrors `exportVerilog`'s download pattern → `bitforge-font.bdf`.
-- **L2 Copy glyph to clipboard (DECISIONS #44):** toolbar **Copy glyph** → `glyphCanvas(code, 16)` (offscreen canvas, 16 display px per glyph px, black ink on transparent) → `toBlob` → PNG. `navigator.clipboard.write([new ClipboardItem({"image/png": blob})])` when available (success/failure toasts; a rejected write also falls back to a download); otherwise **PNG download fallback** (`bitforge-glyph-XX.png`) + explanatory toast (covers `file://`).
+### [K] Interop (`core.js` + `app.js` + `index.html` + `test/`, 2026-11-14)
+- **K1 BDF import/export (app wiring):** the core `BF.parseBDF`/`BF.toBDF` (DECISIONS #43) landed first with 8 tests in `test/test-bdf.js`. Toolbar **Open BDF** (hidden `#file-bdf`, text read via `file.text()` with a `FileReader` fallback) → `importBdfText(text, name)`: `BF.parseBDF` → `BF.makeFont(w,h)` + data copy → `setFont()` (status/guidelines fresh) + toast; malformed ⇒ error toast with the parser message, current font untouched, returns `false`. **Export BDF** mirrors `exportVerilog`'s download pattern → `bitforge-font.bdf`.
+- **K2 Copy glyph to clipboard (DECISIONS #44):** toolbar **Copy glyph** → `glyphCanvas(code, 16)` (offscreen canvas, 16 display px per glyph px, black ink on transparent) → `toBlob` → PNG. `navigator.clipboard.write([new ClipboardItem({"image/png": blob})])` when available (success/failure toasts; a rejected write also falls back to a download); otherwise **PNG download fallback** (`bitforge-glyph-XX.png`) + explanatory toast (covers `file://`).
 - **Test seam/stub extensions:** seam gained `importBdfText`, `exportBdf`, `copyGlyph`, `glyphCanvas`, `getLastToast` (toast() now records `lastToast`). The DOM stub gained `navigator`/`ClipboardItem`/`FileReader` globals, a configurable `toBlob` (passes `__stub.blob || null`), and `__stub.setClipboard("available"|"none")` + `__stub.clipboardCalls` (synchronously-settling thenable — no reliance on jsc microtask flushing). See TESTING.md.
 - **6 new DOM tests** (BDF import success/malformed, export smoke, glyphCanvas size, clipboard fallback + rasterize-fail toast, clipboard success) → **total 90 tests.**
-- **Not yet done:** browser verification — BDF round-trip with a real file, clipboard copy, plus the still-unverified visuals from J & K (keys card layout, inverted preview look, atlas slant spacing, status tints, status menu placement, QA table look). The agent can't screenshot; the user verifies.
+- **Not yet done:** browser verification — BDF round-trip with a real file, clipboard copy, plus the still-unverified visuals from I & J (keys card layout, inverted preview look, atlas slant spacing, status tints, status menu placement, QA table look). The agent can't screenshot; the user verifies.
 
-### [I.1] File-op & tab keyboard shortcuts (`app.js` + `test/`, 2026-11-14)
+### [L.1] File-op & tab keyboard shortcuts (`app.js` + `test/`, 2026-11-14)
 User-requested shortcuts for existing features (their list was a weak suggestion; tweaks documented in DECISIONS #48):
 - **Registered (11 new, registry total 27):** `Alt+N` new font · `Alt+O` open PNG · `Alt+Shift+O` open BDF · `Ctrl+S` export PNG · `Ctrl+Shift+S` export Verilog · `Alt+Shift+S` export BDF · `E/P/A/Q` show Edit/Preview/Atlas/QA tab · `Ctrl+Q` QA tab + run checks. **Ctrl+N / Ctrl+O became Alt** — the browser reserves them (new window / open file, uninterceptable). BDF shortcuts added for completeness.
 - **Registry extended for Alt:** `comboOf` now emits `Alt`/`Alt+Shift` prefixes and, for Alt+letter combos, normalizes the key from layout-independent `evt.code` (`KeyN` → `n`) — because macOS Option+N types `∩` into `evt.key`. The `?` reference card picks all of this up automatically (rendered from the registry).
 - **Input suppression** (the user's explicit concern: char-search typing must not trigger shortcuts) — already handled by the dispatcher's `document.activeElement` check; now *tested*: the DOM stub's `activeElement` is a settable property, and a test asserts `q`/`Ctrl+S` are ignored while an INPUT/TEXTAREA has focus and work again after.
-- **Tests:** 3 new (comboOf normalization, dispatch of all new bindings end-to-end, input suppression) + the chunk-J registry-count assertion updated 16 → 27. **Total 93 tests.**
+- **Tests:** 3 new (comboOf normalization, dispatch of all new bindings end-to-end, input suppression) + the chunk-I registry-count assertion updated 16 → 27. **Total 93 tests.**
 
-### [I.2] Preview markup backslash escapes (`core.js` + `test/` + `index.html`, 2026-11-14)
+### [L.2] Preview markup backslash escapes (`core.js` + `test/` + `index.html`, 2026-11-14)
 User request: be able to *type* `*` and `_` in the preview text without toggling formatting.
 - `BF.parseMarkup` (pure logic, `core.js` section [3]) now handles backslash escapes: `\*` → literal `*` (0x2A), `\_` → literal `_` (0x5F), `\\` → literal `\` (0x5C); `\uXX` unchanged. Unknown `\x` → literal `\` followed by `x` parsed normally — so a lone/trailing backslash stays a literal (the pre-existing behavior, regression-tested).
 - Escapes inherit the current bold/italic flags like any other glyph (e.g. `*\**` → one bold `*`).
 - 5 new tests in `test/test-markup.js`; the preview textarea placeholder now mentions the escapes. **Total 98 tests.**
 
-### [I.3] Edit-tab glyph status buttons (`app.js` + `index.html` + `css/style.css` + `test/`, 2026-11-14)
+### [L.3] Edit-tab glyph status buttons (`app.js` + `index.html` + `css/style.css` + `test/`, 2026-11-14)
 User request: mark the current glyph's status without leaving the Edit tab, for the mark-done-and-move-on workflow.
 - Compact `unf` / `wip` / `done` button group in the Edit panel head (`#glyph-status`); active state rendered as an inverted (black) button. Clicking marks the **current** glyph via the existing `setStatus()` — same code path as the Atlas-tab right-click menu, so persistence, tints, QA staleness and the buttons can't drift apart.
 - `renderGlyphStatus()` highlights the selected glyph's state; called from `setStatus`, `selectGlyph`, and `redrawAll` (covers font swap/import). Re-clicking the active state is a deliberate no-op (no font-version bump, so no false QA staleness).
 - **Stub improvement:** the DOM stub's `classList` now actually tracks classes (`toggle`/`add`/`remove`/`contains`) so tests can assert active states (it was a no-op before).
 - 1 new DOM test covering set-via-button, selection following, no-op click, and atlas-path sync. **Total 99 tests.**
 
-### [I.4] Menu bar (`index.html` + `css/style.css` + `app.js` + `test/`, 2026-11-14)
+### [L.4] Menu bar (`index.html` + `css/style.css` + `app.js` + `test/`, 2026-11-14)
 User request: a desktop-app-style menu bar instead of a row of toolbar buttons.
 - **File**: New font · Open PNG · Open BDF · **Export PNG (solid bg)** · **Export PNG (transparent bg)** · Export BDF · Export Verilog. **Edit**: Undo · Redo · Clear glyph · Copy glyph to clipboard. Menu items show their keyboard-shortcut hints (static text, matching the registry).
 - **Behavior:** click a title to open/toggle; hover another title while one is open to switch; outside `mousedown` or `Escape` closes; an item click runs its action and closes. Mouse-only by design (every action already has a keyboard shortcut; the two document-level close listeners are no-ops under the jsc stub — browser-verified).
 - **PNG background:** the toolbar checkbox is gone. `exportPng(bgMode?)` — the menu items pass `"solid"`/`"transparent"`, which is remembered via the settings API as **`pngBg`** (default `"solid"`, added to `settingsDefaults`); a bare call (**Ctrl+S**) exports with the remembered mode.
 - **Removed from the toolbar:** all per-action buttons + the checkbox; the hidden `#file-png`/`#file-bdf` inputs stay (file pickers). `clearGlyphAction()` extracted so the Edit-tab button and the Edit-menu item share one implementation. No new `querySelectorAll` (menus tracked in an `menuEls` array — stub stays unchanged).
-- **Tests:** 2 new DOM tests (open/switch/hover/toggle/item-click-closes with a real action; `pngBg` remembering incl. bare-call behavior) via `__stub.dispatch` on `mb-*`/`mi-*` elements (the stub's real `classList` tracking from [I.3] makes the assertions possible). Seam gained `exportPng`, `settingsGet`, `settingsSet`. **Total 101 tests.**
+- **Tests:** 2 new DOM tests (open/switch/hover/toggle/item-click-closes with a real action; `pngBg` remembering incl. bare-call behavior) via `__stub.dispatch` on `mb-*`/`mi-*` elements (the stub's real `classList` tracking from [L.3] makes the assertions possible). Seam gained `exportPng`, `settingsGet`, `settingsSet`. **Total 101 tests.**
 
-### [I.5] Atlas render controls (`index.html` + `app.js` + `test/`, 2026-11-14)
+### [L.5] Atlas render controls (`index.html` + `app.js` + `test/`, 2026-11-14)
 User request: the Atlas already honors bold/italic/baseline/inverted, but changing them required switching to Preview.
 - Atlas panel head gains its own **bold / italic / baseline / inverted** controls (`at-*` ids). They drive the **same state and same settings entries** as Preview (no new settings keys); scale stays Preview-only.
 - **Shared setters** `setBold/setItalic/setInverted/setBaseline` (write state + settings, redraw) + `syncRenderControls()` which pushes current values into **both** control sets — called from every setter, `setFont` (baseline `max` follows the font height), so neither set can show a stale value. The old inline pv-* handlers were replaced by these.
 - **Bug found & fixed during the chunk:** a premature `syncRenderControls()` call at the end of `init()` (before `setFont`) crashed under the stub with `state.font` still null — 12 test failures immediately exposed it. Removed the call (`setFont` already syncs) and hardened the guard to `if (!el.pvBold || !state.font) return;`. This is why the headless DOM smoke test exists.
 - 1 new DOM test (both sync directions for checkbox + number input, incl. baseline clamping to font height). **Total 102 tests.**
 
-### [I.6] Preview layout + destructive-action styling (`index.html` + `css/style.css` + `app.js`, 2026-11-14)
+### [L.6] Preview layout + destructive-action styling (`index.html` + `css/style.css` + `app.js`, 2026-11-14)
 User request: stack the markup input and its rendered sample vertically, and drop the single-glyph zoom ("maybe even remove it… it can already be previewed in other ways").
 - Preview panel is now just: controls row (scale/bold/italic/baseline/inverted) → `<textarea>` → rendered canvas (`.textcol` fills the panel). The `.preview-grid` two-column layout and the `#pv-glyph` canvas are gone.
 - **`drawPvGlyph()` deleted** along with all its call sites (redrawAll, selectGlyph, pv-scale, the four shared setters) — grep-verified no references remain. The Edit tab (large glyph + guides) and the text sample (bold/slant at any scale) cover the removed surface.
 - **Clear glyph** (Edit-tab button) gets `button.btn-danger`: a subtle reddish border/text to signal a destructive (but undoable) action.
 - No test-count change (layout/styling; the init smoke test still passes with the new structure). **Total 102 tests.**
 
-### [I.7] Status pumping shortcuts (`app.js` + `index.html` + `test/`, 2026-11-14)
+### [L.7] Status pumping shortcuts (`app.js` + `index.html` + `test/`, 2026-11-14)
 User request (suggested key scheme, tweaks OK): cycle the selected glyph's status, and a Shift variant that marks done + advances — for pumping a large batch of glyphs.
 - **`D`** = `cycleStatusAction()` — cycles unf → wip → done → unf via `setStatus` (buttons/tints/QA staleness all follow). **`Shift+D`** = `doneNextAction()` — marks done (no-op if already done) then `selectGlyph(code+1)`, **clamped at 0xFF with a toast** (deliberate no-wrap: a pumping session must not jump back to 0x00).
 - Both registered in the shortcut registry (keys card shows them; registry total now **29**) and mirrored as Edit-menu items (**Cycle glyph status / Mark done & next**).
 - 1 new DOM test (full cycle wrap, done+advance, 0xFF clamp + toast, Edit-menu items, status buttons following). The registry-count assertion moved 27 → 29. **Total 103 tests.**
 
-### [I.8] About menu + modal, W/H indicator removed (`index.html` + `css/style.css` + `app.js` + `test/`, 2026-11-14)
+### [L.8] About menu + modal, W/H indicator removed (`index.html` + `css/style.css` + `app.js` + `test/`, 2026-11-14)
 User request: drop the `W:8 H:16` corner readout (dims are obvious), add an About menu with the font info, and an About modal for app purpose/authorship.
 - **Removed:** `#dims` from the toolbar, `el.dims`, `updateDims()` + its call in `redrawAll`, the `#dims` CSS rule, and the init-test assertion on it.
 - **About menu** (third menu, after Edit): a non-interactive `.mi-info` line, re-rendered on **each open** by `renderAboutInfo()` (`W × H px · 256 glyphs · N ink px` + `done/wip/unfinished` counts via `BF.statusCounts`/`BF.inkCount` — the dims info effectively moved here), plus an **About bitforge…** item.
@@ -178,16 +195,24 @@ User request: drop the `W:8 H:16` corner readout (dims are obvious), add an Abou
 - 1 new DOM test (info content incl. live dims/ink/status, menu→modal flow, × close) + the dims assertion removed from the init test.
 - **Browser-verified bug found & fixed (user report, 2026-11-14): every menu item was dead in the real browser.** The outside-close handler was a `document` *mousedown* listener whose "inside" check only knew the menu container and title — a mousedown on an **item** closed the menu before the item's `click` could fire, and the browser swallows the click when the element is hidden between mousedown and mouseup. Symptom: clicking "About bitforge…" (or any item) did nothing, no console error. The headless suite missed it because the stub ignored document-level listeners. Fix: `menuContains()` walks up from `e.target` via `parentElement`, so items count as inside; the stub now stores named document listeners and exposes `__stub.docDispatch(name, evt)` (tests set the target's `parentElement` chain by hand), and a regression test reproduces the real mousedown→(hidden)→click sequence. Escape/backdrop close paths are now testable through `docDispatch` too. **Total 105 tests.**
 
-## Plan — remaining chunks (decisions locked in DECISIONS #32–55)
+### [M] About contents + versioning; chunk letters normalized (`core.js` + `index.html` + `app.js` + `test/` + `docs/`, 2026-11-15)
+User requests: (1) flesh out the About modal — drop the FPGA-terminal framing, credit the design (spacecat) vs the coding (Qwen 3.8 in the Bionic harness) properly; (2) a visible version number (0.x.y, assigned retrospectively from the Current-state list); (3) clean up the drifted chunk letters ("just change the reference letters").
+- **Versioning (DECISIONS #56):** `BF.VERSION = "0.13.0"` in `core.js` (new `BF` export) — 0.MINOR.PATCH, MINOR = position in the Current-state list, PATCH = wave sub-index; the retrospective table is in the Versions section above. Stamped at init into `#about-title` (modal head) and `document.title`. A new headless test pins the exact value (format + 0.13.0), so a silent bump fails the suite.
+- **About modal (DECISIONS #57):** purpose is now "a **bitmap font editor** for fixed-size, zero-spacing, non-proportional monospaced fonts — 256 glyphs per face, cell size of your choosing (default 8×16)" — FPGA framing gone from all user-facing text (README updated to match; its stale "45 tests" count → 106). Credit line per the user's pick (variant A): "Designed by spacecat · Coded by Qwen 3.8 (Bionic harness) · vanilla JS, zero dependencies, runs straight from file://". If the harness model ever changes, update the name in the modal — the role framing is the durable part.
+- **Letter normalization (DECISIONS #58):** this file, DECISIONS.md, TESTING.md and one `app.js` comment re-lettered J→I, K→J, L→K, I.x→L.x; the open items are now [N] deferred QA and [O] polish (the checklist lists both, keeping the list the single source of positions). Prose untouched — reference letters only; old letters remain in git commit subjects.
+- 1 new headless test (version pin + modal head + tab title). **Total 106 tests.**
+- **Browser-verify (user):** modal text/credit, tab title, no visual regressions.
 
-### [M] Deferred QA checks (documented, NOT to build without re-greenlight)
+## Plan — remaining chunks (decisions locked in DECISIONS #32–58)
+
+### [N] Deferred QA checks (documented, NOT to build without re-greenlight)
 - Edge-ink lint — only with per-glyph silencing (box-drawing chars touch edges by design) (#46)
 - Guideline-violation report — after QA infra proven (#47)
 
-### [I] Polish (catch-all)
+### [O] Polish (catch-all)
 Browser-verify the visuals and interactions (the agent can't screenshot). Likely small fixes: slant spill clipping, jump UX, preview wrap width, hover cursor on the editor, layout nits, guidelines visual polish (line thickness, colors).
 
-**Handover note for the next agent:** A–L are done. Remaining: [M] deferred QA checks (**not to build without re-greenlight**) and [I] polish. After each chunk: run `./test/run-tests.sh`, update this file's checkboxes + add a Completed section, commit. Pure-logic pieces belong in `core.js` with tests; DOM wiring in `app.js`.
+**Handover note for the next agent:** A–M are done. Remaining: [N] deferred QA checks (**not to build without re-greenlight**) and [O] polish. After each chunk: run `./test/run-tests.sh`, update this file's checkboxes + add a Completed section, commit. Pure-logic pieces belong in `core.js` with tests; DOM wiring in `app.js`.
 
 **Fixed during review (user-reported):** editor click→cell mismatch + non-square cells. The canvas CSS size wasn't pinned, so flexbox stretched it to the panel and `getBoundingClientRect()` no longer matched the internal pixel size. Fix: `setCanvasSize()` pins `style.width/height` to the internal size; `.canvas-wrap canvas { flex: 0 0 auto }` stops the stretch; the wrapper scrolls instead. Now 1 internal px = 1 CSS px in all browsers. Regression-tested in `test-dom.js` (asserts CSS size == internal size).
 

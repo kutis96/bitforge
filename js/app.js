@@ -498,7 +498,7 @@
     }
   }
 
-  // (The single-glyph zoom canvas was removed in [I.6]; the selected glyph is
+  // (The single-glyph zoom canvas was removed in [L.6]; the selected glyph is
   // already visible large in the Edit tab, and the text sample below covers
   // bold/italic at any scale.)
 
@@ -988,7 +988,7 @@
       menuFile: $("menu-file"), menuEdit: $("menu-edit"), menuAbout: $("menu-about"),
       mbFile: $("mb-file"), mbEdit: $("mb-edit"), mbAbout: $("mb-about"),
       aboutFontInfo: $("about-font-info"), miAboutBitforge: $("mi-about-bitforge"),
-      aboutModal: $("about-modal"), aboutClose: $("about-close"),
+      aboutTitle: $("about-title"), aboutModal: $("about-modal"), aboutClose: $("about-close"),
       miNew: $("mi-new"), miOpenPng: $("mi-open-png"), miOpenBdf: $("mi-open-bdf"),
       miExportPngSolid: $("mi-export-png-solid"), miExportPngTransparent: $("mi-export-png-transparent"),
       miExportBdf: $("mi-export-bdf"), miExportVerilog: $("mi-export-verilog"),
@@ -1008,6 +1008,11 @@
       qaRefresh: $("btn-qa-refresh"), qaBadge: $("qa-badge"), qaTable: $("qa-table"),
       qaTbody: $("qa-tbody"), qaEmpty: $("qa-empty")
     };
+
+    // Version stamp (DECISIONS #56): modal head + browser tab, from the single
+    // BF.VERSION source in core.js.
+    el.aboutTitle.textContent = "bitforge " + BF.VERSION;
+    document.title = "bitforge " + BF.VERSION;
 
     var tabs = document.querySelectorAll(".tab");
     for (var i = 0; i < tabs.length; i++)

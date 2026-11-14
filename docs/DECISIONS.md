@@ -49,7 +49,7 @@ Requirements and design decisions agreed with the user. **Treat these as fixed**
 30. **Hard to move/remove by accident:** a global **lock is ON by default** (dragging disabled; pixel editing unaffected). Guides are added via preset buttons (ascender / cap / x-height / baseline / descender / left / right / free H / free V), moved by dragging when unlocked (hover shows a resize cursor), and removed via the `×` on their chip in the live list.
 31. Preset default offsets are computed from W/H (e.g. baseline = `H-3`, descender = `H-1`, x-height = `round(H*0.40)`); exact values/colors live in `GUIDE_PRESETS` in `js/app.js` and are tunable.
 
-## Ergonomics (chunk J)
+## Ergonomics (chunk I)
 32. **Keyboard glyph navigation:** `←/→` ±1 · `↑/↓` ±16 (atlas row) · **`Home/End` = start/end of the current 16-cell atlas row** (not the whole atlas — user spec) · `PgUp/PgDn` = 0x00/0xFF. All suppressed while a text input has focus.
 33. **Reference glyph:** Shift-click in the sidebar atlas sets it; Shift-click the same cell again clears it. Drawn as a **light-gray underlay** behind the active glyph in the editor (solid gray; diagonal hatching is an acceptable substitute). **Session-only** (not persisted). Editor tab only.
 34. **Glyph shift is keyboard-only** (user: no button clutter for small ops): `Ctrl/⌘ + arrows` shift the current glyph's ink ±1px. Ink shifted out of bounds is **dropped**, with a toast if anything was lost. One undo step per shift.
@@ -57,45 +57,50 @@ Requirements and design decisions agreed with the user. **Treat these as fixed**
 36. **Inverted preview toggle:** white-on-black on the preview surfaces (glyph zoom, text sample, atlas) — how the font will look in a real terminal. Editor and sidebar stay black-on-white.
 37. **Atlas honors the current bold/slant state** (same state as Preview; no separate controls). Extra horizontal column spacing while slant is on, so spill stays legible.
 
-## QA (chunk K)
+## QA (chunk J)
 38. **Glyph status:** 3 states per glyph — `unfinished` (0, default) / `wip` (1) / `done` (2). Stored in `Font.status`, persisted with the font, **never exported**. Absent in old saves ⇒ all unfinished.
 39. **Status assignment & display:** in the Atlas tab, **left-click selects** a glyph, **right-click opens the 3-choice status menu** (left-click = select keeps navigation consistent with the sidebar). Tints: WIP = very light peach, unfinished = very light pastel blue, done = plain white; applied in the atlas and as a subtle tint in the sidebar selector.
 40. **Settings API for small persistable UI values:** `settings.get(key)` / `settings.set(key, value)` over a declared defaults table (one JSON blob). First persisted: preview text, scale, bold, italic, baseline, inverted. **No raw `localStorage` for settings.** The font blob stays on its own path (large data, own sanitizing). New persistable value ⇒ defaults table + API.
 41. **QA tab (4th tab):** violations table + **Refresh** button + **stale badge**. Staleness = monotonic font-version counter bumped on every font mutation (edit stroke end, clear, shift, status change, import, new font); a report stores the version it was computed at and is stale whenever they differ.
 42. **First QA checks:** (a) **duplicate glyphs** — codepoints with identical bitmaps, grouped; the all-empty group is excluded as pre-drawing noise; (b) **what's left to draw** — status counts (256 and printable 0x20–0x7E) + clickable list of unfinished/WIP glyphs that selects/jumps to the glyph. **Checks are registered `(font) → rows` functions** so later checks plug in without touching the table.
 
-## Interop (chunk L)
+## Interop (chunk K)
 43. **BDF import/export:** import the **first face** of a standard BDF (`BW`→W, `DH`→H; malformed ⇒ error; extra faces ignored; status/guidelines start fresh on import). Export: one face, all 256 codes, standard fields, hex BITMAP rows, leftmost pixel = MSB. BDF may carry comments (text interchange format; the no-comments rule is Verilog-only).
 44. **Copy glyph to clipboard:** current glyph rendered to PNG at **16× scale, transparent background**; `navigator.clipboard.write`, **falling back to a PNG download** where clipboard is unavailable (file:// caveats); toast the outcome.
 45. **Explicitly out:** hex Verilog export (binary only, #9), ROM size readout, pre-baked bold ROM — bold/italic are handled by the terminal's display logic, not extra ROM (user).
 
-## File-op & tab shortcuts (chunk I.1)
+## File-op & tab shortcuts (chunk L.1)
 48. **File-op + tab shortcuts** (user request, 2026-11-14; the user's suggested list was a weak suggestion, tweaks OK): `Alt+N` new font · `Alt+O` open PNG · `Alt+Shift+O` open BDF · `Ctrl+S` export PNG · `Ctrl+Shift+S` export Verilog · `Alt+Shift+S` export BDF · `E/P/A/Q` show Edit/Preview/Atlas/QA tab · `Ctrl+Q` QA tab + run checks. **Ctrl+N / Ctrl+O → Alt** because Chrome/Firefox reserve them (new window / open file — not interceptable); Ctrl+S and Ctrl+Shift+S *are* interceptable and kept. BDF shortcuts added for completeness (user can veto). All registered via the registry (#35) and suppressed while any input/textarea has focus (typing `e` in the char-search field must not switch tabs — tested). **macOS Option quirk:** Option+letter types an accented char in `evt.key` (Option+N → `∩`), so `comboOf` normalizes Alt+letter combos via layout-independent `evt.code` (`KeyN` → `n`).
 
-## Preview markup escapes (chunk I.2)
+## Preview markup escapes (chunk L.2)
 49. **Backslash escapes in preview markup** (user request, 2026-11-14): `\*` → literal `*`, `\_` → literal `_` (no formatting toggle), `\\` → literal backslash; `\uXX` unchanged; unknown `\x` → literal `\` then normal `x` (a lone/trailing backslash is always a literal — pre-existing behavior, kept). Implemented in `BF.parseMarkup` (core.js, DOM-free) with 5 new tests; placeholder text in the preview textarea updated.
 
-## Edit-tab glyph status (chunk I.3)
+## Edit-tab glyph status (chunk L.3)
 50. **Glyph status from the Edit tab** (user request, 2026-11-14): compact `unf` / `wip` / `done` button group in the Edit panel head; clicking marks the *current* glyph (same `setStatus()` as the Atlas-tab right-click menu — single code path, so QA staleness, persistence, atlas/selector tints and the buttons all stay in sync). The active state is highlighted (inverted button) and follows the selection. Re-clicking the already-active state is a no-op (no spurious font-version bump). Motivation: mark a glyph done and immediately move on to the next while punching out a series.
 
-## Menu bar (chunk I.4)
+## Menu bar (chunk L.4)
 51. **Desktop-style menu bar** (user request, 2026-11-14): top toolbar becomes **File** + **Edit** dropdowns. File: New · Open PNG · Open BDF · Export PNG (solid bg) · Export PNG (transparent bg) · Export BDF · Export Verilog. Edit: Undo · Redo · Clear glyph · Copy glyph to clipboard. Mouse-driven (click open/toggle, hover-switch while open, outside-mousedown/Escape close); items show shortcut hints; every action keeps its keyboard shortcut. The per-button toolbar (New/Open/Export…/Copy glyph) and the **transparent-bg checkbox are removed**; the PNG background becomes two File-menu items with the last-used mode remembered in the settings API (`pngBg`, default `solid`) — **Ctrl+S exports with the remembered mode** (a modal was rejected as overkill for one boolean; user delegated the choice).
 
-## Atlas render controls (chunk I.5)
+## Atlas render controls (chunk L.5)
 52. **Duplicate bold/italic/baseline/inverted on the Atlas tab** (user request, 2026-11-14): the Atlas already honors those settings but required switching to Preview to change them. The Atlas panel head gets its own four controls that drive the **same shared state and same settings entries** as Preview (no new settings keys). Shared setters (`setBold/setItalic/setInverted/setBaseline`) write state + settings, then `syncRenderControls()` pushes values back into **both** control sets, so switching tabs never shows a stale checkbox. Scale stays Preview-only (the atlas auto-scales).
 
-## Preview layout (chunk I.6)
+## Preview layout (chunk L.6)
 53. **Preview tab becomes a vertical stack** (user request, 2026-11-14): markup input on top, rendered sample below; the **single-glyph zoom canvas is removed** (`drawPvGlyph` gone) — the user leaned that way ("maybe even remove"): the Edit tab already shows the selected glyph large, and the text sample covers bold/slant at any scale (reverting is a small chunk if ever wanted). Scale stays (drives the text render). Also: **Clear glyph gets a subtle reddish outline** (`button.btn-danger`) per user request ("probably" — they noted it's undoable; remove the class if unwanted).
 
-## Status pumping shortcuts (chunk I.7)
+## Status pumping shortcuts (chunk L.7)
 54. **D / Shift+D** (user request, 2026-11-14, key choice was a suggestion): `D` cycles the *current* glyph's status (unfinished → wip → done → unfinished); `Shift+D` marks it **done** and selects the next glyph (clamped at 0xFF with a toast — no wrap, so a pumping session doesn't jump back to 0x00). Both go through `setStatus`/`selectGlyph` (buttons, tints, QA staleness all follow), are registered in the shortcut registry (keys card shows them), and are duplicated as **Edit-menu** items (Cycle glyph status / Mark done & next) for discoverability. Purpose: pump a large batch of glyphs — draw, Shift+D, draw, Shift+D.
 
-## About menu + modal (chunk I.8)
+## About menu + modal (chunk L.8)
 55. **About menu + modal; W/H corner indicator removed** (user request, 2026-11-14): the `W:8 H:16` readout in the top-right is gone (`updateDims`/`#dims` deleted) — font dimensions are "obvious enough" per the user. A third **About** menu holds a **live font-info line** (re-rendered on each open: `W × H px · 256 glyphs · N ink px` / `done D · wip W · unfinished U`, from `BF.statusCounts` + `BF.inkCount`) and an **About bitforge…** item that opens a centered modal (purpose + "Built by spacecat · vanilla JS, zero dependencies, runs straight from file://"). Modal closes via ×, backdrop mousedown, or Escape. Note the CSS gotcha handled: `.modal-backdrop[hidden] { display: none }` is required because the backdrop's own `display: flex` would otherwise override the UA hidden rule.
+
+## About contents & versioning (chunk M)
+56. **Versioning** (user request, 2026-11-14): a single `BF.VERSION` constant in `js/core.js` (DOM-free, exported on `BF`, pinned by a headless test). Format **`0.MINOR.PATCH`** — MINOR = the chunk's position (1-indexed) in the STATUS.md "Current state" list; PATCH = 0 for a single chunk, the sub-index for a wave (chunk L.3 shipped `0.12.3`). Bump the constant **in the same commit as the chunk** (and update the pinning test). Shown in the About modal head and `document.title`. MAJOR stays 0 until a "release"; reserved for breaking export-format changes.
+57. **About modal contents** (user pick, 2026-11-14): bitforge is a **bitmap font editor** (not a "font ROM editor") for fixed-size, zero-spacing, non-proportional monospaced fonts — 256 glyphs per face, cell size of your choosing (default 8×16). The **FPGA-based-text-terminal framing is dropped** from all user-facing descriptions (that is one use case, not the definition). Credit line (variant A, user's pick): "Designed by spacecat · Coded by Qwen 3.8 (Bionic harness) · vanilla JS, zero dependencies, runs straight from file://". Maintenance note for future agents: if the harness's model changes, update the model name in the modal — the role framing (LLM agent in the Bionic harness, on the user's hardware) is the durable part.
+58. **Chunk-letter normalization** (user request, 2026-11-14): chunk letters drifted (the I-wave landed after L); they now follow position in the STATUS.md list. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Old letters still appear in git commit subjects and in the historical Completed sections' dates/content (those describe what shipped under the old name). The lettering note in STATUS.md is the crosswalk.
 
 ## Deferred
 46. **Edge-ink lint — deferred.** Build only with a per-glyph *silence* mechanism: box-drawing/pseudographic glyphs intentionally reach the cell edges, so a naive edge check is noise for this font's real content.
-47. **Guideline-violation report — deferred** until the QA infra (chunk K) is proven.
+47. **Guideline-violation report — deferred** until the QA infra (chunk J) is proven.
 
 ## Deferred / finalize in implementation
 - Exact slant offset-per-row formula (contract in #11).

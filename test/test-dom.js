@@ -216,7 +216,7 @@ test("dom: atlas widens for slant spill and returns to plain width", function ()
   assertEqual(els["atlas"].width, 16 * 8 * 5, "plain atlas width restored");
 });
 
-// ---------- chunk [L] interop: BDF + clipboard ----------
+// ---------- chunk [K] interop: BDF + clipboard ----------
 
 test("dom: BDF import replaces the font and reports a toast", function () {
   var app = globalThis.__stub.app;
@@ -521,4 +521,12 @@ test("dom: mousedown on a menu item must NOT close the menu (real-browser click 
   stub.dispatch("mb-edit", "click", {});
   stub.docDispatch("keydown", { key: "Escape" });
   assert(!els["menu-edit"].classList.contains("open"), "Escape closes the menu");
+});
+
+test("dom: About modal head + browser tab show the app version (DECISIONS #56)", function () {
+  assert(/^\d+\.\d+\.\d+$/.test(BF.VERSION), "BF.VERSION is semver-ish: " + BF.VERSION);
+  assertEqual(BF.VERSION, "0.13.0", "pinned version — bump this test when you bump the app");
+  var els = globalThis.__stub.els;
+  assertEqual(els["about-title"].textContent, "bitforge " + BF.VERSION, "modal head shows name + version");
+  assertEqual(document.title, "bitforge " + BF.VERSION, "browser tab shows name + version");
 });

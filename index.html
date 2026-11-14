@@ -155,11 +155,11 @@
 
   <div id="about-modal" class="modal-backdrop" hidden>
     <div class="modal" role="dialog" aria-modal="true" aria-label="About bitforge">
-      <div class="modal-head"><b>bitforge</b><button id="about-close" type="button" title="Close">&times;</button></div>
+      <div class="modal-head"><b id="about-title">bitforge</b><button id="about-close" type="button" title="Close">&times;</button></div>
       <div class="modal-body">
-        <p><b>bitforge</b> is a font ROM editor for fixed-size, zero-spacing, non-proportional <b>monospaced fonts</b> for <b>FPGA-based text terminals</b>.</p>
+        <p><b>bitforge</b> is a <b>bitmap font editor</b> for fixed-size, zero-spacing, non-proportional <b>monospaced fonts</b> &mdash; 256 glyphs per face, cell size of your choosing (default 8&times;16).</p>
         <p>Edit a 256-glyph bitmap font of any size (default 8&times;16), preview it with artificial bold and a cheap slant, track per-glyph status (unfinished / wip / done), run QA checks, and export a <b>PNG atlas</b>, <b>BDF</b>, or a <b>Verilog $readmemb</b> ROM.</p>
-        <p class="muted">Built by spacecat &middot; vanilla JS, zero dependencies, runs straight from file://</p>
+        <p class="muted" id="about-credit">Designed by spacecat &middot; Coded by Qwen 3.8 (Bionic harness) &middot; vanilla JS, zero dependencies, runs straight from file://</p>
       </div>
     </div>
   </div>

@@ -1,12 +1,12 @@
 # bitforge
 
-A font ROM editor for **fixed-size, monospaced bitmap fonts** targeting FPGA-based text terminals.
+A **bitmap font editor** for fixed-size, zero-spacing, non-proportional monospaced bitmap fonts — 256 glyphs, any cell size (default 8×16).
 
 Edit 256-character monospaced font atlases, preview glyphs with artificial bold / slant, and export to a PNG atlas and a Verilog `$readmemb` ROM file. Pure vanilla JS — no build, no dependencies. Open `index.html` in a browser and it runs.
 
 ## Status
 
-**Functionally complete (pending visual polish).** All logic is unit-tested (45 tests under `jsc`); the full UI is built in vanilla JS. Open `index.html` to use it. See [STATUS.md](STATUS.md).
+**Functionally complete (pending visual polish).** All logic is unit-tested (106 tests under `jsc`); the full UI is built in vanilla JS. Open `index.html` to use it. See [STATUS.md](STATUS.md).
 
 ## Documentation (handover)
 

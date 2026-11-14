@@ -20,6 +20,12 @@
   var NUM_GLYPHS = 256;
   var MAX_DIM = 1024; // hard cap (expected range ~1..64); keeps Uint8Array sane
 
+  /* App version (DECISIONS #56). 0.MINOR.PATCH: MINOR = the chunk's position
+   * (1-indexed) in the STATUS.md "Current state" list; PATCH = 0 for a single
+   * chunk, the sub-index for a wave (chunk L.3 shipped 0.12.3). Bump in the
+   * same commit as the chunk — a headless test pins the exact value. */
+  var VERSION = "0.13.0";
+
   /* ============================================================
    * [1] Font model
    * ============================================================ */
@@ -448,6 +454,7 @@
    * API
    * ============================================================ */
   var api = {
+    VERSION: VERSION,
     NUM_GLYPHS: NUM_GLYPHS,
     // model
     validateDims: validateDims,
