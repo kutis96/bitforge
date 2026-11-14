@@ -39,10 +39,17 @@
           <button type="button" id="mi-copy-glyph" title="Copy the current glyph as a PNG to the clipboard (16&times;, transparent background); downloads if the clipboard is unavailable">Copy glyph to clipboard</button>
         </div>
       </div>
+      <div class="menu" id="menu-about">
+        <button type="button" class="menu-btn" id="mb-about">About</button>
+        <div class="menu-items" id="mi-about">
+          <div class="mi-info" id="about-font-info">&mdash;</div>
+          <hr>
+          <button type="button" id="mi-about-bitforge">About bitforge&#8230;</button>
+        </div>
+      </div>
     </nav>
     <span class="spacer"></span>
     <button id="btn-keys" type="button" title="Keyboard shortcuts (?)">?</button>
-    <div id="dims" class="dims">W:8 H:16</div>
     <input id="file-png" type="file" accept="image/png" hidden>
     <input id="file-bdf" type="file" accept=".bdf,text/plain" hidden>
   </header>
@@ -145,6 +152,17 @@
       </div>
     </section>
   </main>
+
+  <div id="about-modal" class="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-label="About bitforge">
+      <div class="modal-head"><b>bitforge</b><button id="about-close" type="button" title="Close">&times;</button></div>
+      <div class="modal-body">
+        <p><b>bitforge</b> is a font ROM editor for fixed-size, zero-spacing, non-proportional <b>monospaced fonts</b> for <b>FPGA-based text terminals</b>.</p>
+        <p>Edit a 256-glyph bitmap font of any size (default 8&times;16), preview it with artificial bold and a cheap slant, track per-glyph status (unfinished / wip / done), run QA checks, and export a <b>PNG atlas</b>, <b>BDF</b>, or a <b>Verilog $readmemb</b> ROM.</p>
+        <p class="muted">Built by spacecat &middot; vanilla JS, zero dependencies, runs straight from file://</p>
+      </div>
+    </div>
+  </div>
 
   <div id="toast" class="toast" hidden></div>
 

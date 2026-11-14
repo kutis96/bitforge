@@ -90,6 +90,9 @@ Requirements and design decisions agreed with the user. **Treat these as fixed**
 ## Status pumping shortcuts (chunk I.7)
 54. **D / Shift+D** (user request, 2026-11-14, key choice was a suggestion): `D` cycles the *current* glyph's status (unfinished → wip → done → unfinished); `Shift+D` marks it **done** and selects the next glyph (clamped at 0xFF with a toast — no wrap, so a pumping session doesn't jump back to 0x00). Both go through `setStatus`/`selectGlyph` (buttons, tints, QA staleness all follow), are registered in the shortcut registry (keys card shows them), and are duplicated as **Edit-menu** items (Cycle glyph status / Mark done & next) for discoverability. Purpose: pump a large batch of glyphs — draw, Shift+D, draw, Shift+D.
 
+## About menu + modal (chunk I.8)
+55. **About menu + modal; W/H corner indicator removed** (user request, 2026-11-14): the `W:8 H:16` readout in the top-right is gone (`updateDims`/`#dims` deleted) — font dimensions are "obvious enough" per the user. A third **About** menu holds a **live font-info line** (re-rendered on each open: `W × H px · 256 glyphs · N ink px` / `done D · wip W · unfinished U`, from `BF.statusCounts` + `BF.inkCount`) and an **About bitforge…** item that opens a centered modal (purpose + "Built by spacecat · vanilla JS, zero dependencies, runs straight from file://"). Modal closes via ×, backdrop mousedown, or Escape. Note the CSS gotcha handled: `.modal-backdrop[hidden] { display: none }` is required because the backdrop's own `display: flex` would otherwise override the UA hidden rule.
+
 ## Deferred
 46. **Edge-ink lint — deferred.** Build only with a per-glyph *silence* mechanism: box-drawing/pseudographic glyphs intentionally reach the cell edges, so a naive edge check is noise for this font's real content.
 47. **Guideline-violation report — deferred** until the QA infra (chunk K) is proven.

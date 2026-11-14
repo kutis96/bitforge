@@ -12,7 +12,6 @@ test("dom: app.js init() runs without error and sizes canvases", function () {
   assertEqual(els["selector"].height, 256, "selector height");
   // atlas scale => floor(640/(16*8))=5
   assertEqual(els["atlas"].width, 16 * 8 * 5, "atlas width");
-  assertEqual(els["dims"].textContent, "W:8  H:16", "dims label");
   assertEqual(els["sel-header"].textContent, "0x00", "selected header (0x00 not printable)");
   assertEqual(els["edit-label"].textContent, "glyph 0x00", "edit label");
   // Regression: canvas CSS size must equal internal size (fixes click->cell desync).
@@ -479,4 +478,24 @@ test("dom: D cycles the glyph status; Shift+D marks done and advances", function
   stub.dispatch("mi-done-next", "click", {});
   assertEqual(app.state.font.status[0x52], 2, "menu item marks done");
   assertEqual(app.state.selected, 0x53, "menu item advances");
+});
+
+// ---------- About menu + modal (DECISIONS #55) ----------
+
+test("dom: About menu shows live font info; About modal opens and closes", function () {
+  var app = globalThis.__stub.app;
+  var els = globalThis.__stub.els;
+  var stub = globalThis.__stub;
+  stub.dispatch("mb-about", "click", {});
+  assert(els["menu-about"].classList.contains("open"), "About menu opens");
+  var info = els["about-font-info"].textContent;
+  assert(info.indexOf("256 glyphs") !== -1, "info mentions 256 glyphs: " + info);
+  assert(info.indexOf(app.state.font.width + " \u00d7 " + app.state.font.height) !== -1, "info shows the current font dims: " + info);
+  assert(info.indexOf("ink px") !== -1 && info.indexOf("done ") !== -1 && info.indexOf("wip ") !== -1,
+    "info shows ink + status counts: " + info);
+  stub.dispatch("mi-about-bitforge", "click", {});
+  assert(!els["menu-about"].classList.contains("open"), "menu closes after the item click");
+  assertEqual(els["about-modal"].hidden, false, "modal opens");
+  stub.dispatch("about-close", "click", {});
+  assertEqual(els["about-modal"].hidden, true, "the \u00d7 button closes the modal");
 });

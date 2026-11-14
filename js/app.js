@@ -571,7 +571,6 @@
 
   function redrawAll() {
     updateSelHeader();
-    updateDims();
     renderGlyphStatus();
     drawSelector();
     drawEditor();
@@ -581,9 +580,6 @@
   function updateSelHeader() {
     el.selHeader.textContent = selLabel();
     el.editLabel.textContent = "glyph " + selLabel();
-  }
-  function updateDims() {
-    el.dims.textContent = "W:" + state.font.width + "  H:" + state.font.height;
   }
 
   // ---------- guidelines (per-font, shared across glyphs) ----------
@@ -952,18 +948,25 @@
     for (var i = 0; i < menuEls.length; i++) menuEls[i].classList.remove("open");
     openMenu = null;
   }
-  function toggleMenu(m) {
-    if (openMenu === m) { closeMenus(); return; }
+  function showMenu(m) {
     closeMenus();
     m.classList.add("open");
     openMenu = m;
+    if (m === el.menuAbout) renderAboutInfo(); // fresh numbers each open
   }
-  function hoverMenu(m) {
-    if (!openMenu || openMenu === m) return;
-    openMenu.classList.remove("open");
-    m.classList.add("open");
-    openMenu = m;
+  function toggleMenu(m) { if (openMenu === m) closeMenus(); else showMenu(m); }
+  function hoverMenu(m) { if (openMenu !== m) showMenu(m); }
+
+  // About menu: live font info (dims moved here from the toolbar, DECISIONS #55).
+  function renderAboutInfo() {
+    var f = state.font, c = BF.statusCounts(f), ink = 0, code;
+    for (code = 0; code < BF.NUM_GLYPHS; code++) ink += BF.inkCount(f, code);
+    el.aboutFontInfo.textContent =
+      f.width + " \u00d7 " + f.height + " px \u00b7 256 glyphs \u00b7 " + ink + " ink px\n" +
+      "done " + c.all.done + " \u00b7 wip " + c.all.wip + " \u00b7 unfinished " + c.all.unfinished;
   }
+  function openAboutModal() { el.aboutModal.hidden = false; }
+  function closeAboutModal() { el.aboutModal.hidden = true; }
 
   // ---------- tabs ----------
   function setActiveTab(name) {
@@ -981,9 +984,11 @@
   function init() {
     el = {
       selHeader: $("sel-header"), jump: $("jump"), btnJump: $("btn-jump"), selector: $("selector"),
-      dims: $("dims"),
       filePng: $("file-png"), fileBdf: $("file-bdf"),
-      menuFile: $("menu-file"), menuEdit: $("menu-edit"), mbFile: $("mb-file"), mbEdit: $("mb-edit"),
+      menuFile: $("menu-file"), menuEdit: $("menu-edit"), menuAbout: $("menu-about"),
+      mbFile: $("mb-file"), mbEdit: $("mb-edit"), mbAbout: $("mb-about"),
+      aboutFontInfo: $("about-font-info"), miAboutBitforge: $("mi-about-bitforge"),
+      aboutModal: $("about-modal"), aboutClose: $("about-close"),
       miNew: $("mi-new"), miOpenPng: $("mi-open-png"), miOpenBdf: $("mi-open-bdf"),
       miExportPngSolid: $("mi-export-png-solid"), miExportPngTransparent: $("mi-export-png-transparent"),
       miExportBdf: $("mi-export-bdf"), miExportVerilog: $("mi-export-verilog"),
@@ -1012,8 +1017,8 @@
     el.fileBdf.addEventListener("change", onBdfFile);
 
     // Menu bar: titles (open/toggle + hover-switch) and items (action + close).
-    menuEls = [el.menuFile, el.menuEdit];
-    var menuPairs = [[el.menuFile, el.mbFile], [el.menuEdit, el.mbEdit]];
+    menuEls = [el.menuFile, el.menuEdit, el.menuAbout];
+    var menuPairs = [[el.menuFile, el.mbFile], [el.menuEdit, el.mbEdit], [el.menuAbout, el.mbAbout]];
     for (var mp = 0; mp < menuPairs.length; mp++)
       (function (cont, btn) {
         btn.addEventListener("click", function () { toggleMenu(cont); });
@@ -1025,7 +1030,9 @@
         if (e.target === menuPairs[i][0] || e.target === menuPairs[i][1]) inside = true;
       if (!inside) closeMenus();
     });
-    document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeMenus(); });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") { closeMenus(); closeAboutModal(); }
+    });
     function menuItem(id, fn) {
       el[id].addEventListener("click", function () { closeMenus(); fn(); });
     }
@@ -1042,6 +1049,15 @@
     menuItem("miCycleStatus", cycleStatusAction);
     menuItem("miDoneNext", doneNextAction);
     menuItem("miCopyGlyph", copyGlyphToClipboard);
+    menuItem("miAboutBitforge", openAboutModal);
+
+    // About modal: close via the × button or a click on the backdrop itself
+    // (document-level outside-click / Escape are handled above; browser-only
+    // under the jsc stub).
+    el.aboutClose.addEventListener("click", closeAboutModal);
+    el.aboutModal.addEventListener("mousedown", function (e) {
+      if (e.target === el.aboutModal) closeAboutModal();
+    });
 
     // Edit-tab status buttons (DECISIONS #50): mark the current glyph, then
     // move on to the next one (arrows / atlas click). Re-clicking the active

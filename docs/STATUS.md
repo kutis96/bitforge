@@ -22,6 +22,7 @@
 - [x] **[I.5] Atlas render controls** (2026-11-14): bold/italic/baseline/inverted duplicated on the Atlas tab (shared state, two-way sync) — 102 tests
 - [x] **[I.6] Preview layout** (2026-11-14): vertical stack, single-glyph zoom removed; Clear glyph gets a reddish outline — 102 tests
 - [x] **[I.7] Status pumping shortcuts** (2026-11-14): `D` cycle status, `Shift+D` done + next — 103 tests
+- [x] **[I.8] About menu + modal** (2026-11-14): live font info, About modal, W/H corner indicator removed — 104 tests
 - [ ] **[I] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -168,7 +169,15 @@ User request (suggested key scheme, tweaks OK): cycle the selected glyph's statu
 - Both registered in the shortcut registry (keys card shows them; registry total now **29**) and mirrored as Edit-menu items (**Cycle glyph status / Mark done & next**).
 - 1 new DOM test (full cycle wrap, done+advance, 0xFF clamp + toast, Edit-menu items, status buttons following). The registry-count assertion moved 27 → 29. **Total 103 tests.**
 
-## Plan — remaining chunks (decisions locked in DECISIONS #32–54)
+### [I.8] About menu + modal, W/H indicator removed (`index.html` + `css/style.css` + `app.js` + `test/`, 2026-11-14)
+User request: drop the `W:8 H:16` corner readout (dims are obvious), add an About menu with the font info, and an About modal for app purpose/authorship.
+- **Removed:** `#dims` from the toolbar, `el.dims`, `updateDims()` + its call in `redrawAll`, the `#dims` CSS rule, and the init-test assertion on it.
+- **About menu** (third menu, after Edit): a non-interactive `.mi-info` line, re-rendered on **each open** by `renderAboutInfo()` (`W × H px · 256 glyphs · N ink px` + `done/wip/unfinished` counts via `BF.statusCounts`/`BF.inkCount` — the dims info effectively moved here), plus an **About bitforge…** item.
+- **Modal:** `#about-modal` fixed backdrop + centered `.modal` (purpose, feature list, "Built by spacecat · vanilla JS, zero dependencies, runs straight from file://"). Closes via the × button, backdrop mousedown (`e.target === backdrop`), or Escape (the existing document Escape handler now also closes it). Menu wiring was refactored to a `showMenu()` used by both click-toggle and hover-switch (it's where the on-open info refresh hooks in).
+- **CSS gotcha:** the backdrop's `display: flex` overrides the UA `[hidden]` rule, so `.modal-backdrop[hidden] { display: none }` is explicit. Backdrop/Escape close paths are browser-verified (document-level listeners are no-ops under the stub); the × close and menu flow are tested.
+- 1 new DOM test (info content incl. live dims/ink/status, menu→modal flow, × close) + the dims assertion removed from the init test. **Total 104 tests.**
+
+## Plan — remaining chunks (decisions locked in DECISIONS #32–55)
 
 ### [M] Deferred QA checks (documented, NOT to build without re-greenlight)
 - Edge-ink lint — only with per-glyph silencing (box-drawing chars touch edges by design) (#46)

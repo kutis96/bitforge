@@ -49,7 +49,16 @@ body { display: flex; flex-direction: column; }
 .menu-items button:hover { background: #f0f0f0; }
 .menu-items .mi-key { color: var(--muted); font-size: 11px; white-space: nowrap; }
 .menu-items hr { border: none; border-top: 1px solid var(--line); margin: 4px 0; }
-#dims { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.menu-items .mi-info { padding: 5px 14px 6px; color: var(--muted); font-size: 12px; line-height: 1.5; white-space: pre-line; }
+
+/* About modal */
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.35); z-index: 200; display: flex; align-items: center; justify-content: center; }
+.modal-backdrop[hidden] { display: none; } /* the display:flex above would otherwise override the UA hidden rule */
+.modal { background: #fff; border: 1px solid var(--line-strong); box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.2); min-width: 440px; max-width: 90vw; }
+.modal-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; border-bottom: 1px solid var(--line); }
+.modal-head button { padding: 0 8px; border: none; background: none; font-size: 16px; line-height: 1; cursor: pointer; }
+.modal-body { padding: 12px 16px 14px; font-size: 13px; line-height: 1.55; }
+.modal-body .muted { color: var(--muted); }
 
 button {
   font: inherit;
