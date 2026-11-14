@@ -90,7 +90,12 @@
     // Settable by tests to exercise the shortcut dispatcher's input suppression
     // (typing "e" in the jump field must not switch tabs).
     activeElement: null,
-    addEventListener: function (name, cb) { if (name === "DOMContentLoaded") this._ready = cb; },
+    // DOMContentLoaded is special (init); other names (mousedown/keydown) are
+    // stored so tests can exercise document-level paths via __stub.docDispatch.
+    addEventListener: function (name, cb) {
+      if (name === "DOMContentLoaded") this._ready = cb;
+      else { this._listeners = this._listeners || ({}); this._listeners[name] = cb; }
+    },
     getElementById: function (id) { return els[id] || (els[id] = makeEl(id)); },
     querySelectorAll: function (sel) {
       buildLists();
@@ -140,6 +145,14 @@
           return { then: function (ok) { ok && ok(); return this; } };
         } };
       else root.navigator.clipboard = null;
+    },
+    // Invoke a document-level listener (menu mousedown-close, Escape close).
+    // NOTE: the stub does not model the DOM tree — for the menu "inside" walk
+    // to reach the container, set the target's parentElement chain in the test
+    // (e.g. els["mi-x"].parentElement = els["menu-file"]).
+    docDispatch: function (name, evt) {
+      var cb = documentStub._listeners && documentStub._listeners[name];
+      if (cb) cb.call(documentStub, evt);
     },
     // Invoke event handlers registered on an element (for testing click wiring).
     dispatch: function (id, type, evt) {

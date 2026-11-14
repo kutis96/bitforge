@@ -499,3 +499,26 @@ test("dom: About menu shows live font info; About modal opens and closes", funct
   stub.dispatch("about-close", "click", {});
   assertEqual(els["about-modal"].hidden, true, "the \u00d7 button closes the modal");
 });
+
+test("dom: mousedown on a menu item must NOT close the menu (real-browser click sequence)", function () {
+  // Regression: the outside-mousedown handler used to treat items as
+  // "outside", closing the menu before the item's click fired (swallowed by
+  // the browser) — every menu item was dead. User-reported 2026-11-14.
+  var els = globalThis.__stub.els;
+  var stub = globalThis.__stub;
+  // The stub doesn't model the DOM tree; give the item its real parent so
+  // the "inside" walk can reach the container.
+  els["mi-export-verilog"].parentElement = els["menu-file"];
+  stub.dispatch("mb-file", "click", {});
+  assert(els["menu-file"].classList.contains("open"), "menu open");
+  // Real browsers fire the document mousedown BEFORE the item's click.
+  stub.docDispatch("mousedown", { target: els["mi-export-verilog"] });
+  assert(els["menu-file"].classList.contains("open"), "menu stays open on an item mousedown");
+  // A mousedown genuinely outside still closes it
+  stub.docDispatch("mousedown", { target: els["editor"] });
+  assert(!els["menu-file"].classList.contains("open"), "outside mousedown closes the menu");
+  // And Escape closes (and would also close the About modal)
+  stub.dispatch("mb-edit", "click", {});
+  stub.docDispatch("keydown", { key: "Escape" });
+  assert(!els["menu-edit"].classList.contains("open"), "Escape closes the menu");
+});

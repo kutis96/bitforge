@@ -1024,10 +1024,21 @@
         btn.addEventListener("click", function () { toggleMenu(cont); });
         btn.addEventListener("mouseenter", function () { hoverMenu(cont); });
       })(menuPairs[mp][0], menuPairs[mp][1]);
+    // "Inside" walks up from the target: it may be the menu container, its
+    // title, or any of its ITEMS. (The old check only knew container/title —
+    // so a mousedown on an item closed the menu before the item's click
+    // could fire, and the browser swallowed the click entirely: every menu
+    // item was dead in the real browser, headless tests never saw it because
+    // the stub ignored document-level listeners. Fixed 2026-11-14, user-report.)
+    function menuContains(cont, t) {
+      var n = t;
+      while (n) { if (n === cont) return true; n = n.parentElement; }
+      return false;
+    }
     document.addEventListener("mousedown", function (e) {
       var inside = false;
       for (var i = 0; i < menuPairs.length; i++)
-        if (e.target === menuPairs[i][0] || e.target === menuPairs[i][1]) inside = true;
+        if (menuContains(menuPairs[i][0], e.target)) inside = true;
       if (!inside) closeMenus();
     });
     document.addEventListener("keydown", function (e) {
