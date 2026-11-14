@@ -12,7 +12,10 @@
 - [x] **[F] DOM layer** — `index.html` + `css/style.css` + `js/app.js` (45 tests incl. 2 DOM smoke)
 - [x] **[G] Editor guidelines** — per-font H/V guides in the editor (preset add, drag, lock, list); test count unchanged (DOM-only, smoke-covered)
 - [x] **[H] Selector click-to-select** — click a mini-glyph in the left sidebar atlas to select it (user request); 1 new headless test via stub event dispatch
-- [ ] **[I] polish** ← next (edge cases, cosmetic)
+- [ ] **[J] Ergonomics update** ← planned (awaiting user greenlight): keyboard nav, reference glyph, keyboard glyph shift, shortcut registry + reference card, inverted preview, atlas bold/slant, settings persistence
+- [ ] **[K] QA update** ← planned: glyph status (unfinished/WIP/done), QA tab with stale indicator, duplicate + "left to draw" checks
+- [ ] **[L] Interop** ← planned (after J/K): BDF import/export, copy glyph to clipboard
+- [ ] **[I] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
 
@@ -83,8 +86,35 @@ User requested: clicking the left-sidebar atlas (mini-glyph grid) selects the gl
 - **New headless test** (`test-dom.js`): the DOM stub now records listeners per element and exposes `__stub.dispatch(id, type, evt)`; the test synthesizes clicks on three cells (0x21 printable, 0x00, 0xFF) and asserts the selection header updates. Total 46 tests.
 - Browser-verified by the user (guidelines + this, 2026-11-14).
 
-## Next up — [I] polish
+## Plan — next chunks (designed 2026-11-14, **awaiting user greenlight**; decisions locked in DECISIONS #32–47)
+
+### [J] Ergonomics update
+- [ ] J1 Keyboard glyph navigation: `←/→` ±1, `↑/↓` ±16, `Home/End` = current row start/end, `PgUp/PgDn` = 0x00/0xFF; suppressed while a text input has focus (DECISIONS #32)
+- [ ] J2 Reference glyph: Shift-click in sidebar sets/clears; light-gray underlay in the editor; session-only (#33)
+- [ ] J3 Glyph shift: `Ctrl/⌘+arrows` ±1px, clipped ink dropped + toast, one undo step (#34)
+- [ ] J4 Shortcut registry `shortcuts.register({combo, description, handler})` + reference card rendered from it (`?` toggle + toolbar button); migrate existing undo/redo; **all future shortcuts must go through it** (#35). Document the API in DESIGN.md (done) — remind future agents here too
+- [ ] J5 Inverted (white-on-black) preview toggle: preview surfaces + atlas only; editor/sidebar stay black-on-white (#36)
+- [ ] J6 Atlas renders with current bold/slant; extra column spacing while slant is on (#37)
+- [ ] J7 Settings API (`settings.get/set` + defaults table, `bitforge.settings.v1`); persist preview text/scale/bold/italic/baseline/inverted; **no raw localStorage for settings** (#40)
+
+### [K] QA update
+- [ ] K1 `Font.status` (0 unfinished / 1 WIP / 2 done), persisted with the font blob (sanitized on load, like guidelines); absent ⇒ unfinished (#38)
+- [ ] K2 Atlas tab: left-click = select, right-click = 3-choice status menu; status tints (peach/blue/white) in atlas + subtle tint in sidebar selector (#39)
+- [ ] K3 QA tab (4th): violations table + Refresh + stale badge via monotonic font-version counter bumped on every mutation (#41)
+- [ ] K4 First checks via registered `(font) → rows` functions: duplicate glyphs (all-empty group excluded) + what's left to draw (counts 256 & printable, clickable unfinished/WIP list) (#42)
+
+### [L] Interop (after J/K)
+- [ ] L1 BDF import (first face; `BW`/`DH` ⇒ W/H; malformed ⇒ error) + export (single face, 256 codes, hex rows, leftmost = MSB) (#43)
+- [ ] L2 Copy glyph to clipboard: PNG at 16×, transparent bg; download fallback; toast (#44)
+
+### [M] Deferred QA checks (documented, NOT to build without re-greenlight)
+- Edge-ink lint — only with per-glyph silencing (box-drawing chars touch edges by design) (#46)
+- Guideline-violation report — after QA infra proven (#47)
+
+### [I] Polish (catch-all)
 Browser-verify the visuals and interactions (the agent can't screenshot). Likely small fixes: slant spill clipping, jump UX, preview wrap width, hover cursor on the editor, layout nits, guidelines visual polish (line thickness, colors).
+
+**Handover note for the next agent:** build J → K → L in order (K's status tints touch the atlas/selector renderers J also touches; L is independent). After each chunk: run `./test/run-tests.sh`, update this file's checkboxes + add a Completed section, commit. Pure-logic pieces (BDF parse/emit, duplicate detection, status counts, shift math) belong in `core.js` with tests; DOM wiring in `app.js`.
 
 **Fixed during review (user-reported):** editor click→cell mismatch + non-square cells. The canvas CSS size wasn't pinned, so flexbox stretched it to the panel and `getBoundingClientRect()` no longer matched the internal pixel size. Fix: `setCanvasSize()` pins `style.width/height` to the internal size; `.canvas-wrap canvas { flex: 0 0 auto }` stops the stretch; the wrapper scrolls instead. Now 1 internal px = 1 CSS px in all browsers. Regression-tested in `test-dom.js` (asserts CSS size == internal size).
 

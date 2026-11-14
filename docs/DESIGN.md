@@ -7,8 +7,10 @@ Broad design. Implementation details are intentionally deferred — this describ
 - Edit a 256-glyph, fixed-size, monospaced bitmap font (black/white).
 - Parametric glyph size W×H per font (default **8 wide × 16 tall**).
 - Live preview: single-glyph zoom + multi-line text sample, selectable scale, per-character **bold** / **italic (slant)** attributes.
-- Render "terminal" effects: **artificial bold** (double-draw, 1px offset) and **slant** (per-row horizontal offset).
-- Import/export a PNG atlas; export a Verilog `$readmemb` ROM.
+- Render "terminal" effects: **artificial bold** (double-draw, 1px offset) and **slant** (per-row horizontal offset), including on the whole atlas.
+- Import/export a PNG atlas and BDF; export a Verilog `$readmemb` ROM; copy a single glyph to the clipboard as PNG.
+- Ergonomics: keyboard glyph navigation, reference-glyph underlay, keyboard glyph shifting, a self-maintaining shortcut reference card.
+- Glyph status tracking (unfinished / WIP / done) and a QA tab with stale-aware reports (first: duplicate glyphs, "what's left to draw").
 
 ## Non-goals
 
@@ -37,6 +39,7 @@ Font {
   height:     int              // px per glyph, default 16
   data:       Uint8Array(256 * height * width)   // 1 = ink, 0 = transparent; row-major per glyph
   guidelines: [{ o: "h"|"v", off: int, label: str, color: cssColor }]   // editor-only, see below
+  status:     Uint8Array(256)  // 0 = unfinished (default), 1 = WIP, 2 = done; missing => unfinished
 }
 ```
 
@@ -44,21 +47,23 @@ Font {
 - Per-row bitmask is **derived on demand** (for Verilog export) from the pixel grid — not stored separately.
 - `1` = ink (black), `0` = transparent (white/background).
 - `guidelines` are **editor-only** helpers (see below): they persist in `localStorage` with the font but are **never** written to PNG or Verilog output.
+- `status` is **workflow metadata** (glyph status, see QA): persisted with the font, never exported to any ROM/image format. Absent in old saves ⇒ all unfinished (forward-compatible).
 
 ## UI / layout
 
 Black-on-white, monospace UI, terminal-tool aesthetic. **No green/amber.**
 
 - **Left sidebar (persistent):**
-  - 16×16 grid of mini-glyphs (the whole atlas). Click to select the active glyph.
+  - 16×16 grid of mini-glyphs (the whole atlas). Click to select the active glyph; **Shift-click sets a *reference glyph*** (drawn as a light-gray underlay behind the glyph being edited; Shift-click again clears it). Cells are tinted by glyph status (see QA).
   - Header for the active glyph: `0x41 · A` (hex code + printable char; char shown for `0x20`–`0x7E` only).
   - A jump field: type a hex code (`41`) or a literal char to select.
-- **Main pane** with three tabs:
-  - **Edit** (default): large editable bitmap of the selected glyph on a grid. Click toggles, drag paints, right-drag erases; undo/redo. Shows hex + char.
+- **Main pane** with four tabs:
+  - **Edit** (default): large editable bitmap of the selected glyph on a grid. Click toggles, drag paints, right-drag erases; undo/redo. Shows hex + char. The reference glyph (if set) is drawn behind the ink.
     - **Guidelines bar** above the canvas: per-font shared H/V guide lines drawn over the glyph (colored, 1px) — ascender/cap/x-height/baseline/descender and left/right width guides. Preset buttons add guides at standard positions; a **lock** (on by default) prevents accidental drags; each guide is removable from its chip in the live list. Guides are shared by all glyphs of the font and are not exported.
-  - **Preview**: a large **single-glyph zoom** of the selected glyph (scale, bold, slant, baseline controls, faint cell outline so slant spill is visible) **and** a **multi-line text sample** box driven by markup.
-  - **Atlas**: all 256 glyphs in a 16×16 grid (same order as the PNG).
-- **Toolbar / file ops:** New (prompts W×H) · Open PNG · Export PNG · Export Verilog.
+  - **Preview**: a large **single-glyph zoom** of the selected glyph (scale, bold, slant, baseline controls, faint cell outline so slant spill is visible) **and** a **multi-line text sample** box driven by markup. An **inverted toggle** switches preview surfaces to white-on-black (how the font will look in a real terminal); editor and sidebar stay black-on-white.
+  - **Atlas**: all 256 glyphs in a 16×16 grid (same order as the PNG). **Honors the current bold/slant settings** (with extra column spacing while slant is on, so spill stays legible). Cells are tinted by glyph status (WIP = light peach, unfinished = light pastel blue, done = white). Click selects a glyph; **right-click opens a status menu** (unfinished / WIP / done).
+  - **QA**: reports about the font in a **violations table** with a **Refresh** button and a **stale badge** (the report is marked stale as soon as the font changes after the last refresh). First reports: **duplicate glyphs** and **what's left to draw** (status counts + clickable list of unfinished/WIP glyphs). Check set is extensible (see below).
+- **Toolbar / file ops:** New (prompts W×H) · Open PNG / BDF · Export PNG / BDF / Verilog · Copy glyph (PNG to clipboard). A **shortcut reference card** (toggle with `?`) lists every keyboard shortcut, rendered from the shortcut registry so it can't drift (see below).
 
 ## Modules
 
@@ -70,9 +75,11 @@ The code is split into two files: **`js/core.js`** (pure, DOM-free, exposes glob
 | render   | draw a glyph to a canvas/ctx at a scale; artificial-bold overlay; slant (per-row offset); ink-only compositing |
 | editor   | Edit tab: grid rendering, pointer→cell mapping, paint/erase, undo/redo |
 | preview  | Preview tab: glyph zoom + multi-line sample; markup parser; red-square for undisplayable codes |
-| atlas    | Atlas tab: render the full 256 grid |
+| atlas    | Atlas tab: render the full 256 grid (status tints, bold/slant, click/right-click) |
 | pngio    | PNG import (atlas→Font) and export (Font→PNG via `<canvas>`) |
+| bdfio    | BDF import (first face) and export (Font→BDF, 256 chars) |
 | verilog  | Font → `$readmemb` binary text |
+| qa       | glyph status, stale-aware reports table, extensible check registry |
 | ui       | tab switching, control wiring, toasts, small DOM helpers |
 | main     | bootstrap, app state, file ops, localStorage persistence |
 
@@ -89,7 +96,12 @@ The code is split into two files: **`js/core.js`** (pure, DOM-free, exposes glob
 - One line per glyph row; `width` binary bits per line; total `256 * height` lines.
 - Glyph 0 first (its `height` rows, top→bottom), then glyph 1, …
 - **Rightmost pixel = MSB** = leftmost character of the line (each visual row is written reversed).
-- `1` = ink, `0` = transparent. **No headers, no comments** — raw data only.
+- `1` = ink, `0` = transparent. **No headers, no comments** — raw data only. (Binary by decision — hex export is explicitly out.)
+
+### BDF (import + export)
+- The classic X11 bitmap-font text format; a second working format for importing existing fonts (e.g. 3270font derivatives) and for human-readable interchange.
+- **Import:** parse the **first face** of a standard single-face BDF (`FONT`, `SIZE`, `BW`, `DH`, `CHARS`, per-char `CODES` + `BITMAP`). W = `BW`, H = `DH`; error on malformed files. Extra faces are ignored. Glyph status/guidelines start fresh on import.
+- **Export:** one face, all 256 codes in order, standard fields; BITMAP rows are hex strings, leftmost pixel = MSB (BDF convention). Unlike Verilog, a BDF *may* carry comments — it's a text interchange format, not a ROM.
 
 ## Rendering (high level)
 
@@ -97,6 +109,9 @@ The code is split into two files: **`js/core.js`** (pure, DOM-free, exposes glob
 - **Scale:** integer zoom (≈1×–16×); a glyph pixel becomes a `scale×scale` block.
 - **Artificial bold:** draw the glyph, then draw it again offset by **+1px** (in glyph space) horizontally. Ink-only, so the two overlap into a thicker stroke.
 - **Slant:** each glyph row is drawn with a horizontal offset. The **baseline** row (selectable, default **line 5 from the bottom**) has offset **0**; rows **above** the baseline get a **non-negative** offset, rows **below** get a **negative** offset. Because glyphs are ink-only, a slanted glyph visually **spills into its neighbours' cells** (intended — this is the cheap slant). The exact offset-per-row math lives in the small `render`/slant module and is finalized during implementation; the contract above is what matters.
+- **Effects on the atlas:** the Atlas tab renders every glyph with the *current* bold/slant settings (same state as the Preview tab — no separate controls). While slant is on, extra horizontal spacing is added between columns so slant spill stays legible.
+- **Inverted preview:** a toggle switches the *preview surfaces* (glyph zoom, text sample, atlas) to **white-on-black** — how the font will actually look in a terminal. The editor and sidebar selector stay black-on-white (editing clarity, and so pixel-ink mental model stays consistent).
+- **Reference glyph underlay:** when a reference glyph is set (Shift-click in the sidebar), the Edit tab draws it **behind** the active glyph in light gray, so variants can be shaped against a base.
 
 ## Preview text markup
 
@@ -110,9 +125,31 @@ Input is a plain string; the parser turns it into a styled run of glyphs:
 - **Output:** `parseMarkup(text)` → array of `{ code, bold, italic, ok }`, one item per glyph; `ok=false` (code `-1`) for undisplayable.
 - A bare `*`/`_` toggles markup; a **literal** `*`/`_` is typed as `\u2A`/`\u5F`.
 
+## Keyboard shortcuts (registry + reference card)
+
+All keyboard shortcuts go through a single **shortcut registry** in `app.js` — never raw `keydown` listeners for app shortcuts:
+
+```
+shortcuts.register({ combo: "Ctrl+ArrowLeft", description: "Shift glyph left", handler(evt) { ... } })
+```
+
+- One global dispatcher matches `combo` (simple syntax: `Key`, `Ctrl+Key`, `Ctrl+Shift+Key`; ⌘ counts as Ctrl) and calls `handler`. Shortcuts are **suppressed while a text input has focus** (jump field, preview text).
+- The **reference card** (toggled with `?`, also a toolbar button) is **rendered from the registry** — it cannot drift from actual behavior because it has no data of its own.
+- Existing shortcuts (undo/redo) migrate to the registry; anything added later must be registered or it doesn't exist. **Rule for future agents: new shortcut ⇒ `shortcuts.register()`, full stop.** (See DECISIONS #35.)
+
+Planned bindings: `←/→` ±1 glyph · `↑/↓` ±16 (atlas row) · `Home/End` row start/end · `PgUp/PgDn` 0x00/0xFF · `Ctrl/⌘+arrows` shift current glyph ±1px (clipped ink is dropped, with a toast if anything was lost; one undo step per shift) · `?` reference card · existing `Ctrl/⌘+Z` / `Ctrl/⌘+Shift+Z` undo/redo.
+
+## Glyph status & QA
+
+- **Status:** each glyph has one of `unfinished` (default) / `wip` / `done`. Stored in the font (`Font.status`), persisted with it, never exported. Assigned in the **Atlas tab**: left-click selects a glyph, **right-click opens a 3-choice status menu**. Cells tint by status: WIP = very light peach, unfinished = very light pastel blue, done = plain white (atlas + subtle tint in the sidebar selector).
+- **QA tab:** a fourth tab showing reports in a violations table, with a **Refresh** button and a **stale badge**. A monotonic font-version counter is bumped on every font mutation (edit stroke, clear, shift, status change, import, new font); a report remembers the version it was computed at and shows *stale* whenever they differ.
+- **Checks are data, not code paths:** each check is a registered function `(font) → rows`, and the table renders whatever is registered. First checks: **duplicate glyphs** (codepoints with identical bitmaps; the all-empty group is excluded as noise before drawing starts) and **what's left to draw** (status counts for 256 and for the printable range, plus a clickable list of unfinished/WIP glyphs that jumps to the glyph).
+- **Deferred checks** (documented, not built): edge-ink lint (only once per-glyph *silencing* exists — box-drawing/pseudographic glyphs legitimately touch the edges) and a guideline-violation report (after the QA infra is proven).
+
 ## Persistence
 
-- No project file. The in-memory `Font` (glyph data **and** editor guidelines) is auto-saved to `localStorage` so a page reload doesn't lose work. On load: restore if present, else start with a blank default (8×16) font. Saved guidelines are sanitized on load (localStorage is user-editable).
+- No project file. The in-memory `Font` (glyph data, editor guidelines, **and glyph status**) is auto-saved to `localStorage` so a page reload doesn't lose work. On load: restore if present, else start with a blank default (8×16) font. Saved guidelines are sanitized on load (localStorage is user-editable).
+- **Small settings use a dedicated settings API**, not raw `localStorage`: a defaults table + `settings.get(key)` / `settings.set(key, value)` backed by one JSON blob. First persisted settings: preview text, scale, bold, italic, baseline, inverted toggle. **Rule for future agents: new persistable UI value ⇒ add it to the defaults table and use the API** (see DECISIONS #40). The font blob stays on its own path — it's large binary-ish data with its own versioning/sanitizing needs.
 
 ## Testing
 

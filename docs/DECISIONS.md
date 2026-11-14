@@ -49,6 +49,30 @@ Requirements and design decisions agreed with the user. **Treat these as fixed**
 30. **Hard to move/remove by accident:** a global **lock is ON by default** (dragging disabled; pixel editing unaffected). Guides are added via preset buttons (ascender / cap / x-height / baseline / descender / left / right / free H / free V), moved by dragging when unlocked (hover shows a resize cursor), and removed via the `×` on their chip in the live list.
 31. Preset default offsets are computed from W/H (e.g. baseline = `H-3`, descender = `H-1`, x-height = `round(H*0.40)`); exact values/colors live in `GUIDE_PRESETS` in `js/app.js` and are tunable.
 
+## Ergonomics (chunk J)
+32. **Keyboard glyph navigation:** `←/→` ±1 · `↑/↓` ±16 (atlas row) · **`Home/End` = start/end of the current 16-cell atlas row** (not the whole atlas — user spec) · `PgUp/PgDn` = 0x00/0xFF. All suppressed while a text input has focus.
+33. **Reference glyph:** Shift-click in the sidebar atlas sets it; Shift-click the same cell again clears it. Drawn as a **light-gray underlay** behind the active glyph in the editor (solid gray; diagonal hatching is an acceptable substitute). **Session-only** (not persisted). Editor tab only.
+34. **Glyph shift is keyboard-only** (user: no button clutter for small ops): `Ctrl/⌘ + arrows` shift the current glyph's ink ±1px. Ink shifted out of bounds is **dropped**, with a toast if anything was lost. One undo step per shift.
+35. **The shortcut registry is the only way to bind a shortcut.** `shortcuts.register({ combo, description, handler })` in `app.js`; one global dispatcher; the **reference card** (toggled with `?`, plus a toolbar button) is rendered *from* the registry so it cannot drift. Existing undo/redo migrate to it. No raw `keydown` listeners for app shortcuts — ever.
+36. **Inverted preview toggle:** white-on-black on the preview surfaces (glyph zoom, text sample, atlas) — how the font will look in a real terminal. Editor and sidebar stay black-on-white.
+37. **Atlas honors the current bold/slant state** (same state as Preview; no separate controls). Extra horizontal column spacing while slant is on, so spill stays legible.
+
+## QA (chunk K)
+38. **Glyph status:** 3 states per glyph — `unfinished` (0, default) / `wip` (1) / `done` (2). Stored in `Font.status`, persisted with the font, **never exported**. Absent in old saves ⇒ all unfinished.
+39. **Status assignment & display:** in the Atlas tab, **left-click selects** a glyph, **right-click opens the 3-choice status menu** (left-click = select keeps navigation consistent with the sidebar). Tints: WIP = very light peach, unfinished = very light pastel blue, done = plain white; applied in the atlas and as a subtle tint in the sidebar selector.
+40. **Settings API for small persistable UI values:** `settings.get(key)` / `settings.set(key, value)` over a declared defaults table (one JSON blob). First persisted: preview text, scale, bold, italic, baseline, inverted. **No raw `localStorage` for settings.** The font blob stays on its own path (large data, own sanitizing). New persistable value ⇒ defaults table + API.
+41. **QA tab (4th tab):** violations table + **Refresh** button + **stale badge**. Staleness = monotonic font-version counter bumped on every font mutation (edit stroke end, clear, shift, status change, import, new font); a report stores the version it was computed at and is stale whenever they differ.
+42. **First QA checks:** (a) **duplicate glyphs** — codepoints with identical bitmaps, grouped; the all-empty group is excluded as pre-drawing noise; (b) **what's left to draw** — status counts (256 and printable 0x20–0x7E) + clickable list of unfinished/WIP glyphs that selects/jumps to the glyph. **Checks are registered `(font) → rows` functions** so later checks plug in without touching the table.
+
+## Interop (chunk L)
+43. **BDF import/export:** import the **first face** of a standard BDF (`BW`→W, `DH`→H; malformed ⇒ error; extra faces ignored; status/guidelines start fresh on import). Export: one face, all 256 codes, standard fields, hex BITMAP rows, leftmost pixel = MSB. BDF may carry comments (text interchange format; the no-comments rule is Verilog-only).
+44. **Copy glyph to clipboard:** current glyph rendered to PNG at **16× scale, transparent background**; `navigator.clipboard.write`, **falling back to a PNG download** where clipboard is unavailable (file:// caveats); toast the outcome.
+45. **Explicitly out:** hex Verilog export (binary only, #9), ROM size readout, pre-baked bold ROM — bold/italic are handled by the terminal's display logic, not extra ROM (user).
+
+## Deferred
+46. **Edge-ink lint — deferred.** Build only with a per-glyph *silence* mechanism: box-drawing/pseudographic glyphs intentionally reach the cell edges, so a naive edge check is noise for this font's real content.
+47. **Guideline-violation report — deferred** until the QA infra (chunk K) is proven.
+
 ## Deferred / finalize in implementation
 - Exact slant offset-per-row formula (contract in #11).
 - Undo/redo history cap.
