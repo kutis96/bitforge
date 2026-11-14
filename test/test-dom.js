@@ -27,3 +27,16 @@ test("dom: init restores a font from localStorage when present", function () {
   assert(raw != null, "font was persisted to localStorage on init");
   assert(raw.indexOf("\"w\":8") !== -1, "persisted width is 8");
 });
+
+test("dom: clicking the selector grid selects that glyph", function () {
+  var els = globalThis.__stub.els;
+  // cell (col 1, row 2), center => code 2*16+1 = 33 = 0x21 '!'
+  globalThis.__stub.dispatch("selector", "click", { clientX: 1 * 16 + 8, clientY: 2 * 16 + 8 });
+  assertEqual(els["sel-header"].textContent, "0x21 \u00b7 !", "cell (1,2) -> 0x21");
+  // top-left cell, center => 0x00 (not printable)
+  globalThis.__stub.dispatch("selector", "click", { clientX: 8, clientY: 8 });
+  assertEqual(els["sel-header"].textContent, "0x00", "cell (0,0) -> 0x00");
+  // bottom-right cell, center => 0xFF (not printable)
+  globalThis.__stub.dispatch("selector", "click", { clientX: 15 * 16 + 8, clientY: 15 * 16 + 8 });
+  assertEqual(els["sel-header"].textContent, "0xFF", "cell (15,15) -> 0xFF");
+});

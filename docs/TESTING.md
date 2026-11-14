@@ -95,7 +95,9 @@ Most DOM-dependent behavior is not unit-tested: canvas pixel output, pointer→c
 
 ### The DOM smoke test (stub-dom.js + test-dom.js)
 
-A thin slice of the DOM layer **is** run headlessly: `test/stub-dom.js` fakes just enough of `document` / `window` / `localStorage` for `app.js`'s `init()` to execute, and `test/test-dom.js` asserts on the result (canvas sizes, CSS size pinning, localStorage persistence). This catches element-ID typos, `BF`-method typos, and init-time crashes — it does **not** verify visuals or interactions.
+A thin slice of the DOM layer **is** run headlessly: `test/stub-dom.js` fakes just enough of `document` / `window` / `localStorage` for `app.js`'s `init()` to execute, and `test/test-dom.js` asserts on the result (canvas sizes, CSS size pinning, localStorage persistence, click wiring). This catches element-ID typos, `BF`-method typos, and init-time crashes — it does **not** verify visuals.
+
+Event wiring **can** be exercised: stub elements record their listeners, and `__stub.dispatch(id, type, evt)` invokes them with `this` bound to the element (e.g. `__stub.dispatch("selector", "click", { clientX: 8, clientY: 8 })`). Use this to test pointer→target mapping logic — see the selector click test in `test-dom.js`.
 
 Stub gotchas, learned the hard way:
 - **`querySelectorAll` returns fake element lists for the selectors `app.js` actually uses** (`.tab`, `.gadd button`). It used to return `[]` for everything, which silently skipped those wiring loops — that's how an infinite-loop bug in a guidelines loop shipped untested (the loop's index variable was wrong, but with zero elements the loop never ran). If you add a new `querySelectorAll` call in `app.js`, extend the stub so the loop actually executes.

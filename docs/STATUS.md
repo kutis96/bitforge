@@ -11,7 +11,8 @@
 - [x] **[E] ink / luminance test** in `core.js` — 9 tests
 - [x] **[F] DOM layer** — `index.html` + `css/style.css` + `js/app.js` (45 tests incl. 2 DOM smoke)
 - [x] **[G] Editor guidelines** — per-font H/V guides in the editor (preset add, drag, lock, list); test count unchanged (DOM-only, smoke-covered)
-- [ ] **[H] polish** ← next (browser-verify guidelines visuals, edge cases, cosmetic)
+- [x] **[H] Selector click-to-select** — click a mini-glyph in the left sidebar atlas to select it (user request); 1 new headless test via stub event dispatch
+- [ ] **[I] polish** ← next (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
 
@@ -73,9 +74,16 @@ Per-font shared editor guides, editor-only (DECISIONS #28–31):
   2. **Infinite loop in the real browser:** the preset-button loop was `for (var gi = 0; gi < gbtns.length; i++)` — it declared `gi` but incremented `i` (a different, earlier variable), so `gi` never advanced and the loop re-bound button 0 forever. The stub's `querySelectorAll` returned `[]`, so the loop never ran under `jsc` and the bug was invisible. Fixed the index **and** made the stub return fake `.tab` / `.gadd button` element lists so these loops now execute in tests.
   3. Guide offsets could be set to exactly `dim` → line drawn at `canvas+0.5px` (off-canvas, lost). Clamped to `dim-1`.
 - **Test harness hardening:** `run-tests.sh` now runs `jsc` under a 60 s watchdog (hang → fail, exit 1), so a reintroduced infinite loop fails the run instead of stalling. See TESTING.md.
-- **Not yet done:** visual/interaction verification in a real browser (agent can't screenshot) — guides rendering, drag, lock, chip removal.
+- **Browser-verified by the user** (2026-11-14): guides render/drag/lock/remove, and general editing feels good.
 
-## Next up — [H] polish
+### [H] Selector click-to-select (`js/app.js` + `index.html`, 2026-11-14)
+User requested: clicking the left-sidebar atlas (mini-glyph grid) selects the glyph, instead of only the jump field. The design doc always claimed "click to select" but no handler was ever wired — it was a pure render. Now:
+- `click` on `#selector` maps position → 16px cell → `code = row*16 + col` → `selectGlyph()` (same getBoundingClientRect pattern as the editor; safe because `setCanvasSize` pins CSS size to internal size). Out-of-grid clicks are ignored.
+- Pointer cursor + `title` tooltip on the canvas.
+- **New headless test** (`test-dom.js`): the DOM stub now records listeners per element and exposes `__stub.dispatch(id, type, evt)`; the test synthesizes clicks on three cells (0x21 printable, 0x00, 0xFF) and asserts the selection header updates. Total 46 tests.
+- Browser-verified by the user (guidelines + this, 2026-11-14).
+
+## Next up — [I] polish
 Browser-verify the visuals and interactions (the agent can't screenshot). Likely small fixes: slant spill clipping, jump UX, preview wrap width, hover cursor on the editor, layout nits, guidelines visual polish (line thickness, colors).
 
 **Fixed during review (user-reported):** editor click→cell mismatch + non-square cells. The canvas CSS size wasn't pinned, so flexbox stretched it to the panel and `getBoundingClientRect()` no longer matched the internal pixel size. Fix: `setCanvasSize()` pins `style.width/height` to the internal size; `.canvas-wrap canvas { flex: 0 0 auto }` stops the stretch; the wrapper scrolls instead. Now 1 internal px = 1 CSS px in all browsers. Regression-tested in `test-dom.js` (asserts CSS size == internal size).

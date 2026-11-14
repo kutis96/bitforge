@@ -602,6 +602,16 @@
     el.btnJump.addEventListener("click", doJump);
     el.jump.addEventListener("keydown", function (e) { if (e.key === "Enter") doJump(); });
 
+    // atlas selector: click a mini-glyph to select it
+    el.selector.style.cursor = "pointer";
+    el.selector.addEventListener("click", function (evt) {
+      var r = this.getBoundingClientRect();
+      var col = Math.floor((evt.clientX - r.left) / 16);
+      var row = Math.floor((evt.clientY - r.top) / 16);
+      if (row < 0 || row > 15 || col < 0 || col > 15) return;
+      selectGlyph(row * 16 + col);
+    });
+
     el.pvScale.addEventListener("input", function () {
       state.scale = clamp(parseInt(this.value, 10) || 1, 1, 64);
       drawPvGlyph(); drawPvText();

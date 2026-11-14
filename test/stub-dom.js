@@ -26,7 +26,8 @@
     return {
       id: id,
       _ctx: null,
-      addEventListener: function () {},
+      _listeners: {},
+      addEventListener: function (t, cb) { (this._listeners[t] = this._listeners[t] || []).push(cb); },
       removeEventListener: function () {},
       classList: { toggle: function () {}, add: function () {}, remove: function () {}, contains: function () { return false; } },
       value: "", max: "", checked: false, hidden: true, textContent: "",
@@ -99,6 +100,13 @@
 
   root.__stub = {
     els: els,
-    runInit: function () { documentStub._ready(); }
+    runInit: function () { documentStub._ready(); },
+    // Invoke event handlers registered on an element (for testing click wiring).
+    dispatch: function (id, type, evt) {
+      var x = els[id];
+      if (!x || !x._listeners) return;
+      var ls = x._listeners[type] || [];
+      for (var i = 0; i < ls.length; i++) ls[i].call(x, evt);
+    }
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
