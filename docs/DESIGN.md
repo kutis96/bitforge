@@ -33,15 +33,17 @@ One `Font` object is the **single source of truth**. Every pane reads from it; e
 
 ```
 Font {
-  width:  int              // px per glyph, default 8
-  height: int              // px per glyph, default 16
-  data:   Uint8Array(256 * height * width)   // 1 = ink, 0 = transparent; row-major per glyph
+  width:      int              // px per glyph, default 8
+  height:     int              // px per glyph, default 16
+  data:       Uint8Array(256 * height * width)   // 1 = ink, 0 = transparent; row-major per glyph
+  guidelines: [{ o: "h"|"v", off: int, label: str, color: cssColor }]   // editor-only, see below
 }
 ```
 
 - Index: `data[((code * height) + y) * width + x]`, where `code` is 0–255 and `y` goes top→bottom.
 - Per-row bitmask is **derived on demand** (for Verilog export) from the pixel grid — not stored separately.
 - `1` = ink (black), `0` = transparent (white/background).
+- `guidelines` are **editor-only** helpers (see below): they persist in `localStorage` with the font but are **never** written to PNG or Verilog output.
 
 ## UI / layout
 
@@ -53,6 +55,7 @@ Black-on-white, monospace UI, terminal-tool aesthetic. **No green/amber.**
   - A jump field: type a hex code (`41`) or a literal char to select.
 - **Main pane** with three tabs:
   - **Edit** (default): large editable bitmap of the selected glyph on a grid. Click toggles, drag paints, right-drag erases; undo/redo. Shows hex + char.
+    - **Guidelines bar** above the canvas: per-font shared H/V guide lines drawn over the glyph (colored, 1px) — ascender/cap/x-height/baseline/descender and left/right width guides. Preset buttons add guides at standard positions; a **lock** (on by default) prevents accidental drags; each guide is removable from its chip in the live list. Guides are shared by all glyphs of the font and are not exported.
   - **Preview**: a large **single-glyph zoom** of the selected glyph (scale, bold, slant, baseline controls, faint cell outline so slant spill is visible) **and** a **multi-line text sample** box driven by markup.
   - **Atlas**: all 256 glyphs in a 16×16 grid (same order as the PNG).
 - **Toolbar / file ops:** New (prompts W×H) · Open PNG · Export PNG · Export Verilog.
@@ -109,7 +112,7 @@ Input is a plain string; the parser turns it into a styled run of glyphs:
 
 ## Persistence
 
-- No project file. The in-memory `Font` is auto-saved to `localStorage` (debounced) so a page reload doesn't lose work. On load: restore if present, else start with a blank default (8×16) font.
+- No project file. The in-memory `Font` (glyph data **and** editor guidelines) is auto-saved to `localStorage` so a page reload doesn't lose work. On load: restore if present, else start with a blank default (8×16) font. Saved guidelines are sanitized on load (localStorage is user-editable).
 
 ## Testing
 

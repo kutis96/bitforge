@@ -125,6 +125,36 @@ button:active { background: #e4e4e4; }
   padding: 6px;
 }
 
+/* ---------- guidelines controls ---------- */
+.guides {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  font-size: 12px;
+}
+.guides .glock { display: inline-flex; gap: 4px; align-items: center; color: var(--muted); }
+.guides .gadd { display: inline-flex; gap: 3px; flex-wrap: wrap; }
+.guides .gadd button { padding: 1px 6px; font-size: 11px; }
+.guides .glist { display: inline-flex; gap: 4px; flex-wrap: wrap; margin-left: auto; }
+.gchip {
+  display: inline-flex; align-items: center; gap: 2px;
+  border: 1px solid #999; border-left: 3px solid #999; border-radius: 3px;
+  padding: 1px 4px; background: #fff; font-size: 11px;
+}
+.gchip b { font-weight: 700; }
+.gchip i { font-style: normal; color: var(--muted); }
+.gdel {
+  border: none; background: transparent; padding: 0 2px; cursor: pointer;
+  font-size: 13px; line-height: 1; color: #a00;
+}
+.gdel:hover { color: #f00; }
+.gnone { color: var(--muted); font-style: italic; }
+
 /* ---------- toast ---------- */
 .toast {
   position: fixed;

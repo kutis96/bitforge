@@ -10,9 +10,10 @@
 - [x] **[D] slant offsets** in `core.js` — 7 tests
 - [x] **[E] ink / luminance test** in `core.js` — 9 tests
 - [x] **[F] DOM layer** — `index.html` + `css/style.css` + `js/app.js` (45 tests incl. 2 DOM smoke)
-- [ ] **[G] polish** ← next (browser-verify visuals, edge cases, cosmetic)
+- [x] **[G] Editor guidelines** — per-font H/V guides in the editor (preset add, drag, lock, list); test count unchanged (DOM-only, smoke-covered)
+- [ ] **[H] polish** ← next (browser-verify guidelines visuals, edge cases, cosmetic)
 
-Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunk (F) is verified in a browser.
+Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
 
 ## Verify work (no browser needed for pure logic)
 
@@ -61,8 +62,21 @@ DOM code is checked by opening `index.html` in a browser.
 - **File ops:** PNG import (÷16, error, `BF.isInk`), PNG export (1px/bit, white or transparent), Verilog export (`BF.toVerilog` → `.mem`), New (prompt W×H), localStorage auto-save/restore.
 - **Headless:** `test/stub-dom.js` + `test/test-dom.js` run `init()` under a DOM stub and assert canvas sizing + persistence (2 tests). Full visual/DOM behavior still needs a real browser.
 
-## Next up — [G] polish
-Browser-verify the visuals and interactions (the agent can't screenshot). Likely small fixes: slant spill clipping, jump UX, preview wrap width, hover cursor on the editor, layout nits.
+### [G] Editor guidelines (`js/app.js` + `index.html` + `css/style.css`, 2026-11-14)
+Per-font shared editor guides, editor-only (DECISIONS #28–31):
+- **Data:** `Font.guidelines = []`; entries `{ o: "h"|"v", off (int, glyph-px), label, color }`. Added to `BF.makeFont` (`core.js`).
+- **UI:** guidelines bar above the editor canvas — lock checkbox (locked by default), 9 preset add buttons (asc / cap / x / base / desc / |L / |R / +H / +V), live chip list with `×` remove.
+- **Behavior:** drawn as 1px colored lines over the glyph in `drawEditor()`; when unlocked, hover within 4 display-px shows a resize cursor and drag moves the guide (offset clamped to `0..dim-1`); pixel editing is unaffected by the lock.
+- **Persistence:** saved/restored via `localStorage` under key `g`; sanitized on load (shape + integer offset checked; defaults for missing label/color).
+- **Bugs found & fixed during review** (feature was untested when handed off):
+  1. `renderGuideList()` was called in `init()` **before** the font existed → `state.font.guidelines` on null crashed init. Removed the premature call (`setFont()` already renders the list).
+  2. **Infinite loop in the real browser:** the preset-button loop was `for (var gi = 0; gi < gbtns.length; i++)` — it declared `gi` but incremented `i` (a different, earlier variable), so `gi` never advanced and the loop re-bound button 0 forever. The stub's `querySelectorAll` returned `[]`, so the loop never ran under `jsc` and the bug was invisible. Fixed the index **and** made the stub return fake `.tab` / `.gadd button` element lists so these loops now execute in tests.
+  3. Guide offsets could be set to exactly `dim` → line drawn at `canvas+0.5px` (off-canvas, lost). Clamped to `dim-1`.
+- **Test harness hardening:** `run-tests.sh` now runs `jsc` under a 60 s watchdog (hang → fail, exit 1), so a reintroduced infinite loop fails the run instead of stalling. See TESTING.md.
+- **Not yet done:** visual/interaction verification in a real browser (agent can't screenshot) — guides rendering, drag, lock, chip removal.
+
+## Next up — [H] polish
+Browser-verify the visuals and interactions (the agent can't screenshot). Likely small fixes: slant spill clipping, jump UX, preview wrap width, hover cursor on the editor, layout nits, guidelines visual polish (line thickness, colors).
 
 **Fixed during review (user-reported):** editor click→cell mismatch + non-square cells. The canvas CSS size wasn't pinned, so flexbox stretched it to the panel and `getBoundingClientRect()` no longer matched the internal pixel size. Fix: `setCanvasSize()` pins `style.width/height` to the internal size; `.canvas-wrap canvas { flex: 0 0 auto }` stops the stretch; the wrapper scrolls instead. Now 1 internal px = 1 CSS px in all browsers. Regression-tested in `test-dom.js` (asserts CSS size == internal size).
 

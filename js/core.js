@@ -37,7 +37,8 @@
     return {
       width: width,
       height: height,
-      data: new Uint8Array(NUM_GLYPHS * height * width)
+      data: new Uint8Array(NUM_GLYPHS * height * width),
+      guidelines: [] // editor guides, per-font (shared across glyphs); NOT exported to ROM
     };
   }
 

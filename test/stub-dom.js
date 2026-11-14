@@ -33,8 +33,13 @@
       style: {}, clientWidth: 400, clientHeight: 300,
       width: 0, height: 0,
       parentElement: { clientWidth: 400 },
-      getAttribute: function (n) { return this["data-" + n] != null ? this["data-" + n] : null; },
+      getAttribute: function (n) {
+        if (this[n] != null) return this[n];
+        return this["data-" + n] != null ? this["data-" + n] : null;
+      },
       setAttribute: function (n, v) { this[n] = v; },
+      appendChild: function () {},
+      insertBefore: function () {},
       getContext: function () { if (!this._ctx) this._ctx = makeCtx(); return this._ctx; },
       getBoundingClientRect: function () { return { left: 0, top: 0, width: this.width, height: this.height }; },
       toBlob: function (cb) { cb && cb(null); },
@@ -42,12 +47,38 @@
     };
   }
 
+  // Fake element lists so app.js's querySelectorAll loops actually execute
+  // under jsc (they previously returned [], silently skipping the code).
+  var tabEls = null, gaddEls = null;
+  function buildLists() {
+    if (tabEls) return;
+    tabEls = [];
+    var tabs = ["edit", "preview", "atlas"];
+    for (var i = 0; i < tabs.length; i++) {
+      var t = makeEl("tab-" + tabs[i]);
+      t["data-tab"] = tabs[i];
+      tabEls.push(t);
+    }
+    gaddEls = [];
+    var gkeys = ["ascender", "cap", "xheight", "baseline", "descender", "left", "right", "hnew", "vnew"];
+    for (var j = 0; j < gkeys.length; j++) {
+      var b = makeEl("gbtn-" + gkeys[j]);
+      b["data-g"] = gkeys[j];
+      gaddEls.push(b);
+    }
+  }
+
   var documentStub = {
     readyState: "loading",
     _ready: null,
     addEventListener: function (name, cb) { if (name === "DOMContentLoaded") this._ready = cb; },
     getElementById: function (id) { return els[id] || (els[id] = makeEl(id)); },
-    querySelectorAll: function () { return []; },
+    querySelectorAll: function (sel) {
+      buildLists();
+      if (sel === ".tab") return tabEls;
+      if (sel === ".gadd button") return gaddEls;
+      return [];
+    },
     createElement: function () { return makeEl("__tmp__"); },
     body: { appendChild: function () {}, removeChild: function () {} }
   };

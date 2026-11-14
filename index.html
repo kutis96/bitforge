@@ -49,6 +49,21 @@
           <button id="btn-redo" type="button" title="Redo (Ctrl/&#8984;+Shift+Z)">&#8594; Redo</button>
           <button id="btn-clear" type="button">Clear glyph</button>
         </div>
+        <div id="guides" class="guides">
+          <label class="glock" title="Lock all guidelines (locked = cannot drag to move)"><input type="checkbox" id="glock" checked> lock</label>
+          <span class="gadd" title="Add guidelines at preset positions (drag them once unlocked)">
+            <button type="button" data-g="ascender">asc</button>
+            <button type="button" data-g="cap">cap</button>
+            <button type="button" data-g="xheight">x</button>
+            <button type="button" data-g="baseline">base</button>
+            <button type="button" data-g="descender">desc</button>
+            <button type="button" data-g="left">|L</button>
+            <button type="button" data-g="right">|R</button>
+            <button type="button" data-g="hnew">+H</button>
+            <button type="button" data-g="vnew">+V</button>
+          </span>
+          <span id="glist" class="glist" title="Current guidelines (x to remove)"></span>
+        </div>
         <div class="canvas-wrap"><canvas id="editor"></canvas></div>
       </div>
 

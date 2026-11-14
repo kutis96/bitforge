@@ -16,12 +16,14 @@ Rule of thumb: **if a function doesn't touch the DOM, it lives in `core.js` and 
 
 ```
 test/
-  run-tests.sh     # entry point you run; finds jsc and executes run.js
+  run-tests.sh     # entry point you run; finds jsc, runs run.js under a 60 s watchdog
   run.js           # loads core.js + harness + every test-*.js, then runs them
   harness.js       # tiny test framework (no dependencies)
   test-model.js    # tests for core.js section [1]
   test-verilog.js  # tests for core.js section [2]
   ...              # one more file per pure-logic module
+  stub-dom.js      # minimal DOM/canvas/localStorage stub (for the DOM smoke test)
+  test-dom.js      # smoke test: runs app.js's init() under the stub
 ```
 
 ## How to run
@@ -89,4 +91,13 @@ test("pixels are independent per glyph", function () {
 
 ## What this does NOT cover
 
-DOM-dependent behavior is not unit-tested here: canvas pixel output, pointer→cell mapping, tab switching, PNG load/save round-trips, localStorage persistence. Those are verified by opening `index.html` in a browser (see [STATUS.md](STATUS.md), "Open items"). The pure *computations* behind them — slant offsets, the ink/luminance test, markup parsing, Verilog text, row bitmasks — live in `core.js` and **are** tested.
+Most DOM-dependent behavior is not unit-tested: canvas pixel output, pointer→cell mapping, PNG load/save round-trips. Those are verified by opening `index.html` in a browser (see [STATUS.md](STATUS.md), "Open items"). The pure *computations* behind them — slant offsets, the ink/luminance test, markup parsing, Verilog text, row bitmasks — live in `core.js` and **are** tested.
+
+### The DOM smoke test (stub-dom.js + test-dom.js)
+
+A thin slice of the DOM layer **is** run headlessly: `test/stub-dom.js` fakes just enough of `document` / `window` / `localStorage` for `app.js`'s `init()` to execute, and `test/test-dom.js` asserts on the result (canvas sizes, CSS size pinning, localStorage persistence). This catches element-ID typos, `BF`-method typos, and init-time crashes — it does **not** verify visuals or interactions.
+
+Stub gotchas, learned the hard way:
+- **`querySelectorAll` returns fake element lists for the selectors `app.js` actually uses** (`.tab`, `.gadd button`). It used to return `[]` for everything, which silently skipped those wiring loops — that's how an infinite-loop bug in a guidelines loop shipped untested (the loop's index variable was wrong, but with zero elements the loop never ran). If you add a new `querySelectorAll` call in `app.js`, extend the stub so the loop actually executes.
+- **`run-tests.sh` has a 60 s watchdog** that kills `jsc` and fails the run if it hangs (exit 1). A hang almost always means an infinite loop in the code the stub now exercises.
+- The guidelines feature itself (presets, drag, lock, list UI) lives in the `app.js` closure and is **not** directly unit-testable headlessly — only covered by the `init()` smoke test plus browser verification.

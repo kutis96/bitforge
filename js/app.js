@@ -25,9 +25,11 @@
     baseline: 5,
     activeTab: "edit",
     history: [],       // undo: [{ code, snap }]
-    redo: []           // redo: [{ code, snap }]
+    redo: [],          // redo: [{ code, snap }]
+    glocked: true      // guidelines locked (can't drag) by default
   };
-  var editing = null;  // active editor stroke
+  var editing = null;   // active editor stroke
+  var guideDrag = null; // active guideline drag: { g, moved }
   var el = {};
 
   // ---------- tiny helpers ----------
@@ -55,6 +57,7 @@
     el.pvBaseline.max = String(font.height - 1);
     el.pvBaseline.value = String(state.baseline);
     redrawAll();
+    renderGuideList();
     saveLS();
   }
 
@@ -76,7 +79,8 @@
       var f = state.font;
       localStorage.setItem(LS_KEY, JSON.stringify({
         w: f.width, h: f.height,
-        d: Array.prototype.slice.call(f.data)
+        d: Array.prototype.slice.call(f.data),
+        g: f.guidelines
       }));
     } catch (e) { /* quota / privacy mode — ignore */ }
   }
@@ -89,6 +93,14 @@
       var font = BF.makeFont(o.w, o.h);
       var d = font.data;
       for (var i = 0; i < d.length && i < o.d.length; i++) d[i] = o.d[i] ? 1 : 0;
+      if (Array.isArray(o.g)) {
+        font.guidelines = [];
+        for (var k = 0; k < o.g.length; k++) {
+          var e = o.g[k];
+          if (e && (e.o === "h" || e.o === "v") && isFinite(e.off) && e.off === (e.off | 0))
+            font.guidelines.push({ o: e.o, off: e.off, label: String(e.label != null ? e.label : e.o), color: String(e.color != null ? e.color : "#444444") });
+        }
+      }
       return font;
     } catch (e) { return null; }
   }
@@ -159,6 +171,15 @@
     for (var y = 0; y < f.height; y++)
       for (var x = 0; x < f.width; x++)
         if (BF.getPixel(f, state.selected, x, y)) ctx.fillRect(x * s, y * s, s, s);
+    // guidelines (per-font, shared; drawn on top so always visible)
+    var gs = f.guidelines;
+    for (var gi = 0; gi < gs.length; gi++) {
+      var g = gs[gi];
+      ctx.strokeStyle = g.color; ctx.lineWidth = 1; ctx.beginPath();
+      if (g.o === "h") { var gy2 = g.off * s + 0.5; ctx.moveTo(0, gy2); ctx.lineTo(c.width, gy2); }
+      else { var gx2 = g.off * s + 0.5; ctx.moveTo(gx2, 0); ctx.lineTo(gx2, c.height); }
+      ctx.stroke();
+    }
   }
 
   function drawSelector() {
@@ -266,6 +287,74 @@
     el.dims.textContent = "W:" + state.font.width + "  H:" + state.font.height;
   }
 
+  // ---------- guidelines (per-font, shared across glyphs) ----------
+  var GUIDE_PRESETS = {
+    ascender:  { label: "asc",  o: "h", color: "#888888", off: function (f) { return 1; } },
+    cap:       { label: "cap",  o: "h", color: "#2255cc", off: function (f) { return Math.max(1, Math.round(f.height * 0.12)); } },
+    xheight:   { label: "x",    o: "h", color: "#2255cc", off: function (f) { return Math.round(f.height * 0.40); } },
+    baseline:  { label: "base", o: "h", color: "#dd2222", off: function (f) { return f.height - 3; } },
+    descender: { label: "desc", o: "h", color: "#888888", off: function (f) { return f.height - 1; } },
+    left:      { label: "L",    o: "v", color: "#cc8800", off: function (f) { return 1; } },
+    right:     { label: "R",    o: "v", color: "#cc8800", off: function (f) { return f.width - 1; } },
+    hnew:      { label: "H",    o: "h", color: "#444444", off: function (f) { return Math.round(f.height / 2); } },
+    vnew:      { label: "V",    o: "v", color: "#444444", off: function (f) { return Math.round(f.width / 2); } }
+  };
+
+  function addGuide(key) {
+    var p = GUIDE_PRESETS[key];
+    if (!p) return;
+    var max = p.o === "h" ? state.font.height : state.font.width;
+    state.font.guidelines.push({ o: p.o, off: clamp(p.off(state.font), 0, max - 1), label: p.label, color: p.color });
+    renderGuideList(); drawEditor(); saveLS();
+  }
+  function deleteGuide(idx) {
+    state.font.guidelines.splice(idx, 1);
+    renderGuideList(); drawEditor(); saveLS();
+  }
+  function renderGuideList() {
+    var box = el.glist;
+    if (!box) return;
+    box.innerHTML = "";
+    var gs = state.font.guidelines;
+    for (var i = 0; i < gs.length; i++) {
+      var g = gs[i];
+      var chip = document.createElement("span");
+      chip.className = "gchip";
+      chip.style.borderColor = g.color;
+      var lab = document.createElement("b"); lab.textContent = g.label;
+      var off = document.createElement("i"); off.textContent = " " + g.off;
+      var del = document.createElement("button"); del.className = "gdel"; del.textContent = "\u00d7";
+      (function (idx) { del.addEventListener("click", function () { deleteGuide(idx); }); })(i);
+      chip.appendChild(lab); chip.appendChild(off); chip.appendChild(del);
+      box.appendChild(chip);
+    }
+    if (gs.length === 0) {
+      var none = document.createElement("span"); none.className = "gnone"; none.textContent = "no guides";
+      box.appendChild(none);
+    }
+  }
+  function guidelineAt(evt) {
+    var f = state.font, c = el.editor, r = c.getBoundingClientRect();
+    var s = editorScale();
+    var dx = evt.clientX - r.left, dy = evt.clientY - r.top;
+    var best = null, bestD = 4; // display-px hit threshold
+    var gs = f.guidelines;
+    for (var i = 0; i < gs.length; i++) {
+      var g = gs[i];
+      var d = (g.o === "h") ? Math.abs(dy - g.off * s) : Math.abs(dx - g.off * s);
+      if (d <= bestD) { bestD = d; best = g; }
+    }
+    return best;
+  }
+  function moveGuide(evt) {
+    var f = state.font, c = el.editor, r = c.getBoundingClientRect();
+    var s = editorScale();
+    var g = guideDrag.g;
+    var v = (g.o === "h") ? Math.round((evt.clientY - r.top) / s) : Math.round((evt.clientX - r.left) / s);
+    v = clamp(v, 0, ((g.o === "h") ? f.height : f.width) - 1);
+    if (v !== g.off) { g.off = v; guideDrag.moved = true; drawEditor(); renderGuideList(); }
+  }
+
   // ---------- editor interaction ----------
   function snapshotGlyph(code) {
     var f = state.font, out = [];
@@ -294,6 +383,11 @@
   }
 
   function onEditorDown(evt) {
+    // Guideline drag (only when unlocked and the pointer is on a guideline).
+    if (!state.glocked) {
+      var g = guidelineAt(evt);
+      if (g) { guideDrag = { g: g, moved: false }; evt.preventDefault(); return; }
+    }
     var p = editorPos(evt);
     var code = state.selected;
     var cur = BF.getPixel(state.font, code, p.x, p.y);
@@ -303,12 +397,18 @@
     evt.preventDefault();
   }
   function onEditorMove(evt) {
+    if (guideDrag) { moveGuide(evt); evt.preventDefault(); return; }
+    if (!state.glocked) {
+      var g = guidelineAt(evt);
+      el.editor.style.cursor = g ? (g.o === "h" ? "row-resize" : "col-resize") : "default";
+    }
     if (!editing) return;
     var p = editorPos(evt);
     applyPaint(p.x, p.y, editing.paintValue);
     evt.preventDefault();
   }
   function onEditorUp() {
+    if (guideDrag) { if (guideDrag.moved) saveLS(); guideDrag = null; return; }
     if (!editing) return;
     if (editing.changed) {
       state.history.push({ code: editing.code, snap: editing.snapshot });
@@ -456,6 +556,7 @@
       chkPngTransparent: $("chk-png-transparent"),
       btnClear: $("btn-clear"), btnUndo: $("btn-undo"), btnRedo: $("btn-redo"),
       editor: $("editor"), editLabel: $("edit-label"),
+      glock: $("glock"), glist: $("glist"),
       pvScale: $("pv-scale"), pvBold: $("pv-bold"), pvItalic: $("pv-italic"), pvBaseline: $("pv-baseline"),
       pvGlyph: $("pv-glyph"), pvText: $("pv-text"), pvTextCanvas: $("pv-text-canvas"),
       atlas: $("atlas"), toast: $("toast")
@@ -487,6 +588,16 @@
     el.editor.addEventListener("mousemove", onEditorMove);
     window.addEventListener("mouseup", onEditorUp);
     el.editor.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+
+    // guidelines: lock toggle + preset add buttons
+    el.glock.checked = state.glocked;
+    el.glock.addEventListener("change", function () {
+      state.glocked = this.checked;
+      el.editor.style.cursor = "default";
+    });
+    var gbtns = document.querySelectorAll(".gadd button");
+    for (var gi = 0; gi < gbtns.length; gi++)
+      gbtns[gi].addEventListener("click", function () { addGuide(this.getAttribute("data-g")); });
 
     el.btnJump.addEventListener("click", doJump);
     el.jump.addEventListener("keydown", function (e) { if (e.key === "Enter") doJump(); });

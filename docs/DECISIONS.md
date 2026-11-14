@@ -43,6 +43,12 @@ Requirements and design decisions agreed with the user. **Treat these as fixed**
 26. **Code split:** `js/core.js` = pure, DOM-free logic (global `BF`); `js/app.js` = DOM wiring (canvas, events, file ops). Keep pure logic in `core.js` so it stays testable.
 27. **Unit tests run headlessly** under macOS JavaScriptCore (`jsc`) via `test/run-tests.sh`; no Node/browser. DOM code is verified in a browser.
 
+## Editor guidelines
+28. **Guidelines are editor-only.** Stored per-font in `Font.guidelines[]` (`{ o: "h"|"v", off, label, color }`, `off` in glyph-pixel units), persisted to `localStorage` with the font, **never exported** to PNG or Verilog.
+29. **Shared per font**, not per glyph. Offsets clamp to `0..(dim-1)` (the line must stay on the canvas). Saved entries are sanitized on load (localStorage is user-editable).
+30. **Hard to move/remove by accident:** a global **lock is ON by default** (dragging disabled; pixel editing unaffected). Guides are added via preset buttons (ascender / cap / x-height / baseline / descender / left / right / free H / free V), moved by dragging when unlocked (hover shows a resize cursor), and removed via the `×` on their chip in the live list.
+31. Preset default offsets are computed from W/H (e.g. baseline = `H-3`, descender = `H-1`, x-height = `round(H*0.40)`); exact values/colors live in `GUIDE_PRESETS` in `js/app.js` and are tunable.
+
 ## Deferred / finalize in implementation
 - Exact slant offset-per-row formula (contract in #11).
 - Undo/redo history cap.
