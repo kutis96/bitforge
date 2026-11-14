@@ -16,6 +16,7 @@
 - [x] **[K] QA update** (2026-11-14): glyph status (unfinished/WIP/done), QA tab with stale indicator, duplicate + "left to draw" checks — 77 tests
 - [x] **[L] Interop** (2026-11-14): BDF import/export (app wiring) + copy glyph to clipboard — 90 tests
 - [x] **[I.1] File-op & tab shortcuts** (2026-11-14): Alt/Ctrl file-op + E/P/A/Q/Ctrl+Q shortcuts, registry-based, input-suppressed — 93 tests
+- [x] **[I.2] Preview markup escapes** (2026-11-14): `\*` `\_` `\\` backslash escapes in the preview text — 98 tests
 - [ ] **[I] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -121,7 +122,13 @@ User-requested shortcuts for existing features (their list was a weak suggestion
 - **Input suppression** (the user's explicit concern: char-search typing must not trigger shortcuts) — already handled by the dispatcher's `document.activeElement` check; now *tested*: the DOM stub's `activeElement` is a settable property, and a test asserts `q`/`Ctrl+S` are ignored while an INPUT/TEXTAREA has focus and work again after.
 - **Tests:** 3 new (comboOf normalization, dispatch of all new bindings end-to-end, input suppression) + the chunk-J registry-count assertion updated 16 → 27. **Total 93 tests.**
 
-## Plan — remaining chunks (decisions locked in DECISIONS #32–48)
+### [I.2] Preview markup backslash escapes (`core.js` + `test/` + `index.html`, 2026-11-14)
+User request: be able to *type* `*` and `_` in the preview text without toggling formatting.
+- `BF.parseMarkup` (pure logic, `core.js` section [3]) now handles backslash escapes: `\*` → literal `*` (0x2A), `\_` → literal `_` (0x5F), `\\` → literal `\` (0x5C); `\uXX` unchanged. Unknown `\x` → literal `\` followed by `x` parsed normally — so a lone/trailing backslash stays a literal (the pre-existing behavior, regression-tested).
+- Escapes inherit the current bold/italic flags like any other glyph (e.g. `*\**` → one bold `*`).
+- 5 new tests in `test/test-markup.js`; the preview textarea placeholder now mentions the escapes. **Total 98 tests.**
+
+## Plan — remaining chunks (decisions locked in DECISIONS #32–49)
 
 ### [M] Deferred QA checks (documented, NOT to build without re-greenlight)
 - Edge-ink lint — only with per-glyph silencing (box-drawing chars touch edges by design) (#46)

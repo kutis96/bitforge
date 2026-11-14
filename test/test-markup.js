@@ -77,3 +77,41 @@ test("markup: lone backslash (no uXX) is a literal", function () {
 test("markup: empty input -> no items", function () {
   assertEqual(BF.parseMarkup("").length, 0);
 });
+
+// Escape sequences (DECISIONS #49): \* \_ \\
+test("markup: \\* and \\_ produce literal * and _ without toggling", function () {
+  var r = BF.parseMarkup("a\\*b\\_c"); // a\*b\_c
+  assertEqual(r.length, 5, "a * b _ c");
+  assertEqual(codes(r)[1], 0x2A, "literal *");
+  assertEqual(codes(r)[3], 0x5F, "literal _");
+  for (var i = 0; i < r.length; i++) {
+    assertEqual(r[i].bold, false, "no bold leak at " + i);
+    assertEqual(r[i].italic, false, "no italic leak at " + i);
+  }
+});
+
+test("markup: \\* inside bold is a literal bold *", function () {
+  var r = BF.parseMarkup("*\\**"); // *\**
+  assertEqual(r.length, 1);
+  assertEqual(codes(r)[0], 0x2A);
+  assertEqual(r[0].bold, true, "inherits bold from surrounding markup");
+});
+
+test("markup: double backslash is a literal backslash", function () {
+  var r = BF.parseMarkup("a\\\\b"); // a\\b
+  assertEqual(r.length, 3);
+  assertEqual(codes(r)[1], 0x5C);
+});
+
+test("markup: double backslash before uXX is literal, not an escape", function () {
+  var r = BF.parseMarkup("\\\\u41"); // \\u41
+  assertEqual(r.length, 4, "\\ u 4 1");
+  assertEqual(codes(r)[0], 0x5C, "backslash");
+  assertEqual(codes(r)[1], 117, "u is plain text again");
+});
+
+test("markup: trailing backslash is a literal", function () {
+  var r = BF.parseMarkup("a\\"); // a\
+  assertEqual(r.length, 2);
+  assertEqual(codes(r)[1], 0x5C);
+});

@@ -72,6 +72,9 @@ Requirements and design decisions agreed with the user. **Treat these as fixed**
 ## File-op & tab shortcuts (chunk I.1)
 48. **File-op + tab shortcuts** (user request, 2026-11-14; the user's suggested list was a weak suggestion, tweaks OK): `Alt+N` new font · `Alt+O` open PNG · `Alt+Shift+O` open BDF · `Ctrl+S` export PNG · `Ctrl+Shift+S` export Verilog · `Alt+Shift+S` export BDF · `E/P/A/Q` show Edit/Preview/Atlas/QA tab · `Ctrl+Q` QA tab + run checks. **Ctrl+N / Ctrl+O → Alt** because Chrome/Firefox reserve them (new window / open file — not interceptable); Ctrl+S and Ctrl+Shift+S *are* interceptable and kept. BDF shortcuts added for completeness (user can veto). All registered via the registry (#35) and suppressed while any input/textarea has focus (typing `e` in the char-search field must not switch tabs — tested). **macOS Option quirk:** Option+letter types an accented char in `evt.key` (Option+N → `∩`), so `comboOf` normalizes Alt+letter combos via layout-independent `evt.code` (`KeyN` → `n`).
 
+## Preview markup escapes (chunk I.2)
+49. **Backslash escapes in preview markup** (user request, 2026-11-14): `\*` → literal `*`, `\_` → literal `_` (no formatting toggle), `\\` → literal backslash; `\uXX` unchanged; unknown `\x` → literal `\` then normal `x` (a lone/trailing backslash is always a literal — pre-existing behavior, kept). Implemented in `BF.parseMarkup` (core.js, DOM-free) with 5 new tests; placeholder text in the preview textarea updated.
+
 ## Deferred
 46. **Edge-ink lint — deferred.** Build only with a per-glyph *silence* mechanism: box-drawing/pseudographic glyphs intentionally reach the cell edges, so a naive edge check is noise for this font's real content.
 47. **Guideline-violation report — deferred** until the QA infra (chunk K) is proven.

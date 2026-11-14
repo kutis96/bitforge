@@ -126,10 +126,11 @@ Input is a plain string; the parser turns it into a styled run of glyphs:
 - `_text_` → italic (slant)
 - Nestable / combining for both (e.g. `*_x_*`).
 - `\uXX` → glyph at codepoint `0xXX` (2 hex digits, 0–255), for unprintables.
+- **Escapes:** `\*` → literal `*`, `\_` → literal `_` (no toggle); `\\` → literal backslash; unknown `\x` → literal `\` followed by a normal `x` (so a lone/trailing backslash is always a literal).
 - Any literally-typed character whose codepoint is **> 255** (or a surrogate pair) → a **red square** the size of a glyph (not in the 8-bit atlas).
 - Everything else maps to its own codepoint (0–255).
 - **Output:** `parseMarkup(text)` → array of `{ code, bold, italic, ok }`, one item per glyph; `ok=false` (code `-1`) for undisplayable.
-- A bare `*`/`_` toggles markup; a **literal** `*`/`_` is typed as `\u2A`/`\u5F`.
+- A bare `*`/`_` toggles markup; a **literal** `*`/`_` is typed as `\*`/`\_` (or still `\u2A`/`\u5F`).
 
 ## Keyboard shortcuts (registry + reference card)
 

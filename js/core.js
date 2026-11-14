@@ -119,8 +119,10 @@
    *   code : 0..255, or -1 when not displayable
    *   ok   : false when the source char is outside the 8-bit atlas
    * Rules: `*` toggles bold, `_` toggles italic (nestable/combining);
+   *        `\*` / `\_` -> literal * / _ (no toggle);
+   *        `\\` -> literal backslash;
    *        `\uXX` (2 hex digits) -> codepoint 0xXX;
-   *        a literal `*`/`_` is written as `\u2A`/`\u5F`.
+   *        unknown `\x` -> literal backslash, then x parsed normally.
    * ============================================================ */
 
   function isHex(ch) {
@@ -132,14 +134,30 @@
     var out = [];
     var bold = false;
     var italic = false;
-    var i, c, cp, ok;
+    var i, c, cp, ok, n;
     for (i = 0; i < text.length; i++) {
       c = text.charAt(i);
       if (c === "*") { bold = !bold; continue; }
       if (c === "_") { italic = !italic; continue; }
-      if (c === "\\" && text.charAt(i + 1) === "u" && isHex(text.charAt(i + 2)) && isHex(text.charAt(i + 3))) {
-        out.push({ code: parseInt(text.slice(i + 2, i + 4), 16), bold: bold, italic: italic, ok: true });
-        i += 3;
+      if (c === "\\") {
+        n = text.charAt(i + 1);
+        if (n === "*" || n === "_") {           // escaped formatting char: literal, no toggle
+          out.push({ code: (n === "*") ? 0x2A : 0x5F, bold: bold, italic: italic, ok: true });
+          i += 1;
+          continue;
+        }
+        if (n === "\\") {                        // escaped backslash
+          out.push({ code: 0x5C, bold: bold, italic: italic, ok: true });
+          i += 1;
+          continue;
+        }
+        if (n === "u" && isHex(text.charAt(i + 2)) && isHex(text.charAt(i + 3))) {
+          out.push({ code: parseInt(text.slice(i + 2, i + 4), 16), bold: bold, italic: italic, ok: true });
+          i += 3;
+          continue;
+        }
+        // Unknown escape: literal backslash; the next char is parsed normally.
+        out.push({ code: 0x5C, bold: bold, italic: italic, ok: true });
         continue;
       }
       cp = text.charCodeAt(i);
