@@ -173,8 +173,13 @@
     comboOf: function (evt) {
       var parts = [];
       if (evt.ctrlKey || evt.metaKey) parts.push("Ctrl");
+      if (evt.altKey) parts.push("Alt");
       if (evt.shiftKey) parts.push("Shift");
       var k = evt.key || "";
+      // On macOS, Option+letter types an accented character (Option+N => "\u2229"),
+      // so for Alt combos prefer the layout-independent evt.code ("KeyN" -> "n").
+      if (evt.altKey && typeof evt.code === "string" && /^Key[A-Z]$/.test(evt.code))
+        k = evt.code.slice(3).toLowerCase();
       if (k.length === 1) k = k.toLowerCase();
       parts.push(k);
       return parts.join("+");
@@ -1036,6 +1041,20 @@
     for (var ni = 0; ni < navDirs.length; ni++)
       shortcuts.register({ combo: navDirs[ni][0], description: navDirs[ni][2],
         handler: (function (dir) { return function () { selectGlyph(BF.navigate(state.selected, dir)); }; })(navDirs[ni][1]) });
+
+    // File ops + tabs (DECISIONS #48). Ctrl+N / Ctrl+O are reserved by the
+    // browser (new window / open file — not interceptable), hence Alt there.
+    shortcuts.register({ combo: "Alt+n", description: "New blank font", handler: newFont });
+    shortcuts.register({ combo: "Alt+o", description: "Open PNG atlas", handler: onOpenClick });
+    shortcuts.register({ combo: "Alt+Shift+o", description: "Open BDF font", handler: onOpenBdfClick });
+    shortcuts.register({ combo: "Ctrl+s", description: "Export PNG atlas", handler: exportPng });
+    shortcuts.register({ combo: "Ctrl+Shift+s", description: "Export Verilog ROM", handler: exportVerilog });
+    shortcuts.register({ combo: "Alt+Shift+s", description: "Export BDF font", handler: exportBdf });
+    shortcuts.register({ combo: "e", description: "Show the Edit tab", handler: function () { setActiveTab("edit"); } });
+    shortcuts.register({ combo: "p", description: "Show the Preview tab", handler: function () { setActiveTab("preview"); } });
+    shortcuts.register({ combo: "a", description: "Show the Atlas tab", handler: function () { setActiveTab("atlas"); } });
+    shortcuts.register({ combo: "q", description: "Show the QA tab", handler: function () { setActiveTab("qa"); } });
+    shortcuts.register({ combo: "Ctrl+q", description: "QA tab + run checks", handler: function () { setActiveTab("qa"); qaRefresh(); } });
     shortcuts.register({ combo: "Ctrl+ArrowLeft", description: "Shift glyph left", handler: function () { shiftGlyphAction(-1, 0); } });
     shortcuts.register({ combo: "Ctrl+ArrowRight", description: "Shift glyph right", handler: function () { shiftGlyphAction(1, 0); } });
     shortcuts.register({ combo: "Ctrl+ArrowUp", description: "Shift glyph up", handler: function () { shiftGlyphAction(0, -1); } });

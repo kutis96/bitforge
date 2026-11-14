@@ -122,11 +122,13 @@ test("dom: shortcut card toggles; registry holds the full binding set", function
   assertEqual(els["keys-card"].hidden, false, "toggle shows it");
   app.toggleKeysCard();
   assertEqual(els["keys-card"].hidden, true, "toggle hides it");
-  // 8 nav + 4 shift + 3 undo/redo + 1 card = 16
-  assertEqual(app.shortcuts.list.length, 16, "16 shortcuts registered");
+  // 8 nav + 6 file-ops + 5 tabs + 4 shift + 3 undo/redo + 1 card = 27
+  assertEqual(app.shortcuts.list.length, 27, "27 shortcuts registered");
   var combos = {};
   for (var i = 0; i < app.shortcuts.list.length; i++) combos[app.shortcuts.list[i].combo] = true;
   assert(combos["Ctrl+ArrowLeft"] && combos["?"] && combos["Ctrl+z"] && combos["PageUp"], "expected combos present");
+  assert(combos["Alt+n"] && combos["Alt+o"] && combos["Ctrl+s"] && combos["Ctrl+q"] && combos["e"] && combos["q"],
+    "file-op/tab combos present");
 });
 
 test("dom: preview settings persist via the settings API", function () {
@@ -281,4 +283,60 @@ test("dom: copy glyph writes a PNG ClipboardItem when the clipboard is available
   assert(app.getLastToast().indexOf("Copied ") === 0, "success toast: " + app.getLastToast());
   stub.blob = null;
   stub.setClipboard("none"); // leave the stub in its default state
+});
+
+// ---------- file-op & tab shortcuts (DECISIONS #48) ----------
+
+test("dom: comboOf — modifier order and macOS Option+letter normalization", function () {
+  var app = globalThis.__stub.app;
+  assertEqual(app.shortcuts.comboOf({ key: "E" }), "e", "plain letter lowercases");
+  assertEqual(app.shortcuts.comboOf({ key: "s", ctrlKey: true }), "Ctrl+s");
+  assertEqual(app.shortcuts.comboOf({ key: "S", ctrlKey: true, shiftKey: true }), "Ctrl+Shift+s");
+  assertEqual(app.shortcuts.comboOf({ key: "o", altKey: true }), "Alt+o", "Alt without code falls back to key");
+  // On macOS, Option+N arrives as key "\u2229" with code "KeyN" — must still match "Alt+n".
+  assertEqual(app.shortcuts.comboOf({ key: "\u2229", altKey: true, code: "KeyN" }), "Alt+n");
+  assertEqual(app.shortcuts.comboOf({ key: "\u00f6", altKey: true, shiftKey: true, code: "KeyO" }), "Alt+Shift+o");
+});
+
+test("dom: file-op and tab shortcuts dispatch to the right actions", function () {
+  var app = globalThis.__stub.app;
+  var key = function (k, extra) {
+    var evt = { key: k, preventDefault: function () {} };
+    for (var p in (extra || {})) evt[p] = extra[p];
+    app.shortcuts.dispatch(evt);
+  };
+  key("e"); assertEqual(app.state.activeTab, "edit", "e -> Edit tab");
+  key("p"); assertEqual(app.state.activeTab, "preview", "p -> Preview tab");
+  key("a"); assertEqual(app.state.activeTab, "atlas", "a -> Atlas tab");
+  key("q"); assertEqual(app.state.activeTab, "qa", "q -> QA tab (no refresh)");
+  key("e");
+  key("q", { ctrlKey: true });
+  assertEqual(app.state.activeTab, "qa", "Ctrl+q -> QA tab");
+  assert(!app.qaStale(), "Ctrl+q also ran the checks (not stale afterwards)");
+  // Ctrl+S = Export PNG; the stub's toBlob yields a null blob -> the known error toast.
+  key("s", { ctrlKey: true });
+  assert(app.getLastToast().indexOf("PNG export failed") === 0, "Ctrl+s exported PNG: " + app.getLastToast());
+  // The rest must at least run their full (stubbed) paths without crashing:
+  // Ctrl+Shift+S Verilog, Alt+O / Alt+Shift+O open dialogs (stub click = no-op),
+  // Alt+Shift+S Export BDF.
+  key("s", { ctrlKey: true, shiftKey: true });
+  key("\u2229", { altKey: true, code: "KeyO" });
+  key("\u00f6", { altKey: true, shiftKey: true, code: "KeyO" });
+  key("\u00df", { altKey: true, shiftKey: true, code: "KeyS" });
+  assert(true, "Alt/Ctrl file-op shortcuts ran without crash");
+});
+
+test("dom: shortcuts are suppressed while typing in an input or textarea", function () {
+  var app = globalThis.__stub.app;
+  var doc = globalThis.document;
+  var before = app.state.activeTab, beforeToast = app.getLastToast();
+  doc.activeElement = { tagName: "INPUT" }; // e.g. the jump (char search) field
+  app.shortcuts.dispatch({ key: "q", preventDefault: function () {} });
+  assertEqual(app.state.activeTab, before, "q did not switch tabs with an input focused");
+  doc.activeElement = { tagName: "TEXTAREA" }; // e.g. the preview text
+  app.shortcuts.dispatch({ key: "s", ctrlKey: true, preventDefault: function () {} });
+  assertEqual(app.getLastToast(), beforeToast, "Ctrl+s did not export with a textarea focused");
+  doc.activeElement = null; // restore the stub default
+  app.shortcuts.dispatch({ key: "e", preventDefault: function () {} });
+  assertEqual(app.state.activeTab, "edit", "shortcuts work again once the input loses focus");
 });

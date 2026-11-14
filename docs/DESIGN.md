@@ -139,11 +139,17 @@ All keyboard shortcuts go through a single **shortcut registry** in `app.js` —
 shortcuts.register({ combo: "Ctrl+ArrowLeft", description: "Shift glyph left", handler(evt) { ... } })
 ```
 
-- One global dispatcher matches `combo` (simple syntax: `Key`, `Ctrl+Key`, `Ctrl+Shift+Key`; ⌘ counts as Ctrl) and calls `handler`. Shortcuts are **suppressed while a text input has focus** (jump field, preview text).
+- One global dispatcher matches `combo` (simple syntax: `Key`, `Ctrl+Key`, `Alt+Key`, `Ctrl+Shift+Key`, `Alt+Shift+Key`, …; ⌘ counts as Ctrl) and calls `handler`. Shortcuts are **suppressed while a text input has focus** (jump field, preview text) — typing `e` in the char search must not switch tabs.
+- **macOS Option quirk:** Option+letter produces an accented character in `evt.key` (Option+N → `∩`), so for Alt combos the dispatcher normalizes the key from the layout-independent `evt.code` (`KeyN` → `n`).
 - The **reference card** (toggled with `?`, also a toolbar button) is **rendered from the registry** — it cannot drift from actual behavior because it has no data of its own.
 - Existing shortcuts (undo/redo) migrate to the registry; anything added later must be registered or it doesn't exist. **Rule for future agents: new shortcut ⇒ `shortcuts.register()`, full stop.** (See DECISIONS #35.)
 
-Planned bindings: `←/→` ±1 glyph · `↑/↓` ±16 (atlas row) · `Home/End` row start/end · `PgUp/PgDn` 0x00/0xFF · `Ctrl/⌘+arrows` shift current glyph ±1px (clipped ink is dropped, with a toast if anything was lost; one undo step per shift) · `?` reference card · existing `Ctrl/⌘+Z` / `Ctrl/⌘+Shift+Z` undo/redo.
+Bindings (all via the registry; ⌘ = Ctrl):
+- **File ops:** `Alt+N` new font · `Alt+O` open PNG · `Alt+Shift+O` open BDF · `Ctrl+S` export PNG · `Ctrl+Shift+S` export Verilog · `Alt+Shift+S` export BDF. (Ctrl+N / Ctrl+O are reserved by the browser — new window / open file, not interceptable — hence Alt; see DECISIONS #48.)
+- **Tabs:** `E` Edit · `P` Preview · `A` Atlas · `Q` QA · `Ctrl+Q` QA tab *and* run the checks.
+- **Glyph nav:** `←/→` ±1 · `↑/↓` ±16 (atlas row) · `Home/End` row start/end · `PgUp/PgDn` 0x00/0xFF.
+- **Glyph shift:** `Ctrl/⌘+arrows` shift current glyph ±1px (clipped ink is dropped, with a toast if anything was lost; one undo step per shift).
+- **Misc:** `Ctrl/⌘+Z` undo · `Ctrl/⌘+Shift+Z` / `Ctrl+Y` redo · `?` reference card.
 
 ## Glyph status & QA
 

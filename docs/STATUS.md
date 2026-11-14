@@ -15,6 +15,7 @@
 - [x] **[J] Ergonomics update** (2026-11-14): keyboard nav, reference glyph, keyboard glyph shift, shortcut registry + reference card, inverted preview, atlas bold/slant, settings persistence — 65 tests
 - [x] **[K] QA update** (2026-11-14): glyph status (unfinished/WIP/done), QA tab with stale indicator, duplicate + "left to draw" checks — 77 tests
 - [x] **[L] Interop** (2026-11-14): BDF import/export (app wiring) + copy glyph to clipboard — 90 tests
+- [x] **[I.1] File-op & tab shortcuts** (2026-11-14): Alt/Ctrl file-op + E/P/A/Q/Ctrl+Q shortcuts, registry-based, input-suppressed — 93 tests
 - [ ] **[I] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -113,7 +114,14 @@ User requested: clicking the left-sidebar atlas (mini-glyph grid) selects the gl
 - **6 new DOM tests** (BDF import success/malformed, export smoke, glyphCanvas size, clipboard fallback + rasterize-fail toast, clipboard success) → **total 90 tests.**
 - **Not yet done:** browser verification — BDF round-trip with a real file, clipboard copy, plus the still-unverified visuals from J & K (keys card layout, inverted preview look, atlas slant spacing, status tints, status menu placement, QA table look). The agent can't screenshot; the user verifies.
 
-## Plan — remaining chunks (decisions locked in DECISIONS #32–47)
+### [I.1] File-op & tab keyboard shortcuts (`app.js` + `test/`, 2026-11-14)
+User-requested shortcuts for existing features (their list was a weak suggestion; tweaks documented in DECISIONS #48):
+- **Registered (11 new, registry total 27):** `Alt+N` new font · `Alt+O` open PNG · `Alt+Shift+O` open BDF · `Ctrl+S` export PNG · `Ctrl+Shift+S` export Verilog · `Alt+Shift+S` export BDF · `E/P/A/Q` show Edit/Preview/Atlas/QA tab · `Ctrl+Q` QA tab + run checks. **Ctrl+N / Ctrl+O became Alt** — the browser reserves them (new window / open file, uninterceptable). BDF shortcuts added for completeness.
+- **Registry extended for Alt:** `comboOf` now emits `Alt`/`Alt+Shift` prefixes and, for Alt+letter combos, normalizes the key from layout-independent `evt.code` (`KeyN` → `n`) — because macOS Option+N types `∩` into `evt.key`. The `?` reference card picks all of this up automatically (rendered from the registry).
+- **Input suppression** (the user's explicit concern: char-search typing must not trigger shortcuts) — already handled by the dispatcher's `document.activeElement` check; now *tested*: the DOM stub's `activeElement` is a settable property, and a test asserts `q`/`Ctrl+S` are ignored while an INPUT/TEXTAREA has focus and work again after.
+- **Tests:** 3 new (comboOf normalization, dispatch of all new bindings end-to-end, input suppression) + the chunk-J registry-count assertion updated 16 → 27. **Total 93 tests.**
+
+## Plan — remaining chunks (decisions locked in DECISIONS #32–48)
 
 ### [M] Deferred QA checks (documented, NOT to build without re-greenlight)
 - Edge-ink lint — only with per-glyph silencing (box-drawing chars touch edges by design) (#46)

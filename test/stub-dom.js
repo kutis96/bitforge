@@ -74,6 +74,9 @@
   var documentStub = {
     readyState: "loading",
     _ready: null,
+    // Settable by tests to exercise the shortcut dispatcher's input suppression
+    // (typing "e" in the jump field must not switch tabs).
+    activeElement: null,
     addEventListener: function (name, cb) { if (name === "DOMContentLoaded") this._ready = cb; },
     getElementById: function (id) { return els[id] || (els[id] = makeEl(id)); },
     querySelectorAll: function (sel) {
