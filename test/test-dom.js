@@ -411,3 +411,30 @@ test("dom: PNG export background is a remembered setting (pngBg)", function () {
   app.exportPng("solid");
   assertEqual(app.settingsGet("pngBg"), "solid", "switches back to solid");
 });
+
+// ---------- Atlas render controls (DECISIONS #52) ----------
+
+test("dom: atlas render controls mirror the preview controls (shared state)", function () {
+  var app = globalThis.__stub.app;
+  var els = globalThis.__stub.els;
+  var stub = globalThis.__stub;
+  // Atlas -> preview direction
+  els["at-italic"].checked = true;
+  stub.dispatch("at-italic", "change", {});
+  assertEqual(app.state.italic, true, "atlas checkbox sets the shared state");
+  assertEqual(els["pv-italic"].checked, true, "preview checkbox follows");
+  // Preview -> atlas direction
+  els["pv-inverted"].checked = false;
+  stub.dispatch("pv-inverted", "change", {});
+  assertEqual(app.state.inverted, false);
+  assertEqual(els["at-inverted"].checked, false, "atlas checkbox follows the preview");
+  // Baseline number input, both directions
+  els["at-baseline"].value = "1";
+  stub.dispatch("at-baseline", "input", {});
+  assertEqual(app.state.baseline, 1, "atlas baseline input sets state");
+  assertEqual(els["pv-baseline"].value, "1", "preview baseline follows");
+  els["pv-baseline"].value = "99";
+  stub.dispatch("pv-baseline", "input", {});
+  assertEqual(app.state.baseline, app.state.font.height - 1, "baseline clamps to font height");
+  assertEqual(els["at-baseline"].value, String(app.state.font.height - 1), "atlas baseline follows clamped value");
+});

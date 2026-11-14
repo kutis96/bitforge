@@ -60,8 +60,7 @@
     state.redo = [];
     state.fontVersion = 0;
     state.baseline = clamp(state.baseline, 0, font.height - 1);
-    el.pvBaseline.max = String(font.height - 1);
-    el.pvBaseline.value = String(state.baseline);
+    syncRenderControls();
     qaReset();
     redrawAll();
     renderGuideList();
@@ -923,6 +922,28 @@
     downloadBlob(new Blob([text], { type: "text/plain" }), filename);
   }
 
+  // ---------- render controls (Preview + Atlas share one state) ----------
+  // DECISIONS #52: the Atlas tab has its own bold/italic/baseline/inverted
+  // controls, but they drive the SAME state as the Preview tab's. The setters
+  // write state + settings, then syncRenderControls() pushes the values back
+  // into both control sets so neither can show a stale checked/unchecked state.
+  function setBold(v) { state.bold = v; settingsSet("pvBold", v); syncRenderControls(); drawPvGlyph(); drawPvText(); drawAtlas(); }
+  function setItalic(v) { state.italic = v; settingsSet("pvItalic", v); syncRenderControls(); drawPvGlyph(); drawPvText(); drawAtlas(); }
+  function setInverted(v) { state.inverted = v; settingsSet("inverted", v); syncRenderControls(); drawPvGlyph(); drawPvText(); drawAtlas(); }
+  function setBaseline(v) {
+    state.baseline = clamp(parseInt(v, 10), 0, state.font.height - 1);
+    settingsSet("pvBaseline", state.baseline);
+    syncRenderControls(); drawPvGlyph(); drawPvText(); drawAtlas();
+  }
+  function syncRenderControls() {
+    if (!el.pvBold || !state.font) return; // before init / before the first setFont
+    el.pvBold.checked = state.bold;        el.atBold.checked = state.bold;
+    el.pvItalic.checked = state.italic;    el.atItalic.checked = state.italic;
+    el.pvInverted.checked = state.inverted; el.atInverted.checked = state.inverted;
+    el.pvBaseline.value = String(state.baseline); el.atBaseline.value = String(state.baseline);
+    el.pvBaseline.max = String(state.font.height - 1); el.atBaseline.max = String(state.font.height - 1);
+  }
+
   // ---------- menu bar (DECISIONS #51) ----------
   // Desktop-style File/Edit dropdowns. Mouse-driven: click a menu title to
   // open/toggle, hover to switch while one is open, outside mousedown or
@@ -975,6 +996,7 @@
       glock: $("glock"), glist: $("glist"),
       pvScale: $("pv-scale"), pvBold: $("pv-bold"), pvItalic: $("pv-italic"), pvBaseline: $("pv-baseline"),
       pvInverted: $("pv-inverted"),
+      atBold: $("at-bold"), atItalic: $("at-italic"), atBaseline: $("at-baseline"), atInverted: $("at-inverted"),
       pvGlyph: $("pv-glyph"), pvText: $("pv-text"), pvTextCanvas: $("pv-text-canvas"),
       atlas: $("atlas"), toast: $("toast"),
       keysCard: $("keys-card"), keysList: $("keys-list"),
@@ -1091,14 +1113,12 @@
       settingsSet("pvScale", state.scale);
       drawPvGlyph(); drawPvText();
     });
-    el.pvBold.addEventListener("change", function () { state.bold = this.checked; settingsSet("pvBold", state.bold); drawPvGlyph(); drawPvText(); drawAtlas(); });
-    el.pvItalic.addEventListener("change", function () { state.italic = this.checked; settingsSet("pvItalic", state.italic); drawPvGlyph(); drawPvText(); drawAtlas(); });
-    el.pvBaseline.addEventListener("input", function () {
-      state.baseline = clamp(parseInt(this.value, 10) || 0, 0, state.font.height - 1);
-      settingsSet("pvBaseline", state.baseline);
-      drawPvGlyph(); drawPvText(); drawAtlas();
-    });
-    el.pvInverted.addEventListener("change", function () { state.inverted = this.checked; settingsSet("inverted", state.inverted); drawPvGlyph(); drawPvText(); drawAtlas(); });
+    function bindToggle(id, fn) { el[id].addEventListener("change", function () { fn(this.checked); }); }
+    bindToggle("pvBold", setBold); bindToggle("atBold", setBold);
+    bindToggle("pvItalic", setItalic); bindToggle("atItalic", setItalic);
+    bindToggle("pvInverted", setInverted); bindToggle("atInverted", setInverted);
+    function bindBaselineInput(id) { el[id].addEventListener("input", function () { setBaseline(this.value); }); }
+    bindBaselineInput("pvBaseline"); bindBaselineInput("atBaseline");
     el.pvText.addEventListener("input", function () { settingsSet("pvText", this.value); drawPvText(); });
 
     // shortcut card
@@ -1152,12 +1172,8 @@
     state.inverted = !!settingsGet("inverted");
     state.baseline = clamp(settingsGet("pvBaseline") | 0, 0, font.height - 1);
     el.pvScale.value = String(state.scale);
-    el.pvBold.checked = state.bold;
-    el.pvItalic.checked = state.italic;
-    el.pvInverted.checked = state.inverted;
-    el.pvBaseline.value = String(state.baseline);
     el.pvText.value = settingsGet("pvText");
-    setFont(font);
+    setFont(font); // setFont -> syncRenderControls (state.font must exist first)
   }
 
   // Test seam: only under the jsc DOM stub (harmless in the browser). Lets the

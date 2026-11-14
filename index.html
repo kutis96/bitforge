@@ -117,7 +117,14 @@
       </div>
 
       <div class="panel" id="panel-atlas" role="tabpanel">
-        <div class="panel-head"><span>all 256 glyphs (0x00 top-left → 0xFF bottom-right) · click to select · right-click to set status</span></div>
+        <div class="panel-head">
+          <span>all 256 glyphs (0x00 top-left → 0xFF bottom-right) · click to select · right-click to set status</span>
+          <span class="spacer"></span>
+          <label title="Shared with the Preview tab"><input id="at-bold" type="checkbox"> bold</label>
+          <label title="Shared with the Preview tab"><input id="at-italic" type="checkbox"> italic</label>
+          <label title="Shared with the Preview tab">baseline <input id="at-baseline" type="number" min="0" step="1" value="5"></label>
+          <label title="Shared with the Preview tab"><input id="at-inverted" type="checkbox"> inverted</label>
+        </div>
         <div class="canvas-wrap"><canvas id="atlas"></canvas></div>
       </div>
 

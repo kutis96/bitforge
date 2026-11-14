@@ -81,6 +81,9 @@ Requirements and design decisions agreed with the user. **Treat these as fixed**
 ## Menu bar (chunk I.4)
 51. **Desktop-style menu bar** (user request, 2026-11-14): top toolbar becomes **File** + **Edit** dropdowns. File: New · Open PNG · Open BDF · Export PNG (solid bg) · Export PNG (transparent bg) · Export BDF · Export Verilog. Edit: Undo · Redo · Clear glyph · Copy glyph to clipboard. Mouse-driven (click open/toggle, hover-switch while open, outside-mousedown/Escape close); items show shortcut hints; every action keeps its keyboard shortcut. The per-button toolbar (New/Open/Export…/Copy glyph) and the **transparent-bg checkbox are removed**; the PNG background becomes two File-menu items with the last-used mode remembered in the settings API (`pngBg`, default `solid`) — **Ctrl+S exports with the remembered mode** (a modal was rejected as overkill for one boolean; user delegated the choice).
 
+## Atlas render controls (chunk I.5)
+52. **Duplicate bold/italic/baseline/inverted on the Atlas tab** (user request, 2026-11-14): the Atlas already honors those settings but required switching to Preview to change them. The Atlas panel head gets its own four controls that drive the **same shared state and same settings entries** as Preview (no new settings keys). Shared setters (`setBold/setItalic/setInverted/setBaseline`) write state + settings, then `syncRenderControls()` pushes values back into **both** control sets, so switching tabs never shows a stale checkbox. Scale stays Preview-only (the atlas auto-scales).
+
 ## Deferred
 46. **Edge-ink lint — deferred.** Build only with a per-glyph *silence* mechanism: box-drawing/pseudographic glyphs intentionally reach the cell edges, so a naive edge check is noise for this font's real content.
 47. **Guideline-violation report — deferred** until the QA infra (chunk K) is proven.

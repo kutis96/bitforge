@@ -19,6 +19,7 @@
 - [x] **[I.2] Preview markup escapes** (2026-11-14): `\*` `\_` `\\` backslash escapes in the preview text — 98 tests
 - [x] **[I.3] Edit-tab glyph status** (2026-11-14): `unf`/`wip`/`done` buttons in the Edit panel head — 99 tests
 - [x] **[I.4] Menu bar** (2026-11-14): desktop-style File/Edit dropdowns; PNG bg → remembered `pngBg` setting — 101 tests
+- [x] **[I.5] Atlas render controls** (2026-11-14): bold/italic/baseline/inverted duplicated on the Atlas tab (shared state, two-way sync) — 102 tests
 - [ ] **[I] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -145,7 +146,14 @@ User request: a desktop-app-style menu bar instead of a row of toolbar buttons.
 - **Removed from the toolbar:** all per-action buttons + the checkbox; the hidden `#file-png`/`#file-bdf` inputs stay (file pickers). `clearGlyphAction()` extracted so the Edit-tab button and the Edit-menu item share one implementation. No new `querySelectorAll` (menus tracked in an `menuEls` array — stub stays unchanged).
 - **Tests:** 2 new DOM tests (open/switch/hover/toggle/item-click-closes with a real action; `pngBg` remembering incl. bare-call behavior) via `__stub.dispatch` on `mb-*`/`mi-*` elements (the stub's real `classList` tracking from [I.3] makes the assertions possible). Seam gained `exportPng`, `settingsGet`, `settingsSet`. **Total 101 tests.**
 
-## Plan — remaining chunks (decisions locked in DECISIONS #32–51)
+### [I.5] Atlas render controls (`index.html` + `app.js` + `test/`, 2026-11-14)
+User request: the Atlas already honors bold/italic/baseline/inverted, but changing them required switching to Preview.
+- Atlas panel head gains its own **bold / italic / baseline / inverted** controls (`at-*` ids). They drive the **same state and same settings entries** as Preview (no new settings keys); scale stays Preview-only.
+- **Shared setters** `setBold/setItalic/setInverted/setBaseline` (write state + settings, redraw) + `syncRenderControls()` which pushes current values into **both** control sets — called from every setter, `setFont` (baseline `max` follows the font height), so neither set can show a stale value. The old inline pv-* handlers were replaced by these.
+- **Bug found & fixed during the chunk:** a premature `syncRenderControls()` call at the end of `init()` (before `setFont`) crashed under the stub with `state.font` still null — 12 test failures immediately exposed it. Removed the call (`setFont` already syncs) and hardened the guard to `if (!el.pvBold || !state.font) return;`. This is why the headless DOM smoke test exists.
+- 1 new DOM test (both sync directions for checkbox + number input, incl. baseline clamping to font height). **Total 102 tests.**
+
+## Plan — remaining chunks (decisions locked in DECISIONS #32–52)
 
 ### [M] Deferred QA checks (documented, NOT to build without re-greenlight)
 - Edge-ink lint — only with per-glyph silencing (box-drawing chars touch edges by design) (#46)
