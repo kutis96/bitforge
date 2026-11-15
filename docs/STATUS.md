@@ -30,7 +30,7 @@
 - [x] **[O.1] Preview control cleanup** (2026-11-15): orphaned Preview bold/italic checkboxes removed (Atlas keeps them) + markup note for `*bold*`/`_italic_`/`\uXX`/escapes — 122 tests
 - [x] **[O.2] Preview newline fix** (2026-11-15): `\n` renders as a line break (blank lines kept, was N−1 breaks), markup state spans lines — 126 tests
 - [x] **[O.3] Project file** (2026-11-15): `.bitforge` export/import (font + guidelines + status + silences + settings), shared blob sanitizer moved to core, confirm-on-import — 135 tests
-- [x] **[O.4] Bound-guide preset margins** (2026-11-15): desc/R presets moved 1px off the cell edge — bounds on the outermost row/col could never fire (user report) — 137 tests
+- [x] **[O.4] Bound-guide off-by-one fix** (2026-11-15/16): guide lines are drawn *between* pixels; the bottom/right comparisons in `guideViolations` missed the first pixel past the line (`>` → `>=`, overshoot `+1`); presets reverted to h-1/w-1, which are correct under the fixed comparison (first attempt was a misdiagnosis) — 137 tests
 - [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -53,7 +53,7 @@ Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–
 | 0.15.1 | [O.1] Preview control cleanup |
 | 0.15.2 | [O.2] Preview newline fix |
 | 0.15.3 | [O.3] Project file (.bitforge) |
-| **0.15.4** (current) | [O.4] Bound-guide preset margins |
+| **0.15.4** (current) | [O.4] Bound-guide off-by-one fix |
 
 **Lettering note (2026-11-15, chunk M):** chunk letters drifted at some point (the I-wave landed after L); they now follow list position. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Git commit subjects still use the old letters.
 
@@ -263,19 +263,20 @@ User re-opened DECISIONS #1/#25 ("no project file"): PNG stays primary for final
 - 7 core tests (blob roundtrip, sanitizing, no-check-list, wrapper shape, JSON roundtrip, rejection reasons, optional settings) + 2 DOM tests (full export→import roundtrip incl. settings + cancel no-op; malformed-file toasts). Shortcut registry count 29 → 31. **Total 135 tests.**
 - **Browser-verify (user):** File-menu items + shortcuts, the confirm dialog, export/import roundtrip with a real file, error toast on a foreign file.
 
-### [O.4] Bound-guide preset margins (`js/app.js` + `test/`, 2026-11-15)
-User report: asc/L guideline violations were flagged, but desc/R "never show up". See DECISIONS #65.
-- **Root cause (not the check — the presets):** `descender`/`right` presets sat on the outermost row/column (`h-1`/`w-1`); ink can't exist past the cell edge, so those bounds were geometrically unviolable. `asc`/`L` (off 1) left a 1px margin and worked — exactly matching the user's observation.
-- **Fix:** `descender` → `max(0, h-2)`, `right` → `max(0, w-2)`; all four bound presets now leave a 1px violatable margin outside the line. Existing fonts keep their saved guide positions (presets affect new guides only) — re-add or drag desc/R to pick up the defaults.
-- Tests: 1 core (bottom + left violations with label + overshoot — the two directions previously untested; top + right were) + 1 DOM (preset offsets pinned via a new `guidePresets` seam export). **Total 137 tests.**
-- **Browser-verify (user):** re-add the desc/R presets and confirm ink past them now raises a QA row.
+### [O.4] Bound-guide off-by-one fix (`js/core.js` + `js/app.js` + `test/`, 2026-11-15/16)
+User report ×2: asc/L guideline violations were flagged, but desc/R "never show up" (and the first fix attempt didn't resolve it). See DECISIONS #65.
+- **First attempt (misdiagnosis, reverted):** moved the `descender`/`right` presets from `h-1`/`w-1` to `h-2`/`w-2` on the theory that a bound on the cell edge "can never fire". The user's follow-up showed the real symptom: with R at 6 (line visually between cols 6|7, 1-based) the edge pixel still needed the line one pixel further in.
+- **True root cause (user's diagnosis):** guide lines render on grid boundaries — **between** pixels (canvas `off*scale + 0.5`), never on a pixel. `BF.guideViolations` was written for on-pixel line semantics: bottom/right used `maxR > off` / `maxC > off`, so the pixel at index `off` — the first pixel below/right of the line — was never flagged. Top/left (`minR < off` / `minC < off`) were already correct, which is exactly why asc/L worked and desc/R didn't.
+- **Fix:** bottom/right now use `maxR >= off` / `maxC >= off`; overshoot counts pixel rows/cols outside the line (`maxR - off + 1`). Presets **reverted** to the original `h-1`/`w-1` — under the fixed comparison each line leaves exactly 1px outside (row `h-1` / col `w-1`), same as asc/L. Existing fonts' saved guide positions are unaffected by either change.
+- Tests: core now covers all four directions (bottom+left added in the first attempt; bottom/right overshoot assertions updated to the between-pixels semantics, e.g. R line at boundary 5 + ink in col 7 = 3px right) + a DOM test pinning the preset positions via the `guidePresets` seam export. **Total 137 tests.**
+- **Browser-verify (user):** with the default desc/R presets, ink on the bottom row / right column now raises a QA row, and the line visually sits between the last two rows/cols (1px outside = flagged).
 
 ## Plan — remaining chunks (decisions locked in DECISIONS #32–65)
 
 **[N] QA checks are fully done** (N.1 + N.2 + N.3 — both deferred checks #46/#47 shipped with per-glyph silencing).
 
 ### [O] Polish (catch-all)
-**[O.1]–[O.4] are done** (Preview control cleanup, newline fix, project file, bound-guide preset margins — see Completed + DECISIONS #62–#65). The rest of [O] is still open:
+**[O.1]–[O.4] are done** (Preview control cleanup, newline fix, project file, bound-guide off-by-one fix — see Completed + DECISIONS #62–#65). The rest of [O] is still open:
 
 Browser-verify the visuals and interactions (the agent can't screenshot). Likely small fixes: slant spill clipping, jump UX, preview wrap width, hover cursor on the editor, layout nits, guidelines visual polish (line thickness, colors).
 

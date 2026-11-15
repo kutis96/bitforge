@@ -536,11 +536,16 @@
       }
     }
     if (maxR < 0) return []; // blank glyph
+    // Guides are drawn on grid boundaries — BETWEEN pixels (DECISIONS #65): a
+    // guide at offset `off` sits between indices off-1 and off, never on a
+    // pixel. "Outside" is therefore: above/left of a top/left line = index <
+    // off; below/right of a bottom/right line = index >= off (the pixel at off
+    // is the FIRST one past the line). `over` counts pixel rows/cols outside.
     var b = guideBounds(font), out = [];
     if (b.top && minR < b.top.off) out.push({ bound: "top", label: b.top.label, over: b.top.off - minR });
-    if (b.bottom && maxR > b.bottom.off) out.push({ bound: "bottom", label: b.bottom.label, over: maxR - b.bottom.off });
+    if (b.bottom && maxR >= b.bottom.off) out.push({ bound: "bottom", label: b.bottom.label, over: maxR - b.bottom.off + 1 });
     if (b.left && minC < b.left.off) out.push({ bound: "left", label: b.left.label, over: b.left.off - minC });
-    if (b.right && maxC > b.right.off) out.push({ bound: "right", label: b.right.label, over: maxC - b.right.off });
+    if (b.right && maxC >= b.right.off) out.push({ bound: "right", label: b.right.label, over: maxC - b.right.off + 1 });
     return out;
   }
 

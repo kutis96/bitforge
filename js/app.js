@@ -693,17 +693,18 @@
   // ---------- guidelines (per-font, shared across glyphs) ----------
   var GUIDE_PRESETS = {
     // Bound guides take their labels from BF.GUIDE_BOUND_LABELS (core.js) —
-    // that table decides which guides act as QA bounds (chunk N.3). The four
-    // bound presets leave a 1px violatable margin OUTSIDE each line: a bound
-    // placed on the outermost row/column can never fire, because ink cannot
-    // exist past the cell edge (DECISIONS #65).
+    // that table decides which guides act as QA bounds (chunk N.3). Lines are
+    // drawn on grid boundaries (BETWEEN pixels), and the QA flags ink outside
+    // the line: above/left = index < off, below/right = index >= off
+    // (DECISIONS #65). Each of the four presets leaves exactly 1px outside
+    // the line (row 0 / row h-1 / col 0 / col w-1).
     ascender:  { label: BF.GUIDE_BOUND_LABELS.top,    o: "h", color: "#888888", off: function (f) { return 1; } },
     cap:       { label: "cap",  o: "h", color: "#2255cc", off: function (f) { return Math.max(1, Math.round(f.height * 0.12)); } },
     xheight:   { label: "x",    o: "h", color: "#2255cc", off: function (f) { return Math.round(f.height * 0.40); } },
     baseline:  { label: "base", o: "h", color: "#dd2222", off: function (f) { return f.height - 3; } },
-    descender: { label: BF.GUIDE_BOUND_LABELS.bottom, o: "h", color: "#888888", off: function (f) { return Math.max(0, f.height - 2); } },
+    descender: { label: BF.GUIDE_BOUND_LABELS.bottom, o: "h", color: "#888888", off: function (f) { return f.height - 1; } },
     left:      { label: BF.GUIDE_BOUND_LABELS.left,   o: "v", color: "#cc8800", off: function (f) { return 1; } },
-    right:     { label: BF.GUIDE_BOUND_LABELS.right,  o: "v", color: "#cc8800", off: function (f) { return Math.max(0, f.width - 2); } },
+    right:     { label: BF.GUIDE_BOUND_LABELS.right,  o: "v", color: "#cc8800", off: function (f) { return f.width - 1; } },
     hnew:      { label: "H",    o: "h", color: "#444444", off: function (f) { return Math.round(f.height / 2); } },
     vnew:      { label: "V",    o: "v", color: "#444444", off: function (f) { return Math.round(f.width / 2); } }
   };

@@ -722,11 +722,11 @@ test("dom: guideline check names the crossed guide in the detail (DECISIONS #47)
   f.guidelines.length = 0;
   // Dimension-robust: works on whatever font the earlier tests left behind.
   f.guidelines.push({ o: "h", off: 2, label: BF.GUIDE_BOUND_LABELS.top, color: "#888888" });
-  f.guidelines.push({ o: "v", off: f.width - 2, label: BF.GUIDE_BOUND_LABELS.right, color: "#cc8800" });
+  f.guidelines.push({ o: "v", off: f.width - 1, label: BF.GUIDE_BOUND_LABELS.right, color: "#cc8800" }); // default R position
   var code = 3;
   BF.clearGlyph(f, code);
   BF.setPixel(f, code, 0, 0, 1);            // 2px above the ascender
-  BF.setPixel(f, code, f.width - 1, Math.min(5, f.height - 1), 1); // 1px right of R
+  BF.setPixel(f, code, f.width - 1, Math.min(5, f.height - 1), 1); // edge col: 1px right of the R line
   app.qaRefresh();
 
   function guideRow(rows, c) {
@@ -754,13 +754,16 @@ test("dom: guideline check names the crossed guide in the detail (DECISIONS #47)
   app.qaRefresh(); // leave the font clean for later tests
 });
 
-// Bound-guide preset margins (DECISIONS #65): a bound on the outermost
-// row/column can never fire — ink cannot exist past the cell edge.
-test("dom: bound-guide presets leave a 1px violatable margin (DECISIONS #65)", function () {
+// Bound-guide preset positions (DECISIONS #65): lines are drawn BETWEEN pixels
+// (on grid boundaries) and the QA flags ink outside the line — above/left =
+// index < off, below/right = index >= off. Each preset leaves exactly 1px
+// outside its line (the first [O.4] attempt misdiagnosed the off-by-one and
+// moved these; the real fix was the comparison in BF.guideViolations).
+test("dom: bound-guide presets leave exactly 1px outside each line (DECISIONS #65)", function () {
   var app = globalThis.__stub.app;
   var f = { width: 8, height: 16 };
-  assertEqual(app.guidePresets.ascender.off(f), 1, "asc leaves row 0 outside");
-  assertEqual(app.guidePresets.descender.off(f), 14, "desc leaves the bottom row outside (was 15 — could never fire)");
-  assertEqual(app.guidePresets.left.off(f), 1, "L leaves col 0 outside");
-  assertEqual(app.guidePresets.right.off(f), 6, "R leaves the right col outside (was 7 — could never fire)");
+  assertEqual(app.guidePresets.ascender.off(f), 1, "line between rows 0|1: row 0 outside");
+  assertEqual(app.guidePresets.descender.off(f), 15, "line between rows 14|15: row 15 outside (fires with the >= fix)");
+  assertEqual(app.guidePresets.left.off(f), 1, "line between cols 0|1: col 0 outside");
+  assertEqual(app.guidePresets.right.off(f), 7, "line between cols 6|7: col 7 outside");
 });

@@ -42,10 +42,11 @@ test("guide: multiple same-labelled guides — the outermost one wins", function
 
 test("guide: ink on or inside the bound lines violates nothing", function () {
   var f = BF.makeFont(8, 16);
-  f.guidelines.push({ o: "h", off: 2, label: GB.top, color: "#888888" });
-  f.guidelines.push({ o: "h", off: 14, label: GB.bottom, color: "#888888" });
-  BF.setPixel(f, 5, 3, 2, 1);  // exactly on the top bound line
-  BF.setPixel(f, 5, 3, 14, 1); // exactly on the bottom bound line
+  // Lines sit on grid boundaries, BETWEEN pixels (DECISIONS #65):
+  f.guidelines.push({ o: "h", off: 2, label: GB.top, color: "#888888" });     // between rows 1|2
+  f.guidelines.push({ o: "h", off: 14, label: GB.bottom, color: "#888888" }); // between rows 13|14
+  BF.setPixel(f, 5, 3, 2, 1);  // first row BELOW the top line (inside)
+  BF.setPixel(f, 5, 3, 13, 1); // last row ABOVE the bottom line (inside)
   BF.setPixel(f, 5, 3, 8, 1);
   assertEqual(BF.guideViolations(f, 5).length, 0, "ink within bounds is clean");
 });
@@ -55,24 +56,24 @@ test("guide: ink past a bound reports the guide label + overshoot in px", functi
   f.guidelines.push({ o: "h", off: 2, label: GB.top, color: "#888888" });
   f.guidelines.push({ o: "v", off: 5, label: GB.right, color: "#cc8800" });
   BF.setPixel(f, 5, 0, 0, 1);    // 2px above the ascender
-  BF.setPixel(f, 5, 7, 8, 1);    // 2px right of the R guide
+  BF.setPixel(f, 5, 7, 8, 1);    // 3px right of the R line (cols 5,6,7 past the line at boundary 5)
   var v = BF.guideViolations(f, 5);
   assertEqual(v.length, 2, "two crossed bounds");
   var byBound = {};
   for (var i = 0; i < v.length; i++) byBound[v[i].bound] = v[i];
   assertEqual(byBound.top.over, 2, "2px above asc");
   assertEqual(byBound.top.label, "asc", "top violation names the guide");
-  assertEqual(byBound.right.over, 2, "2px right of R");
+  assertEqual(byBound.right.over, 3, "3px right of R");
   assertEqual(byBound.right.label, "R", "right violation names the guide");
   assert(byBound.bottom === undefined && byBound.left === undefined, "uncrossed bounds absent");
 });
 
 test("guide: ink below a desc bound / left of an L bound reports label + overshoot", function () {
   var f = BF.makeFont(8, 16);
-  f.guidelines.push({ o: "h", off: 14, label: GB.bottom, color: "#888888" }); // one row above the cell bottom
+  f.guidelines.push({ o: "h", off: 15, label: GB.bottom, color: "#888888" }); // default desc position: line between rows 14|15
   f.guidelines.push({ o: "v", off: 2, label: GB.left, color: "#cc8800" });
-  BF.setPixel(f, 9, 3, 15, 1); // bottom row: 1px below the desc bound
-  BF.setPixel(f, 9, 0, 5, 1);  // col 0: 2px left of the L bound
+  BF.setPixel(f, 9, 3, 15, 1); // bottom row: 1px below the desc line
+  BF.setPixel(f, 9, 0, 5, 1);  // col 0: 2px left of the L line
   var v = BF.guideViolations(f, 9);
   var byBound = {};
   for (var i = 0; i < v.length; i++) byBound[v[i].bound] = v[i];
