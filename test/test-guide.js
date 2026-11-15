@@ -67,6 +67,22 @@ test("guide: ink past a bound reports the guide label + overshoot in px", functi
   assert(byBound.bottom === undefined && byBound.left === undefined, "uncrossed bounds absent");
 });
 
+test("guide: ink below a desc bound / left of an L bound reports label + overshoot", function () {
+  var f = BF.makeFont(8, 16);
+  f.guidelines.push({ o: "h", off: 14, label: GB.bottom, color: "#888888" }); // one row above the cell bottom
+  f.guidelines.push({ o: "v", off: 2, label: GB.left, color: "#cc8800" });
+  BF.setPixel(f, 9, 3, 15, 1); // bottom row: 1px below the desc bound
+  BF.setPixel(f, 9, 0, 5, 1);  // col 0: 2px left of the L bound
+  var v = BF.guideViolations(f, 9);
+  var byBound = {};
+  for (var i = 0; i < v.length; i++) byBound[v[i].bound] = v[i];
+  assertEqual(v.length, 2, "two crossed bounds");
+  assertEqual(byBound.bottom.over, 1, "1px below desc");
+  assertEqual(byBound.bottom.label, "desc", "bottom violation names the guide");
+  assertEqual(byBound.left.over, 2, "2px left of L");
+  assertEqual(byBound.left.label, "L", "left violation names the guide");
+});
+
 test("guide: blank glyph and missing bounds produce no violations", function () {
   var f = BF.makeFont(8, 16);
   f.guidelines.push({ o: "h", off: 2, label: GB.top, color: "#888888" });

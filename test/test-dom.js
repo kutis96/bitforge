@@ -592,7 +592,7 @@ test("dom: mousedown on a menu item must NOT close the menu (real-browser click 
 
 test("dom: About modal head + browser tab show the app version (DECISIONS #56)", function () {
   assert(/^\d+\.\d+\.\d+$/.test(BF.VERSION), "BF.VERSION is semver-ish: " + BF.VERSION);
-  assertEqual(BF.VERSION, "0.15.3", "pinned version — bump this test when you bump the app");
+  assertEqual(BF.VERSION, "0.15.4", "pinned version — bump this test when you bump the app");
   var els = globalThis.__stub.els;
   assertEqual(els["about-title"].textContent, "bitforge " + BF.VERSION, "modal head shows name + version");
   assertEqual(document.title, "bitforge " + BF.VERSION, "browser tab shows name + version");
@@ -752,4 +752,15 @@ test("dom: guideline check names the crossed guide in the detail (DECISIONS #47)
   BF.clearGlyph(f, code);
   f.guidelines.length = 0;
   app.qaRefresh(); // leave the font clean for later tests
+});
+
+// Bound-guide preset margins (DECISIONS #65): a bound on the outermost
+// row/column can never fire — ink cannot exist past the cell edge.
+test("dom: bound-guide presets leave a 1px violatable margin (DECISIONS #65)", function () {
+  var app = globalThis.__stub.app;
+  var f = { width: 8, height: 16 };
+  assertEqual(app.guidePresets.ascender.off(f), 1, "asc leaves row 0 outside");
+  assertEqual(app.guidePresets.descender.off(f), 14, "desc leaves the bottom row outside (was 15 — could never fire)");
+  assertEqual(app.guidePresets.left.off(f), 1, "L leaves col 0 outside");
+  assertEqual(app.guidePresets.right.off(f), 6, "R leaves the right col outside (was 7 — could never fire)");
 });

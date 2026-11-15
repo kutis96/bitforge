@@ -6,7 +6,7 @@ Edit 256-character monospaced font atlases, preview glyphs with artificial bold 
 
 ## Status
 
-**Functionally complete (pending visual polish).** All logic is unit-tested (135 tests under `jsc`); the full UI is built in vanilla JS. Open `index.html` to use it. See [STATUS.md](STATUS.md).
+**Functionally complete (pending visual polish).** All logic is unit-tested (137 tests under `jsc`); the full UI is built in vanilla JS. Open `index.html` to use it. See [STATUS.md](STATUS.md).
 
 ## Documentation (handover)
 
