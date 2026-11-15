@@ -24,7 +24,8 @@
 - [x] **[L.7] Status pumping shortcuts** (2026-11-14): `D` cycle status, `Shift+D` done + next — 103 tests
 - [x] **[L.8] About menu + modal** (2026-11-14): live font info, About modal, W/H corner indicator removed; fixed the menu-item mousedown bug — 105 tests
 - [x] **[M] About contents + versioning** (2026-11-15): "bitmap font editor" naming, FPGA framing dropped, credit line, `BF.VERSION` 0.13.0, chunk letters normalized — 106 tests
-- [ ] **[N] Deferred QA checks** (see Plan; **not to build without re-greenlight**)
+- [x] **[N.1] QA severity + silencing** (2026-11-15): per-check status icons (set C), summary strip, per-glyph silencing + show-silenced toggle, stub children tracking — 109 tests
+- [ ] **[N.2/N.3] remaining QA checks** (edge-ink, guideline violations — greenlit 2026-11-15, see Plan)
 - [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -40,7 +41,8 @@ Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–
 | 0.10.0 | [J] QA |
 | 0.11.0 | [K] Interop |
 | 0.12.1 – 0.12.8 | [L.1]–[L.8]: shortcuts · escapes · status buttons · menu bar · atlas controls · preview layout · pumping · About |
-| **0.13.0** (current) | [M] About contents + versioning |
+| 0.13.0 | [M] About contents + versioning |
+| **0.14.1** (current) | [N.1] QA severity + silencing |
 
 **Lettering note (2026-11-15, chunk M):** chunk letters drifted at some point (the I-wave landed after L); they now follow list position. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Git commit subjects still use the old letters.
 
@@ -203,16 +205,25 @@ User requests: (1) flesh out the About modal — drop the FPGA-terminal framing,
 - 1 new headless test (version pin + modal head + tab title). **Total 106 tests.**
 - **Browser-verify (user):** modal text/credit, tab title, no visual regressions.
 
-## Plan — remaining chunks (decisions locked in DECISIONS #32–58)
+### [N.1] QA severity + silencing (`core.js` + `app.js` + `index.html` + `css/style.css` + `test/`, 2026-11-15)
+User request (part of [N]): a per-glyph *silencing* so expected violations (box-drawing chars touching cell edges) don't raise warnings, plus per-check status icons. All open decisions were settled before implementation: both QA checks will be built (N.2/N.3), **icon set C** (green check / grey i / red triangle / grey slashed circle), terminology "silenced", duplicates stay non-silenceable.
+- **Severities + icons:** checks now declare `severity` + `silenceable`; `qaIcon(kind)` renders the set-C inline SVGs (ok #2e7d32 / info #888888 / warn #cc3333 / sil #999999). A **summary strip** (`#qa-summary`) shows one line per check: worst *active* severity icon (ok when clean, silenced when all silenced) + count + "(N silenced)". Each row gets its icon in the check cell.
+- **Silencing:** `font.silences = { checkId: { code: true } }` (new `BF.makeFont` field), blob key `si`, sanitized on load against the known check ids (derived from `qaChecks` — no second literal list). "silence"/"un-silence" buttons in a new 4th table column (silenceable per-glyph rows only); silenced rows hidden by default, muted (`tr.qa-sil`), revealed by the **show-silenced** checkbox (`qaShowSilenced`, settings API). Toggling = font mutation → stale badge + immediate re-render.
+- **Bug found by the new test:** row icons passed the severity string ("warning") straight into `qaIcon`, whose kinds are `"warn"` — silently falling back to the info icon. Normalized at the call site; the regression is pinned by the icon-color assertions.
+- **Stub extended:** elements now track **real children** (`appendChild`/`insertBefore`/`removeChild`, `children`/`firstChild`) and setting `innerHTML` clears them (real DOM semantics) — tests inspect rendered QA rows directly. Seam gained `toggleSilence`, `qaChecks` (a test pushes a temporary stand-in silenceable check and pops it).
+- 3 new tests (silences field, summary strip, full silence→persist→reveal→un-silence cycle). **Total 109 tests.**
+- **Browser-verify (user):** summary strip + icons, silence buttons, show-silenced toggle, muted rows.
 
-### [N] Deferred QA checks (documented, NOT to build without re-greenlight)
-- Edge-ink lint — only with per-glyph silencing (box-drawing chars touch edges by design) (#46)
-- Guideline-violation report — after QA infra proven (#47)
+## Plan — remaining chunks (decisions locked in DECISIONS #32–59)
+
+### [N] QA checks (greenlit 2026-11-15; N.1 done)
+- [N.2] **Edge-ink lint** — ink on the outermost cell row/col; silenceable per glyph (#46 — the silencing prerequisite now exists)
+- [N.3] **Guideline-violation report** — **label-aware bounds only** (`asc`/`desc`/`L`/`R` guides; cap/x/base/free guides stay reference-only), detail names the crossed guide + overshoot in px; silenceable per glyph (#47)
 
 ### [O] Polish (catch-all)
 Browser-verify the visuals and interactions (the agent can't screenshot). Likely small fixes: slant spill clipping, jump UX, preview wrap width, hover cursor on the editor, layout nits, guidelines visual polish (line thickness, colors).
 
-**Handover note for the next agent:** A–M are done. Remaining: [N] deferred QA checks (**not to build without re-greenlight**) and [O] polish. After each chunk: run `./test/run-tests.sh`, update this file's checkboxes + add a Completed section, commit. Pure-logic pieces belong in `core.js` with tests; DOM wiring in `app.js`.
+**Handover note for the next agent:** A–M + N.1 are done. Remaining: [N.2]/[N.3] QA checks (greenlit) and [O] polish. After each chunk: run `./test/run-tests.sh`, update this file's checkboxes + add a Completed section, commit. Pure-logic pieces belong in `core.js` with tests; DOM wiring in `app.js`.
 
 **Fixed during review (user-reported):** editor click→cell mismatch + non-square cells. The canvas CSS size wasn't pinned, so flexbox stretched it to the panel and `getBoundingClientRect()` no longer matched the internal pixel size. Fix: `setCanvasSize()` pins `style.width/height` to the internal size; `.canvas-wrap canvas { flex: 0 0 auto }` stops the stretch; the wrapper scrolls instead. Now 1 internal px = 1 CSS px in all browsers. Regression-tested in `test-dom.js` (asserts CSS size == internal size).
 

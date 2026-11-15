@@ -107,3 +107,9 @@ test("rowBitsString: empty/invalid returns empty string", function () {
   assertEqual(BF.rowBitsString(f, 0, 16), "");
   assertEqual(BF.rowBitsString(f, 256, 0), "");
 });
+
+test("model: makeFont initializes silences for QA silencing (DECISIONS #59)", function () {
+  var f = BF.makeFont(8, 16);
+  assert(f.silences !== null && typeof f.silences === "object", "silences is an object");
+  assertEqual(Object.keys(f.silences).length, 0, "starts empty");
+});

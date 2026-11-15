@@ -140,12 +140,14 @@
           <button id="btn-qa-refresh" type="button">Refresh checks</button>
           <span id="qa-badge" class="qa-badge" hidden></span>
           <span class="spacer"></span>
+          <label title="Show silenced violations in the table"><input id="qa-show-silenced" type="checkbox"> show silenced</label>
           <span class="qa-hint">checks run on demand; the report goes stale when the font changes</span>
         </div>
+        <div id="qa-summary" class="qa-summary" hidden></div>
         <div id="qa-table-wrap" class="qa-table-wrap">
           <div id="qa-empty" class="qa-empty">Press <b>Refresh checks</b> to run the QA checks.</div>
           <table id="qa-table" hidden>
-            <thead><tr><th>check</th><th>codes</th><th>detail</th></tr></thead>
+            <thead><tr><th>check</th><th>codes</th><th>detail</th><th></th></tr></thead>
             <tbody id="qa-tbody"></tbody>
           </table>
         </div>

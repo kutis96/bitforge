@@ -94,7 +94,8 @@
         w: f.width, h: f.height,
         d: Array.prototype.slice.call(f.data),
         g: f.guidelines,
-        s: Array.prototype.slice.call(f.status)
+        s: Array.prototype.slice.call(f.status),
+        si: f.silences
       }));
     } catch (e) { /* quota / privacy mode — ignore */ }
   }
@@ -121,6 +122,22 @@
           font.status[m] = (sv === 1 || sv === 2) ? sv : 0;
         }
       }
+      // Silenced QA checks per glyph (DECISIONS #59): { checkId: { code: true } }.
+      // Only known check ids and integer codes 0..255 survive sanitizing.
+      if (o.si && typeof o.si === "object") {
+        var known = {};
+        for (var qi = 0; qi < qaChecks.length; qi++) known[qaChecks[qi].id] = 1;
+        for (var sid in o.si) {
+          if (!known.hasOwnProperty(sid) || !o.si.hasOwnProperty(sid)) continue;
+          var sm = {};
+          for (var ckey in o.si[sid]) {
+            var cv = +ckey;
+            if (o.si[sid].hasOwnProperty(ckey) && isFinite(cv) && cv === (cv | 0) && cv >= 0 && cv < BF.NUM_GLYPHS)
+              sm[cv] = true;
+          }
+          font.silences[sid] = sm;
+        }
+      }
       return font;
     } catch (e) { return null; }
   }
@@ -136,7 +153,8 @@
     pvBold: false,
     pvItalic: false,
     pvBaseline: 5,
-    inverted: false
+    inverted: false,
+    qaShowSilenced: false // QA tab: show silenced violations in the table
   };
   var settingsCache = null;
   function loadSettings() {
@@ -298,9 +316,32 @@
     document.body.appendChild(statusMenu);
   }
 
-  // ---------- QA tab (DECISIONS #41/#42) ----------
-  // Checks are data: each is { id, run(font) -> rows[] }, row =
-  // { check, codes (string), detail, code? (int => clickable) }.
+  // ---------- QA tab (DECISIONS #41/#42/#59) ----------
+  // Checks are data: each is { id, name, severity ("info"|"warning"),
+  // silenceable, run(font) -> rows[] }; row = { check, codes (string),
+  // detail, code? (int => clickable) }. qaComputeRows stamps each row with
+  // checkId / severity / silenceable / silenced (from font.silences).
+  //
+  // Status icons (set C, user-picked): ok = dark green check circle,
+  // info = grey i circle, warn = red triangle, sil = grey slashed circle.
+  function qaIcon(kind) {
+    var c = kind === "ok" ? "#2e7d32" : kind === "warn" ? "#cc3333" : kind === "sil" ? "#999999" : "#888888";
+    var s = 'stroke="' + c + '"', f = 'fill="' + c + '"';
+    var head = '<svg class="qa-svg" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">';
+    if (kind === "ok")
+      return head + '<circle cx="7" cy="7" r="5.4" fill="none" ' + s + ' stroke-width="1.4"/>' +
+        '<path d="M4.3 7.3l1.9 1.9 3.5-4.1" fill="none" ' + s + ' stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    if (kind === "warn")
+      return head + '<path d="M7 2.4 12.5 11.6H1.5Z" fill="none" ' + s + ' stroke-width="1.4" stroke-linejoin="round"/>' +
+        '<path d="M7 6.1v2.5" fill="none" ' + s + ' stroke-width="1.4" stroke-linecap="round"/>' +
+        '<circle cx="7" cy="10.05" r="0.75" ' + f + '/></svg>';
+    if (kind === "sil")
+      return head + '<circle cx="7" cy="7" r="5.4" fill="none" ' + s + ' stroke-width="1.4"/>' +
+        '<path d="M3.2 3.2l7.6 7.6" fill="none" ' + s + ' stroke-width="1.4" stroke-linecap="round"/></svg>';
+    return head + '<circle cx="7" cy="7" r="5.4" fill="none" ' + s + ' stroke-width="1.4"/>' +
+      '<circle cx="7" cy="4.5" r="0.85" ' + f + '/>' +
+      '<path d="M7 6.7v3.2" fill="none" ' + s + ' stroke-width="1.4" stroke-linecap="round"/></svg>';
+  }
   function codeLabel(code) { var p = printable(code); return p ? hex2(code) + " \u00b7 " + p : hex2(code); }
   function codeList(codes) {
     var s = "";
@@ -309,7 +350,7 @@
   }
   var qaChecks = [
     {
-      id: "duplicates", name: "duplicate glyphs",
+      id: "duplicates", name: "duplicate glyphs", severity: "warning", silenceable: false,
       run: function (f) {
         var groups = BF.findDuplicates(f), rows = [];
         for (var i = 0; i < groups.length; i++) {
@@ -321,7 +362,7 @@
       }
     },
     {
-      id: "leftto", name: "what's left to draw",
+      id: "leftto", name: "what's left to draw", severity: "info", silenceable: false,
       run: function (f) {
         var c = BF.statusCounts(f), rows = [];
         rows.push({ check: "what's left to draw", codes: "\u2014",
@@ -339,7 +380,17 @@
   var qaLastVersion = null; // fontVersion the current table was computed at
   function qaComputeRows() {
     var rows = [];
-    for (var i = 0; i < qaChecks.length; i++) rows = rows.concat(qaChecks[i].run(state.font));
+    for (var i = 0; i < qaChecks.length; i++) {
+      var chk = qaChecks[i], rs = chk.run(state.font);
+      for (var j = 0; j < rs.length; j++) {
+        rs[j].checkId = chk.id;
+        rs[j].severity = chk.severity;
+        rs[j].silenceable = chk.silenceable;
+        rs[j].silenced = !!(chk.silenceable && rs[j].code != null &&
+          state.font.silences[chk.id] && state.font.silences[chk.id][rs[j].code]);
+      }
+      rows = rows.concat(rs);
+    }
     return rows;
   }
   function qaStale() { return qaLastVersion !== null && qaLastVersion !== state.fontVersion; }
@@ -350,20 +401,53 @@
   }
   function qaReset() {
     qaLastVersion = null;
-    if (el.qaEmpty) el.qaEmpty.hidden = false;
+    if (el.qaEmpty) { el.qaEmpty.hidden = false; el.qaEmpty.innerHTML = "Press <b>Refresh checks</b> to run the QA checks."; }
     if (el.qaTable) el.qaTable.hidden = true;
     if (el.qaTbody) el.qaTbody.innerHTML = "";
+    if (el.qaSummary) { el.qaSummary.hidden = true; el.qaSummary.innerHTML = ""; }
     updateQaBadge();
+  }
+  // Summary strip: one line per check — icon of the worst ACTIVE severity
+  // (ok when clean, silenced when everything is silenced) + counts.
+  function renderQaSummary(rows) {
+    var html = "";
+    for (var i = 0; i < qaChecks.length; i++) {
+      var id = qaChecks[i].id, act = 0, sil = 0, warn = false;
+      for (var j = 0; j < rows.length; j++) {
+        if (rows[j].checkId !== id) continue;
+        if (rows[j].silenced) sil++;
+        else { act++; if (rows[j].severity === "warning") warn = true; }
+      }
+      var icon = act === 0 ? (sil > 0 ? "sil" : "ok") : (warn ? "warn" : "info");
+      html += '<div class="qa-sum-row">' + qaIcon(icon) + " <b>" + qaChecks[i].name + "</b> \u2014 " + act +
+        (sil > 0 ? " (" + sil + " silenced)" : "") + "</div>";
+    }
+    el.qaSummary.innerHTML = html;
+    el.qaSummary.hidden = false;
   }
   function qaRefresh() {
     qaLastVersion = state.fontVersion;
     var rows = qaComputeRows();
-    el.qaEmpty.hidden = rows.length > 0;
-    el.qaTable.hidden = rows.length === 0;
+    var showSil = !!settingsGet("qaShowSilenced");
+    var active = [], silenced = [], shown;
+    for (var i = 0; i < rows.length; i++) (rows[i].silenced ? silenced : active).push(rows[i]);
+    renderQaSummary(rows);
+    shown = showSil ? active.concat(silenced) : active;
+    el.qaEmpty.hidden = shown.length > 0;
+    el.qaTable.hidden = shown.length === 0;
+    if (shown.length === 0)
+      el.qaEmpty.innerHTML = (silenced.length > 0 && !showSil)
+        ? silenced.length + " violation" + (silenced.length === 1 ? "" : "s") + " silenced \u2014 tick \u201cshow silenced\u201d to see them."
+        : "No violations.";
     el.qaTbody.innerHTML = "";
-    for (var i = 0; i < rows.length; i++) (function (row) {
+    for (i = 0; i < shown.length; i++) (function (row) {
       var tr = document.createElement("tr");
-      var td1 = document.createElement("td"); td1.textContent = row.check;
+      if (row.silenced) tr.className = "qa-sil";
+      var td1 = document.createElement("td");
+      td1.textContent = row.check;
+      var ic = document.createElement("span"); ic.className = "qa-ic";
+      ic.innerHTML = qaIcon(row.silenced ? "sil" : (row.severity === "warning" ? "warn" : "info"));
+      td1.insertBefore(ic, td1.firstChild);
       var td2 = document.createElement("td");
       if (row.code != null) {
         var b = document.createElement("button");
@@ -374,10 +458,31 @@
         td2.textContent = row.codes;
       }
       var td3 = document.createElement("td"); td3.textContent = row.detail;
-      tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3);
+      var td4 = document.createElement("td");
+      if (row.silenceable && row.code != null) {
+        var sb = document.createElement("button");
+        sb.type = "button"; sb.className = "qa-silbtn";
+        sb.textContent = row.silenced ? "un-silence" : "silence";
+        (function (cid, code) { sb.addEventListener("click", function () { toggleSilence(cid, code); }); })(row.checkId, row.code);
+        td4.appendChild(sb);
+      }
+      tr.appendChild(td1); tr.appendChild(td2); tr.appendChild(td3); tr.appendChild(td4);
       el.qaTbody.appendChild(tr);
-    })(rows[i]);
+    })(shown[i]);
     updateQaBadge();
+  }
+  // Silencing a (check, glyph) pair (DECISIONS #59): stored per-font in
+  // font.silences, persisted with the font, never exported. The UI only
+  // offers it for silenceable checks; toggling is a font mutation (the stale
+  // badge follows) and the report re-renders immediately.
+  function toggleSilence(checkId, code) {
+    var f = state.font;
+    if (!f.silences[checkId]) f.silences[checkId] = {};
+    if (f.silences[checkId][code]) delete f.silences[checkId][code];
+    else f.silences[checkId][code] = true;
+    bumpFontVersion();
+    saveLS();
+    qaRefresh();
   }
 
   // ---------- rendering (canvas) ----------
@@ -1006,7 +1111,8 @@
       keysCard: $("keys-card"), keysList: $("keys-list"),
       btnKeys: $("btn-keys"), btnKeysClose: $("btn-keys-close"),
       qaRefresh: $("btn-qa-refresh"), qaBadge: $("qa-badge"), qaTable: $("qa-table"),
-      qaTbody: $("qa-tbody"), qaEmpty: $("qa-empty")
+      qaTbody: $("qa-tbody"), qaEmpty: $("qa-empty"), qaSummary: $("qa-summary"),
+      qaShowSilenced: $("qa-show-silenced")
     };
 
     // Version stamp (DECISIONS #56): modal head + browser tab, from the single
@@ -1140,6 +1246,10 @@
     document.addEventListener("click", closeStatusMenu);
 
     el.qaRefresh.addEventListener("click", qaRefresh);
+    el.qaShowSilenced.addEventListener("change", function () {
+      settingsSet("qaShowSilenced", this.checked);
+      qaRefresh();
+    });
 
     el.pvScale.addEventListener("input", function () {
       state.scale = clamp(parseInt(this.value, 10) || 1, 1, 64);
@@ -1208,6 +1318,7 @@
     state.baseline = clamp(settingsGet("pvBaseline") | 0, 0, font.height - 1);
     el.pvScale.value = String(state.scale);
     el.pvText.value = settingsGet("pvText");
+    el.qaShowSilenced.checked = !!settingsGet("qaShowSilenced");
     setFont(font); // setFont -> syncRenderControls (state.font must exist first)
   }
 
@@ -1216,6 +1327,7 @@
   if (typeof globalThis !== "undefined" && globalThis.__stub)
     globalThis.__stub.app = { state: state, shortcuts: shortcuts, selectGlyph: selectGlyph, toggleKeysCard: toggleKeysCard,
       setStatus: setStatus, qaRefresh: qaRefresh, qaRows: qaComputeRows, qaStale: qaStale, atlasCellAt: atlasCellAt,
+      toggleSilence: toggleSilence, qaChecks: qaChecks,
       importBdfText: importBdfText, exportBdf: exportBdf,
       copyGlyph: copyGlyphToClipboard, glyphCanvas: glyphCanvas,
       getLastToast: function () { return lastToast; },

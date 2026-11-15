@@ -216,6 +216,14 @@ button.btn-danger:hover { background: #fff5f5; }
 #qa-table th { background: var(--panel); position: sticky; top: 0; }
 .qa-code { border: none; background: transparent; font: inherit; color: #111; text-decoration: underline; cursor: pointer; padding: 0; }
 .qa-code:hover { color: #a00; }
+/* QA summary strip + status icons (DECISIONS #59) */
+.qa-summary { padding: 8px 12px 0; }
+.qa-sum-row { margin: 2px 0; color: var(--muted); font-size: 12px; }
+.qa-sum-row b { color: var(--ink); font-weight: normal; }
+.qa-ic { display: inline-block; width: 15px; margin-right: 4px; }
+.qa-svg { vertical-align: -2px; }
+#qa-table tr.qa-sil td { color: var(--muted); }
+button.qa-silbtn { font-size: 11px; padding: 1px 8px; }
 
 /* ---------- shortcut reference card ---------- */
 .keys-card {

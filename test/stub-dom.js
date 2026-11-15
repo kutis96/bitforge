@@ -52,8 +52,26 @@
         return this["data-" + n] != null ? this["data-" + n] : null;
       },
       setAttribute: function (n, v) { this[n] = v; },
-      appendChild: function () {},
-      insertBefore: function () {},
+      // Minimal real child tracking: tests inspect rows built via
+      // createElement/appendChild (QA table, guide chips). Setting innerHTML
+      // clears the children, like the real DOM.
+      _children: [],
+      _html: "",
+      get children() { return this._children; },
+      get firstChild() { return this._children.length ? this._children[0] : null; },
+      get innerHTML() { return this._html; },
+      set innerHTML(v) { this._html = String(v); this._children.length = 0; },
+      appendChild: function (c) { this._children.push(c); return c; },
+      insertBefore: function (c, ref) {
+        var i = ref ? this._children.indexOf(ref) : -1;
+        if (i < 0) this._children.push(c); else this._children.splice(i, 0, c);
+        return c;
+      },
+      removeChild: function (c) {
+        var i = this._children.indexOf(c);
+        if (i >= 0) this._children.splice(i, 1);
+        return c;
+      },
       getContext: function () { if (!this._ctx) this._ctx = makeCtx(); return this._ctx; },
       getBoundingClientRect: function () { return { left: 0, top: 0, width: this.width, height: this.height }; },
       // Passes the stub's fake blob (null by default = rasterization failed).

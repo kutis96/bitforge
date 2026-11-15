@@ -24,7 +24,7 @@
    * (1-indexed) in the STATUS.md "Current state" list; PATCH = 0 for a single
    * chunk, the sub-index for a wave (chunk L.3 shipped 0.12.3). Bump in the
    * same commit as the chunk — a headless test pins the exact value. */
-  var VERSION = "0.13.0";
+  var VERSION = "0.14.1";
 
   /* ============================================================
    * [1] Font model
@@ -49,7 +49,8 @@
       height: height,
       data: new Uint8Array(NUM_GLYPHS * height * width),
       guidelines: [], // editor guides, per-font (shared across glyphs); NOT exported to ROM
-      status: new Uint8Array(NUM_GLYPHS) // 0=unfinished 1=wip 2=done (DECISIONS #38); NOT exported
+      status: new Uint8Array(NUM_GLYPHS), // 0=unfinished 1=wip 2=done (DECISIONS #38); NOT exported
+      silences: {} // silenced QA checks per glyph { checkId: { code: true } } (DECISIONS #59); NOT exported
     };
   }
 

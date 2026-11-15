@@ -525,8 +525,82 @@ test("dom: mousedown on a menu item must NOT close the menu (real-browser click 
 
 test("dom: About modal head + browser tab show the app version (DECISIONS #56)", function () {
   assert(/^\d+\.\d+\.\d+$/.test(BF.VERSION), "BF.VERSION is semver-ish: " + BF.VERSION);
-  assertEqual(BF.VERSION, "0.13.0", "pinned version — bump this test when you bump the app");
+  assertEqual(BF.VERSION, "0.14.1", "pinned version — bump this test when you bump the app");
   var els = globalThis.__stub.els;
   assertEqual(els["about-title"].textContent, "bitforge " + BF.VERSION, "modal head shows name + version");
   assertEqual(document.title, "bitforge " + BF.VERSION, "browser tab shows name + version");
+});
+
+// ---------- QA severity + silencing (DECISIONS #59) ----------
+
+test("dom: QA summary strip shows per-check icon + counts", function () {
+  var app = globalThis.__stub.app;
+  var els = globalThis.__stub.els;
+  app.qaRefresh();
+  assertEqual(els["qa-summary"].hidden, false, "summary visible after a refresh");
+  var html = els["qa-summary"].innerHTML;
+  assert(html.indexOf("<svg") !== -1, "summary renders inline SVG icons");
+  assert(html.indexOf("duplicate glyphs") !== -1, "lists the duplicates check");
+  assert(html.indexOf("what's left to draw") !== -1, "lists the left-to-draw check");
+  // The icon before each line must match that check's worst active severity,
+  // whatever font the earlier tests left behind.
+  var dupBefore = html.split("duplicate glyphs")[0];
+  var dupWarn = BF.findDuplicates(app.state.font).length > 0;
+  assert(dupBefore.indexOf(dupWarn ? "#cc3333" : "#2e7d32") !== -1, "duplicates line icon matches its state");
+  var leftBefore = html.split("what's left to draw")[0];
+  assert(leftBefore.indexOf("#888888") !== -1, "left-to-draw line uses the info icon (it always has rows)");
+});
+
+test("dom: silence/un-silence a per-glyph QA row end-to-end (DECISIONS #59)", function () {
+  var app = globalThis.__stub.app;
+  var els = globalThis.__stub.els;
+  var stub = globalThis.__stub;
+  // The real silenceable checks land in [N.2]/[N.3]; register a stand-in so
+  // this chunk proves the silencing machinery end-to-end.
+  var fake = {
+    id: "testedge", name: "test edge", severity: "warning", silenceable: true,
+    run: function () { return [{ check: "test edge", codes: "0x41", detail: "fake edge ink", code: 65 }]; }
+  };
+  app.qaChecks.push(fake);
+  app.qaRefresh();
+
+  function fakeRow() {
+    var trs = els["qa-tbody"].children;
+    for (var i = 0; i < trs.length; i++)
+      if (trs[i].children.length > 0 && trs[i].children[0].textContent === "test edge") return trs[i];
+    return null;
+  }
+  function clickBtn(btn) {
+    var ls = btn._listeners["click"] || [];
+    for (var i = 0; i < ls.length; i++) ls[i].call(btn, { stopPropagation: function () {} });
+  }
+
+  var row = fakeRow();
+  assert(row, "stand-in row rendered");
+  assertEqual(row.children[3].children.length, 1, "silenceable per-glyph row gets an action button");
+  assertEqual(row.children[3].children[0].textContent, "silence", "button says silence");
+  assert(row.children[0].children[0].innerHTML.indexOf("#cc3333") !== -1, "active warning row uses the red triangle");
+
+  clickBtn(row.children[3].children[0]);
+  assertEqual(app.state.font.silences["testedge"][65], true, "silence stored per (check, glyph)");
+  var raw = globalThis.localStorage.getItem("bitforge.font.v1");
+  assert(raw.indexOf("testedge") !== -1, "silence persisted in the font blob");
+  assert(fakeRow() === null, "silenced row hidden by default");
+  assert(els["qa-summary"].innerHTML.indexOf("(1 silenced)") !== -1, "summary reports the silenced count");
+
+  els["qa-show-silenced"].checked = true;
+  stub.dispatch("qa-show-silenced", "change", {});
+  assertEqual(app.settingsGet("qaShowSilenced"), true, "toggle remembered via settings API");
+  row = fakeRow();
+  assert(row, "silenced row shown with the toggle on");
+  assertEqual(row.className, "qa-sil", "silenced row marked muted");
+  assert(row.children[0].children[0].innerHTML.indexOf("#999999") !== -1, "silenced row uses the sil icon");
+  assertEqual(row.children[3].children[0].textContent, "un-silence", "button flips to un-silence");
+
+  clickBtn(row.children[3].children[0]);
+  assert(app.state.font.silences["testedge"][65] === undefined, "un-silence removes the silence");
+  assert(fakeRow() !== null, "row active again");
+
+  app.qaChecks.pop();
+  app.qaRefresh(); // leave the app clean for later tests
 });
