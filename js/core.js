@@ -13,6 +13,7 @@
  *   [7] Glyph shift (done)
  *   [8] Glyph status + QA checks (done)
  *   [9] BDF import / export (done)
+ *   [10] Edge-ink QA (done)
  */
 (function (root) {
   "use strict";
@@ -24,7 +25,7 @@
    * (1-indexed) in the STATUS.md "Current state" list; PATCH = 0 for a single
    * chunk, the sub-index for a wave (chunk L.3 shipped 0.12.3). Bump in the
    * same commit as the chunk — a headless test pins the exact value. */
-  var VERSION = "0.14.1";
+  var VERSION = "0.14.2";
 
   /* ============================================================
    * [1] Font model
@@ -452,6 +453,37 @@
   }
 
   /* ============================================================
+   * [10] Edge-ink QA (DECISIONS #46 — QA edge-ink lint)
+   * ============================================================ */
+
+  // Which cell edges does the glyph's ink touch? Returns a subset of
+  // ["top","bottom","left","right"] in that order (top = row 0, bottom =
+  // row H-1, left = col 0, right = col W-1). Empty for a blank glyph.
+  // On a 1px-wide/tall font a single ink pixel can touch all four edges.
+  function edgeInk(font, code) {
+    if (code < 0 || code >= NUM_GLYPHS) return [];
+    var w = font.width, h = font.height;
+    var base = code * h * w;
+    var top = false, bottom = false, left = false, right = false;
+    for (var y = 0; y < h; y++) {
+      var row = base + y * w;
+      for (var x = 0; x < w; x++) {
+        if (!font.data[row + x]) continue;
+        if (y === 0) top = true;
+        if (y === h - 1) bottom = true;
+        if (x === 0) left = true;
+        if (x === w - 1) right = true;
+      }
+    }
+    var edges = [];
+    if (top) edges.push("top");
+    if (bottom) edges.push("bottom");
+    if (left) edges.push("left");
+    if (right) edges.push("right");
+    return edges;
+  }
+
+  /* ============================================================
    * API
    * ============================================================ */
   var api = {
@@ -485,7 +517,9 @@
     findDuplicates: findDuplicates,
     // BDF
     parseBDF: parseBDF,
-    toBDF: toBDF
+    toBDF: toBDF,
+    // edge-ink QA
+    edgeInk: edgeInk
   };
 
   if (typeof module !== "undefined" && module.exports) {

@@ -525,7 +525,7 @@ test("dom: mousedown on a menu item must NOT close the menu (real-browser click 
 
 test("dom: About modal head + browser tab show the app version (DECISIONS #56)", function () {
   assert(/^\d+\.\d+\.\d+$/.test(BF.VERSION), "BF.VERSION is semver-ish: " + BF.VERSION);
-  assertEqual(BF.VERSION, "0.14.1", "pinned version — bump this test when you bump the app");
+  assertEqual(BF.VERSION, "0.14.2", "pinned version — bump this test when you bump the app");
   var els = globalThis.__stub.els;
   assertEqual(els["about-title"].textContent, "bitforge " + BF.VERSION, "modal head shows name + version");
   assertEqual(document.title, "bitforge " + BF.VERSION, "browser tab shows name + version");
@@ -603,4 +603,47 @@ test("dom: silence/un-silence a per-glyph QA row end-to-end (DECISIONS #59)", fu
 
   app.qaChecks.pop();
   app.qaRefresh(); // leave the app clean for later tests
+});
+
+test("dom: edge-ink check flags edge-touching glyphs and silences per glyph (DECISIONS #46)", function () {
+  var app = globalThis.__stub.app;
+  var els = globalThis.__stub.els;
+  var f = app.state.font;
+  f.silences["edge"] = {}; // clean slate for this check
+  var code = 2; // craft a glyph that touches top + bottom
+  BF.clearGlyph(f, code);
+  BF.setPixel(f, code, 3, 0, 1);
+  BF.setPixel(f, code, 3, f.height - 1, 1);
+  app.qaRefresh();
+
+  function edgeRow(rows, c) {
+    for (var i = 0; i < rows.length; i++)
+      if (rows[i].checkId === "edge" && rows[i].code === c) return rows[i];
+    return null;
+  }
+
+  var row = edgeRow(app.qaRows(), code);
+  assert(row, "edge row for the crafted glyph");
+  assertEqual(row.silenced, false, "not silenced yet");
+  assert(row.detail.indexOf("top") !== -1 && row.detail.indexOf("bottom") !== -1,
+    "detail names the touched edges: " + row.detail);
+  assertEqual(row.silenceable, true, "edge-ink is silenceable");
+
+  app.toggleSilence("edge", code);
+  row = edgeRow(app.qaRows(), code);
+  assertEqual(row.silenced, true, "silenced after toggle");
+  var sumHtml = els["qa-summary"].innerHTML;
+  var ei = sumHtml.indexOf("edge-ink");
+  var sum = sumHtml.substring(ei, sumHtml.indexOf("</div>", ei) + 6);
+  assert(sum.indexOf("(1 silenced)") !== -1, "edge-ink summary line counts the silence: " + sum);
+  // Silence persists in the font blob
+  var raw = globalThis.localStorage.getItem("bitforge.font.v1");
+  assert(raw.indexOf("\"edge\"") !== -1 && raw.indexOf("\"2\":true") !== -1, "edge silence persisted for code 2");
+
+  app.toggleSilence("edge", code); // un-silence
+  row = edgeRow(app.qaRows(), code);
+  assertEqual(row.silenced, false, "un-silenced");
+
+  BF.clearGlyph(f, code);
+  app.qaRefresh(); // leave the glyph clean for later tests
 });

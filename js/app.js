@@ -375,6 +375,22 @@
               rows.push({ check: "what's left to draw", codes: codeLabel(code), detail: st === 0 ? "unfinished" : "wip", code: code });
         return rows;
       }
+    },
+    {
+      // Edge-ink lint (DECISIONS #46): ink on the outermost cell row/col
+      // collides with neighbours at zero spacing. Silenceable per glyph —
+      // box-drawing / pseudo-graphics touch edges by design.
+      id: "edge", name: "edge-ink", severity: "warning", silenceable: true,
+      run: function (f) {
+        var rows = [], code, e;
+        for (code = 0; code < 256; code++) {
+          e = BF.edgeInk(f, code);
+          if (e.length === 0) continue;
+          rows.push({ check: "edge-ink", codes: codeLabel(code),
+            detail: "ink touches the " + e.join(" + ") + (e.length === 1 ? " edge" : " edges"), code: code });
+        }
+        return rows;
+      }
     }
   ];
   var qaLastVersion = null; // fontVersion the current table was computed at

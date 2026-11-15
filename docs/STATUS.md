@@ -25,7 +25,8 @@
 - [x] **[L.8] About menu + modal** (2026-11-14): live font info, About modal, W/H corner indicator removed; fixed the menu-item mousedown bug — 105 tests
 - [x] **[M] About contents + versioning** (2026-11-15): "bitmap font editor" naming, FPGA framing dropped, credit line, `BF.VERSION` 0.13.0, chunk letters normalized — 106 tests
 - [x] **[N.1] QA severity + silencing** (2026-11-15): per-check status icons (set C), summary strip, per-glyph silencing + show-silenced toggle, stub children tracking — 109 tests
-- [ ] **[N.2/N.3] remaining QA checks** (edge-ink, guideline violations — greenlit 2026-11-15, see Plan)
+- [x] **[N.2] Edge-ink QA** (2026-11-15): `BF.edgeInk` + edge-ink check (warning, silenceable per glyph) — 115 tests
+- [ ] **[N.3] Guideline-violation QA** (label-aware bounds, guide names in detail — see Plan)
 - [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -42,7 +43,8 @@ Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–
 | 0.11.0 | [K] Interop |
 | 0.12.1 – 0.12.8 | [L.1]–[L.8]: shortcuts · escapes · status buttons · menu bar · atlas controls · preview layout · pumping · About |
 | 0.13.0 | [M] About contents + versioning |
-| **0.14.1** (current) | [N.1] QA severity + silencing |
+| 0.14.1 | [N.1] QA severity + silencing |
+| **0.14.2** (current) | [N.2] Edge-ink QA |
 
 **Lettering note (2026-11-15, chunk M):** chunk letters drifted at some point (the I-wave landed after L); they now follow list position. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Git commit subjects still use the old letters.
 
@@ -214,10 +216,16 @@ User request (part of [N]): a per-glyph *silencing* so expected violations (box-
 - 3 new tests (silences field, summary strip, full silence→persist→reveal→un-silence cycle). **Total 109 tests.**
 - **Browser-verify (user):** summary strip + icons, silence buttons, show-silenced toggle, muted rows.
 
-## Plan — remaining chunks (decisions locked in DECISIONS #32–59)
+### [N.2] Edge-ink QA (`core.js` + `app.js` + `test/`, 2026-11-15)
+First of the two greenlit QA checks (implements the long-deferred DECISIONS #46): flag glyphs whose ink touches the outermost cell row/col — at zero letter spacing that ink collides with the neighbour.
+- **`BF.edgeInk(font, code)`** (core.js section [10], DOM-free): touched edges as a subset of `["top","bottom","left","right"]` (top = row 0, bottom = row H-1, left = col 0, right = col W-1); blank glyph → `[]`; a 1px-wide font lets one pixel touch left+right (or all four).
+- **Check "edge-ink"** (`qaChecks` in app.js): severity **warning**, **silenceable** — box-drawing/pseudo-graphics that touch edges by design get silenced per glyph via the N.1 machinery. Detail: "ink touches the top + bottom edges" (one row per glyph, clickable).
+- 5 core tests (blank, corner pixels, interior-vs-edge, all-four, degenerate 1px-wide, out-of-range) + 1 DOM test (crafted glyph → row with named edges; silence → hidden + summary count + blob persistence; un-silence). **Total 115 tests.**
+- **Browser-verify (user):** edge-ink rows in the QA table, its silence button, summary icon.
 
-### [N] QA checks (greenlit 2026-11-15; N.1 done)
-- [N.2] **Edge-ink lint** — ink on the outermost cell row/col; silenceable per glyph (#46 — the silencing prerequisite now exists)
+## Plan — remaining chunks (decisions locked in DECISIONS #32–60)
+
+### [N] QA checks (greenlit 2026-11-15; N.1 + N.2 done)
 - [N.3] **Guideline-violation report** — **label-aware bounds only** (`asc`/`desc`/`L`/`R` guides; cap/x/base/free guides stay reference-only), detail names the crossed guide + overshoot in px; silenceable per glyph (#47)
 
 ### [O] Polish (catch-all)
