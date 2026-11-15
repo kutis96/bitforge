@@ -15,6 +15,7 @@ load("test/test-shift.js");
 load("test/test-status.js");
 load("test/test-dupes.js");
 load("test/test-edge.js");
+load("test/test-guide.js");
 load("test/test-bdf.js");
 
 // DOM smoke test: install the stub, load app.js (registers init as the

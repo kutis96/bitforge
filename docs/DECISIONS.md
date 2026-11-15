@@ -104,9 +104,12 @@ Requirements and design decisions agreed with the user. **Treat these as fixed**
 ## Edge-ink QA (chunk N.2)
 60. **Edge-ink lint** (greenlit 2026-11-15; implements the long-deferred #46): `BF.edgeInk(font, code)` (core.js section [10]) returns the cell edges a glyph's ink touches — a subset of `top`/`bottom`/`left`/`right` (top = row 0, bottom = row H-1, left = col 0, right = col W-1); blank glyphs return `[]`. The QA check **edge-ink** (severity **warning**, **silenceable** per glyph) raises one row per offending glyph, detail "ink touches the … edge(s)". Rationale: at zero letter spacing, edge ink visually collides with the neighbour; box-drawing/pseudo-graphics that touch edges by design are silenced per glyph (the N.1 mechanism).
 
-## Deferred
-46. **Edge-ink lint — deferred.** Build only with a per-glyph *silence* mechanism: box-drawing/pseudographic glyphs intentionally reach the cell edges, so a naive edge check is noise for this font's real content.
-47. **Guideline-violation report — deferred** until the QA infra (chunk J) is proven.
+## Guideline-violation QA (chunk N.3)
+61. **Guideline-violation report** (greenlit 2026-11-15; implements the long-deferred #47): **label-aware bounds** (user's pick over a min/max bounding box — a lone baseline guide must never collapse bounds to a line, and reference guides must never be bounds): only guides labelled `asc`/`desc`/`L`/`R` act as bounds; cap/x/base/free guides stay reference-only. `BF.GUIDE_BOUND_LABELS` (core.js) is the single source of the four bound labels — the app's `GUIDE_PRESETS` references it (saved fonts keep working; the label strings are unchanged). `BF.guideBounds(font)` → topmost ascender / lowest descender / leftmost L / rightmost R (outermost wins on duplicate labels). `BF.guideViolations(font, code)` → `[{ bound, label, over }]` (over = overshoot in px; ink exactly on a bound line is fine; blank glyphs / missing bounds ⇒ nothing). The QA check **guideline violations** (severity **warning**, **silenceable** per glyph) raises one row per glyph whose detail names the crossed guide by its chip label + overshoot: `ink 2px above the "asc" guide; 1px right of the "R" guide`.
+
+## Deferred (both since implemented)
+46. **Edge-ink lint — DONE in [N.2]** (#60). Was deferred until a per-glyph *silence* mechanism existed (shipped in [N.1]).
+47. **Guideline-violation report — DONE in [N.3]** (#61). Was deferred until the QA infra (chunk J) was proven.
 
 ## Deferred / finalize in implementation
 - Exact slant offset-per-row formula (contract in #11).

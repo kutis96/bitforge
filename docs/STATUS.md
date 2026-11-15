@@ -26,7 +26,7 @@
 - [x] **[M] About contents + versioning** (2026-11-15): "bitmap font editor" naming, FPGA framing dropped, credit line, `BF.VERSION` 0.13.0, chunk letters normalized — 106 tests
 - [x] **[N.1] QA severity + silencing** (2026-11-15): per-check status icons (set C), summary strip, per-glyph silencing + show-silenced toggle, stub children tracking — 109 tests
 - [x] **[N.2] Edge-ink QA** (2026-11-15): `BF.edgeInk` + edge-ink check (warning, silenceable per glyph) — 115 tests
-- [ ] **[N.3] Guideline-violation QA** (label-aware bounds, guide names in detail — see Plan)
+- [x] **[N.3] Guideline-violation QA** (2026-11-15): `BF.guideBounds`/`BF.guideViolations` + check with guide names + overshoot in the detail — 122 tests
 - [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -44,7 +44,8 @@ Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–
 | 0.12.1 – 0.12.8 | [L.1]–[L.8]: shortcuts · escapes · status buttons · menu bar · atlas controls · preview layout · pumping · About |
 | 0.13.0 | [M] About contents + versioning |
 | 0.14.1 | [N.1] QA severity + silencing |
-| **0.14.2** (current) | [N.2] Edge-ink QA |
+| 0.14.2 | [N.2] Edge-ink QA |
+| **0.14.3** (current) | [N.3] Guideline-violation QA |
 
 **Lettering note (2026-11-15, chunk M):** chunk letters drifted at some point (the I-wave landed after L); they now follow list position. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Git commit subjects still use the old letters.
 
@@ -223,15 +224,22 @@ First of the two greenlit QA checks (implements the long-deferred DECISIONS #46)
 - 5 core tests (blank, corner pixels, interior-vs-edge, all-four, degenerate 1px-wide, out-of-range) + 1 DOM test (crafted glyph → row with named edges; silence → hidden + summary count + blob persistence; un-silence). **Total 115 tests.**
 - **Browser-verify (user):** edge-ink rows in the QA table, its silence button, summary icon.
 
-## Plan — remaining chunks (decisions locked in DECISIONS #32–60)
+### [N.3] Guideline-violation QA (`core.js` + `app.js` + `test/`, 2026-11-15)
+Second (and last) greenlit QA check (implements the long-deferred DECISIONS #47): flag glyphs whose ink crosses the font's bound guides.
+- **Label-aware bounds** (user's pick over a min/max bounding box — a lone baseline guide must never collapse bounds to a line; reference guides must never be bounds): only guides labelled `asc`/`desc`/`L`/`R` count. `BF.GUIDE_BOUND_LABELS` (core.js section [11]) owns the four labels — `GUIDE_PRESETS` in app.js references it (single source of truth; label strings unchanged, so saved fonts keep working).
+- **`BF.guideBounds(font)`**: topmost ascender / lowest descender / leftmost L / rightmost R → `{ off, label }` or null per side (outermost wins on duplicate labels). **`BF.guideViolations(font, code)`**: `[{ bound, label, over }]` — over = overshoot in px; ink exactly on a bound line is fine; blank glyphs / missing bounds ⇒ nothing.
+- **Check "guideline violations"** (`qaChecks`): severity **warning**, **silenceable**; one row per glyph; the detail names the crossed guide by its chip label + overshoot: `ink 2px above the "asc" guide; 1px right of the "R" guide`.
+- 6 core tests (bound selection, reference-only guides, outermost-wins, on-line ink, label+overshoot report, blank/no-guards) + 1 DOM test (crafted glyph → named guides in the detail, silence/un-silence). **Total 122 tests.**
+- **Browser-verify (user):** guideline rows + guide names in the detail, silence buttons, summary icon.
 
-### [N] QA checks (greenlit 2026-11-15; N.1 + N.2 done)
-- [N.3] **Guideline-violation report** — **label-aware bounds only** (`asc`/`desc`/`L`/`R` guides; cap/x/base/free guides stay reference-only), detail names the crossed guide + overshoot in px; silenceable per glyph (#47)
+## Plan — remaining chunks (decisions locked in DECISIONS #32–61)
+
+**[N] QA checks are fully done** (N.1 + N.2 + N.3 — both deferred checks #46/#47 shipped with per-glyph silencing).
 
 ### [O] Polish (catch-all)
 Browser-verify the visuals and interactions (the agent can't screenshot). Likely small fixes: slant spill clipping, jump UX, preview wrap width, hover cursor on the editor, layout nits, guidelines visual polish (line thickness, colors).
 
-**Handover note for the next agent:** A–M + N.1 are done. Remaining: [N.2]/[N.3] QA checks (greenlit) and [O] polish. After each chunk: run `./test/run-tests.sh`, update this file's checkboxes + add a Completed section, commit. Pure-logic pieces belong in `core.js` with tests; DOM wiring in `app.js`.
+**Handover note for the next agent:** A–N are done. Remaining: [O] polish (catch-all) — in particular the accumulated browser-verification lists above (the agent can't screenshot; the user verifies). After each chunk: run `./test/run-tests.sh`, update this file's checkboxes + add a Completed section, commit. Pure-logic pieces belong in `core.js` with tests; DOM wiring in `app.js`.
 
 **Fixed during review (user-reported):** editor click→cell mismatch + non-square cells. The canvas CSS size wasn't pinned, so flexbox stretched it to the panel and `getBoundingClientRect()` no longer matched the internal pixel size. Fix: `setCanvasSize()` pins `style.width/height` to the internal size; `.canvas-wrap canvas { flex: 0 0 auto }` stops the stretch; the wrapper scrolls instead. Now 1 internal px = 1 CSS px in all browsers. Regression-tested in `test-dom.js` (asserts CSS size == internal size).
 

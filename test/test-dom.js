@@ -525,7 +525,7 @@ test("dom: mousedown on a menu item must NOT close the menu (real-browser click 
 
 test("dom: About modal head + browser tab show the app version (DECISIONS #56)", function () {
   assert(/^\d+\.\d+\.\d+$/.test(BF.VERSION), "BF.VERSION is semver-ish: " + BF.VERSION);
-  assertEqual(BF.VERSION, "0.14.2", "pinned version — bump this test when you bump the app");
+  assertEqual(BF.VERSION, "0.14.3", "pinned version — bump this test when you bump the app");
   var els = globalThis.__stub.els;
   assertEqual(els["about-title"].textContent, "bitforge " + BF.VERSION, "modal head shows name + version");
   assertEqual(document.title, "bitforge " + BF.VERSION, "browser tab shows name + version");
@@ -646,4 +646,43 @@ test("dom: edge-ink check flags edge-touching glyphs and silences per glyph (DEC
 
   BF.clearGlyph(f, code);
   app.qaRefresh(); // leave the glyph clean for later tests
+});
+
+test("dom: guideline check names the crossed guide in the detail (DECISIONS #47)", function () {
+  var app = globalThis.__stub.app;
+  var f = app.state.font;
+  f.silences["guides"] = {}; // clean slate for this check
+  f.guidelines.length = 0;
+  // Dimension-robust: works on whatever font the earlier tests left behind.
+  f.guidelines.push({ o: "h", off: 2, label: BF.GUIDE_BOUND_LABELS.top, color: "#888888" });
+  f.guidelines.push({ o: "v", off: f.width - 2, label: BF.GUIDE_BOUND_LABELS.right, color: "#cc8800" });
+  var code = 3;
+  BF.clearGlyph(f, code);
+  BF.setPixel(f, code, 0, 0, 1);            // 2px above the ascender
+  BF.setPixel(f, code, f.width - 1, Math.min(5, f.height - 1), 1); // 1px right of R
+  app.qaRefresh();
+
+  function guideRow(rows, c) {
+    for (var i = 0; i < rows.length; i++)
+      if (rows[i].checkId === "guides" && rows[i].code === c) return rows[i];
+    return null;
+  }
+
+  var row = guideRow(app.qaRows(), code);
+  assert(row, "guideline row for the crafted glyph");
+  assert(row.detail.indexOf("asc") !== -1, "detail names the asc guide: " + row.detail);
+  assert(row.detail.indexOf("R") !== -1, "detail names the R guide: " + row.detail);
+  assert(row.detail.indexOf("2px above") !== -1, "overshoot px above: " + row.detail);
+  assert(row.detail.indexOf("1px right of") !== -1, "overshoot px right: " + row.detail);
+
+  app.toggleSilence("guides", code);
+  row = guideRow(app.qaRows(), code);
+  assertEqual(row.silenced, true, "silenceable per glyph");
+  app.toggleSilence("guides", code);
+  row = guideRow(app.qaRows(), code);
+  assertEqual(row.silenced, false, "un-silenced");
+
+  BF.clearGlyph(f, code);
+  f.guidelines.length = 0;
+  app.qaRefresh(); // leave the font clean for later tests
 });

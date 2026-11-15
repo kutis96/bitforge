@@ -391,6 +391,28 @@
         }
         return rows;
       }
+    },
+    {
+      // Guideline violations (DECISIONS #47): ink outside the bound guides
+      // (asc/desc/L/R only — the other guides are reference lines). The
+      // detail names the crossed guide by its label + the overshoot in px.
+      // Silenceable per glyph.
+      id: "guides", name: "guideline violations", severity: "warning", silenceable: true,
+      run: function (f) {
+        var rows = [], code, v;
+        for (code = 0; code < 256; code++) {
+          v = BF.guideViolations(f, code);
+          if (v.length === 0) continue;
+          var parts = [];
+          for (var i = 0; i < v.length; i++) {
+            var dir = v[i].bound === "top" ? "above" : v[i].bound === "bottom" ? "below" :
+                      v[i].bound === "left" ? "left of" : "right of";
+            parts.push(v[i].over + "px " + dir + " the \"" + v[i].label + "\" guide");
+          }
+          rows.push({ check: "guideline violations", codes: codeLabel(code), detail: "ink " + parts.join("; "), code: code });
+        }
+        return rows;
+      }
     }
   ];
   var qaLastVersion = null; // fontVersion the current table was computed at
@@ -705,13 +727,15 @@
 
   // ---------- guidelines (per-font, shared across glyphs) ----------
   var GUIDE_PRESETS = {
-    ascender:  { label: "asc",  o: "h", color: "#888888", off: function (f) { return 1; } },
+    // Bound guides take their labels from BF.GUIDE_BOUND_LABELS (core.js) —
+    // that table decides which guides act as QA bounds (chunk N.3).
+    ascender:  { label: BF.GUIDE_BOUND_LABELS.top,    o: "h", color: "#888888", off: function (f) { return 1; } },
     cap:       { label: "cap",  o: "h", color: "#2255cc", off: function (f) { return Math.max(1, Math.round(f.height * 0.12)); } },
     xheight:   { label: "x",    o: "h", color: "#2255cc", off: function (f) { return Math.round(f.height * 0.40); } },
     baseline:  { label: "base", o: "h", color: "#dd2222", off: function (f) { return f.height - 3; } },
-    descender: { label: "desc", o: "h", color: "#888888", off: function (f) { return f.height - 1; } },
-    left:      { label: "L",    o: "v", color: "#cc8800", off: function (f) { return 1; } },
-    right:     { label: "R",    o: "v", color: "#cc8800", off: function (f) { return f.width - 1; } },
+    descender: { label: BF.GUIDE_BOUND_LABELS.bottom, o: "h", color: "#888888", off: function (f) { return f.height - 1; } },
+    left:      { label: BF.GUIDE_BOUND_LABELS.left,   o: "v", color: "#cc8800", off: function (f) { return 1; } },
+    right:     { label: BF.GUIDE_BOUND_LABELS.right,  o: "v", color: "#cc8800", off: function (f) { return f.width - 1; } },
     hnew:      { label: "H",    o: "h", color: "#444444", off: function (f) { return Math.round(f.height / 2); } },
     vnew:      { label: "V",    o: "v", color: "#444444", off: function (f) { return Math.round(f.width / 2); } }
   };

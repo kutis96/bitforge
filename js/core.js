@@ -14,6 +14,7 @@
  *   [8] Glyph status + QA checks (done)
  *   [9] BDF import / export (done)
  *   [10] Edge-ink QA (done)
+ *   [11] Guideline-violation QA (done)
  */
 (function (root) {
   "use strict";
@@ -25,7 +26,7 @@
    * (1-indexed) in the STATUS.md "Current state" list; PATCH = 0 for a single
    * chunk, the sub-index for a wave (chunk L.3 shipped 0.12.3). Bump in the
    * same commit as the chunk — a headless test pins the exact value. */
-  var VERSION = "0.14.2";
+  var VERSION = "0.14.3";
 
   /* ============================================================
    * [1] Font model
@@ -484,6 +485,65 @@
   }
 
   /* ============================================================
+   * [11] Guideline-violation QA (DECISIONS #47 — label-aware bounds)
+   * ============================================================ */
+
+  // The ONLY guide labels that act as bounds (user decision: label-aware,
+  // not a min/max bounding box — cap/x/base/free guides are reference-only,
+  // and a lone baseline guide must not collapse a box to a line). These
+  // values are the single source of truth: the app's guideline presets
+  // (GUIDE_PRESETS in app.js) use them too. Labels match the chip names
+  // the user sees, so QA details can reference the guide by name.
+  var GUIDE_BOUND_LABELS = { top: "asc", bottom: "desc", left: "L", right: "R" };
+
+  // Which guides form the bounds of the cell? Returns
+  // { top, bottom, left, right } where each is { off, label } or null:
+  //   top    = topmost (smallest off) guide labelled GUIDE_BOUND_LABELS.top
+  //   bottom = lowest    (largest off)  guide labelled GUIDE_BOUND_LABELS.bottom
+  //   left   = leftmost  (smallest off) guide labelled GUIDE_BOUND_LABELS.left
+  //   right  = rightmost (largest off)  guide labelled GUIDE_BOUND_LABELS.right
+  // A font without the preset guide on a side has no bound on that side.
+  function guideBounds(font) {
+    var top = null, bottom = null, left = null, right = null, g;
+    for (var i = 0; i < font.guidelines.length; i++) {
+      g = font.guidelines[i];
+      if (g.o === "h" && g.label === GUIDE_BOUND_LABELS.top && (top === null || g.off < top.off)) top = { off: g.off, label: g.label };
+      if (g.o === "h" && g.label === GUIDE_BOUND_LABELS.bottom && (bottom === null || g.off > bottom.off)) bottom = { off: g.off, label: g.label };
+      if (g.o === "v" && g.label === GUIDE_BOUND_LABELS.left && (left === null || g.off < left.off)) left = { off: g.off, label: g.label };
+      if (g.o === "v" && g.label === GUIDE_BOUND_LABELS.right && (right === null || g.off > right.off)) right = { off: g.off, label: g.label };
+    }
+    return { top: top, bottom: bottom, left: left, right: right };
+  }
+
+  // Which bounds does the glyph's ink cross? Returns [{ bound, label, over }]
+  // where bound is "top"|"bottom"|"left"|"right", label is the guide's name
+  // (for the detail text) and over is the overshoot in px (>= 1). Ink sitting
+  // exactly ON a bound line is fine; blank glyphs and fonts without the
+  // relevant bound produce nothing.
+  function guideViolations(font, code) {
+    if (code < 0 || code >= NUM_GLYPHS) return [];
+    var w = font.width, h = font.height, base = code * h * w;
+    var minR = h, maxR = -1, minC = w, maxC = -1;
+    for (var y = 0; y < h; y++) {
+      var row = base + y * w;
+      for (var x = 0; x < w; x++) {
+        if (!font.data[row + x]) continue;
+        if (y < minR) minR = y;
+        if (y > maxR) maxR = y;
+        if (x < minC) minC = x;
+        if (x > maxC) maxC = x;
+      }
+    }
+    if (maxR < 0) return []; // blank glyph
+    var b = guideBounds(font), out = [];
+    if (b.top && minR < b.top.off) out.push({ bound: "top", label: b.top.label, over: b.top.off - minR });
+    if (b.bottom && maxR > b.bottom.off) out.push({ bound: "bottom", label: b.bottom.label, over: maxR - b.bottom.off });
+    if (b.left && minC < b.left.off) out.push({ bound: "left", label: b.left.label, over: b.left.off - minC });
+    if (b.right && maxC > b.right.off) out.push({ bound: "right", label: b.right.label, over: maxC - b.right.off });
+    return out;
+  }
+
+  /* ============================================================
    * API
    * ============================================================ */
   var api = {
@@ -519,7 +579,11 @@
     parseBDF: parseBDF,
     toBDF: toBDF,
     // edge-ink QA
-    edgeInk: edgeInk
+    edgeInk: edgeInk,
+    // guideline-violation QA
+    GUIDE_BOUND_LABELS: GUIDE_BOUND_LABELS,
+    guideBounds: guideBounds,
+    guideViolations: guideViolations
   };
 
   if (typeof module !== "undefined" && module.exports) {
