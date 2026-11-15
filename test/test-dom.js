@@ -145,6 +145,27 @@ test("dom: preview settings persist via the settings API", function () {
   assertEqual(JSON.parse(globalThis.localStorage.getItem("bitforge.settings.v1")).pvBold, false, "unbold persisted");
 });
 
+// ---------- Preview newlines (DECISIONS #63) ----------
+
+test("dom: preview newline renders a line break; blank lines kept", function () {
+  var app = globalThis.__stub.app;
+  var els = globalThis.__stub.els;
+  var stub = globalThis.__stub;
+  var H = app.state.font.height, s = app.state.scale;
+  var h = function (rows) { return Math.ceil((rows * H + 4) * s); };
+  els["pv-text"].value = "AAA";
+  stub.dispatch("pv-text", "input", {});
+  assertEqual(els["pv-text-canvas"].height, h(1), "no newline: one row");
+  els["pv-text"].value = "AAA\nAAA";
+  stub.dispatch("pv-text", "input", {});
+  assertEqual(els["pv-text-canvas"].height, h(2), "single newline: two rows (was one — the bug)");
+  els["pv-text"].value = "AAA\n\nAAA";
+  stub.dispatch("pv-text", "input", {});
+  assertEqual(els["pv-text-canvas"].height, h(3), "double newline: blank row kept");
+  els["pv-text"].value = "AAA";
+  stub.dispatch("pv-text", "input", {});
+});
+
 test("dom: glyph status persists with the font and bumps the version", function () {
   var app = globalThis.__stub.app;
   var f = app.state.font;
@@ -527,7 +548,7 @@ test("dom: mousedown on a menu item must NOT close the menu (real-browser click 
 
 test("dom: About modal head + browser tab show the app version (DECISIONS #56)", function () {
   assert(/^\d+\.\d+\.\d+$/.test(BF.VERSION), "BF.VERSION is semver-ish: " + BF.VERSION);
-  assertEqual(BF.VERSION, "0.15.1", "pinned version — bump this test when you bump the app");
+  assertEqual(BF.VERSION, "0.15.2", "pinned version — bump this test when you bump the app");
   var els = globalThis.__stub.els;
   assertEqual(els["about-title"].textContent, "bitforge " + BF.VERSION, "modal head shows name + version");
   assertEqual(document.title, "bitforge " + BF.VERSION, "browser tab shows name + version");

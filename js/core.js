@@ -26,7 +26,7 @@
    * (1-indexed) in the STATUS.md "Current state" list; PATCH = 0 for a single
    * chunk, the sub-index for a wave (chunk L.3 shipped 0.12.3). Bump in the
    * same commit as the chunk — a headless test pins the exact value. */
-  var VERSION = "0.15.1";
+  var VERSION = "0.15.2";
 
   /* ============================================================
    * [1] Font model
@@ -148,6 +148,7 @@
       c = text.charAt(i);
       if (c === "*") { bold = !bold; continue; }
       if (c === "_") { italic = !italic; continue; }
+      if (c === "\n") { out.push({ code: -1, bold: bold, italic: italic, ok: true, nl: true }); continue; } // break token (DECISIONS #63)
       if (c === "\\") {
         n = text.charAt(i + 1);
         if (n === "*" || n === "_") {           // escaped formatting char: literal, no toggle

@@ -115,3 +115,30 @@ test("markup: trailing backslash is a literal", function () {
   assertEqual(r.length, 2);
   assertEqual(codes(r)[1], 0x5C);
 });
+
+// Newline break tokens (DECISIONS #63)
+test("markup: newline emits a break token, no glyph", function () {
+  var r = BF.parseMarkup("A\nB");
+  assertEqual(r.length, 3, "two glyphs + one break");
+  assert(r[1].nl === true, "middle item is a break");
+  assertEqual(r[1].code, -1, "break carries no glyph");
+  assert(r[1].ok === true, "break is not an error item");
+  assert(r[0].nl !== true && r[2].nl !== true, "glyphs are not breaks");
+});
+
+test("markup: bold/italic state spans newlines", function () {
+  var r = BF.parseMarkup("*A\nB*");
+  assertEqual(r[0].bold, true, "first line bold");
+  assertEqual(r[2].bold, true, "second line still bold");
+  var r2 = BF.parseMarkup("_x\ny_");
+  assertEqual(r2[0].italic, true, "first line italic");
+  assertEqual(r2[2].italic, true, "second line still italic");
+});
+
+test("markup: consecutive newlines emit one break token each", function () {
+  var r = BF.parseMarkup("A\n\nB");
+  assertEqual(r.length, 4, "A, break, break, B");
+  assert(r[1].nl === true && r[2].nl === true, "both breaks flagged");
+  assertEqual(codes(r)[0], 65, "A");
+  assertEqual(codes(r)[3], 66, "B");
+});

@@ -651,18 +651,18 @@
     var wrap = el.pvTextCanvas.parentElement;
     var parentW = (wrap && wrap.clientWidth) || 400;
     var maxCols = clamp(Math.floor((parentW - 32) / (f.width * s)), 4, 128);
-    var rawLines = el.pvText.value.split("\n");
-    var rows = [];
-    for (var li = 0; li < rawLines.length; li++) {
-      var items = BF.parseMarkup(rawLines[li]);
-      if (items.length === 0) { rows.push([]); continue; }
-      for (var i = 0; i < items.length; i++) {
-        var row = rows.length ? rows[rows.length - 1] : null;
-        if (row === null || row.length >= maxCols) { row = []; rows.push(row); }
-        row.push(items[i]);
-      }
+    // Newlines are break tokens from the parser (DECISIONS #63): every `nl`
+    // item starts a new display row (empty lines render as empty rows) and
+    // the markup state is NOT reset, so *bold* can span lines. maxCols still
+    // soft-wraps long rows.
+    var items = BF.parseMarkup(el.pvText.value);
+    var rows = [[]];
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].nl) { rows.push([]); continue; }
+      var row = rows[rows.length - 1];
+      if (row.length >= maxCols) { row = []; rows.push(row); }
+      row.push(items[i]);
     }
-    if (rows.length === 0) rows.push([]);
     var cols = 0;
     for (var r = 0; r < rows.length; r++) if (rows[r].length > cols) cols = rows[r].length;
     var e = slantExtent();
