@@ -27,6 +27,7 @@
 - [x] **[N.1] QA severity + silencing** (2026-11-15): per-check status icons (set C), summary strip, per-glyph silencing + show-silenced toggle, stub children tracking — 109 tests
 - [x] **[N.2] Edge-ink QA** (2026-11-15): `BF.edgeInk` + edge-ink check (warning, silenceable per glyph) — 115 tests
 - [x] **[N.3] Guideline-violation QA** (2026-11-15): `BF.guideBounds`/`BF.guideViolations` + check with guide names + overshoot in the detail — 122 tests
+- [x] **[O.1] Preview control cleanup** (2026-11-15): orphaned Preview bold/italic checkboxes removed (Atlas keeps them) + markup note for `*bold*`/`_italic_`/`\uXX`/escapes — 122 tests
 - [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -45,7 +46,8 @@ Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–
 | 0.13.0 | [M] About contents + versioning |
 | 0.14.1 | [N.1] QA severity + silencing |
 | 0.14.2 | [N.2] Edge-ink QA |
-| **0.14.3** (current) | [N.3] Guideline-violation QA |
+| 0.14.3 | [N.3] Guideline-violation QA |
+| **0.15.1** (current) | [O.1] Preview control cleanup |
 
 **Lettering note (2026-11-15, chunk M):** chunk letters drifted at some point (the I-wave landed after L); they now follow list position. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Git commit subjects still use the old letters.
 
@@ -232,14 +234,24 @@ Second (and last) greenlit QA check (implements the long-deferred DECISIONS #47)
 - 6 core tests (bound selection, reference-only guides, outermost-wins, on-line ink, label+overshoot report, blank/no-guards) + 1 DOM test (crafted glyph → named guides in the detail, silence/un-silence). **Total 122 tests.**
 - **Browser-verify (user):** guideline rows + guide names in the detail, silence buttons, summary icon.
 
-## Plan — remaining chunks (decisions locked in DECISIONS #32–61)
+### [O.1] Preview control cleanup (`index.html` + `js/app.js` + `css/style.css` + `test/`, 2026-11-15)
+User report: the Preview tab's bold/italic checkboxes do nothing (they orphaned when the single-glyph zoom render was removed in [L.6] — `drawPvText()` is markup-driven and never reads `state.bold`/`state.italic`; only `drawAtlas()` consumes them). See DECISIONS #62.
+- **Removed** the `pv-bold`/`pv-italic` inputs, their el-table entries and change bindings. **Bold/italic now live on the Atlas tab only** (unchanged behaviour — they still drive the shared `state.bold`/`state.italic`). Preview keeps scale/baseline/inverted. `syncRenderControls()`'s early-return guard now keys off `el.pvInverted`. Settings keys `pvBold`/`pvItalic` deliberately kept (Atlas depends on them).
+- **Added** a muted markup note between the Preview textarea and its render canvas: `markup: *bold* · _italic_ · \uXX unprintables · \ escapes (\* \_ \\)`, so the Preview's markup-driven per-glyph attributes are documented in place.
+- **Fixed** the now-stale "Shared with the Preview tab" titles on the Atlas bold/italic labels (only baseline/inverted are shared).
+- Tests: settings-persistence test now drives `at-bold`; the two slant-geometry atlas tests drive `at-italic`; the L.5 mirror test renamed + reshaped (atlas→state for bold/italic; two-way mirror kept for inverted/baseline). **Total 122 tests.**
+- **Browser-verify (user):** no bold/italic on the Preview tab; the markup note is visible; Atlas bold/italic still work.
+
+## Plan — remaining chunks (decisions locked in DECISIONS #32–62)
 
 **[N] QA checks are fully done** (N.1 + N.2 + N.3 — both deferred checks #46/#47 shipped with per-glyph silencing).
 
 ### [O] Polish (catch-all)
+**[O.1] Preview control cleanup is done** (see Completed + DECISIONS #62). The rest of [O] is still open:
+
 Browser-verify the visuals and interactions (the agent can't screenshot). Likely small fixes: slant spill clipping, jump UX, preview wrap width, hover cursor on the editor, layout nits, guidelines visual polish (line thickness, colors).
 
-**Handover note for the next agent:** A–N are done. Remaining: [O] polish (catch-all) — in particular the accumulated browser-verification lists above (the agent can't screenshot; the user verifies). After each chunk: run `./test/run-tests.sh`, update this file's checkboxes + add a Completed section, commit. Pure-logic pieces belong in `core.js` with tests; DOM wiring in `app.js`.
+**Handover note for the next agent:** A–N + O.1 are done. Remaining: [O] polish (catch-all) — in particular the accumulated browser-verification lists above (the agent can't screenshot; the user verifies). After each chunk: run `./test/run-tests.sh`, update this file's checkboxes + add a Completed section, commit. Pure-logic pieces belong in `core.js` with tests; DOM wiring in `app.js`.
 
 **Fixed during review (user-reported):** editor click→cell mismatch + non-square cells. The canvas CSS size wasn't pinned, so flexbox stretched it to the panel and `getBoundingClientRect()` no longer matched the internal pixel size. Fix: `setCanvasSize()` pins `style.width/height` to the internal size; `.canvas-wrap canvas { flex: 0 0 auto }` stops the stretch; the wrapper scrolls instead. Now 1 internal px = 1 CSS px in all browsers. Regression-tested in `test-dom.js` (asserts CSS size == internal size).
 

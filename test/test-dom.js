@@ -134,14 +134,14 @@ test("dom: shortcut card toggles; registry holds the full binding set", function
 test("dom: preview settings persist via the settings API", function () {
   var app = globalThis.__stub.app;
   var els = globalThis.__stub.els;
-  els["pv-bold"].checked = true;
-  globalThis.__stub.dispatch("pv-bold", "change", {});
+  els["at-bold"].checked = true;
+  globalThis.__stub.dispatch("at-bold", "change", {});
   assertEqual(app.state.bold, true, "bold state set");
   var raw = globalThis.localStorage.getItem("bitforge.settings.v1");
   assert(raw != null, "settings blob written");
   assertEqual(JSON.parse(raw).pvBold, true, "bold persisted");
-  els["pv-bold"].checked = false;
-  globalThis.__stub.dispatch("pv-bold", "change", {});
+  els["at-bold"].checked = false;
+  globalThis.__stub.dispatch("at-bold", "change", {});
   assertEqual(JSON.parse(globalThis.localStorage.getItem("bitforge.settings.v1")).pvBold, false, "unbold persisted");
 });
 
@@ -193,26 +193,26 @@ test("dom: atlas click maps pointer to glyph (plain and slanted geometry)", func
   // plain geometry: s=5, colW=8, pad=0; click cell (col 2, row 1)
   assertEqual(app.atlasCellAt({ clientX: (2 * 8 + 3) * 5, clientY: (1 * 16 + 3) * 5 }), 18, "plain cell (2,1) -> 0x12");
   // slanted geometry (from the earlier italic toggle test the atlas is plain again):
-  els["pv-italic"].checked = true;
-  globalThis.__stub.dispatch("pv-italic", "change", {});
+  els["at-italic"].checked = true;
+  globalThis.__stub.dispatch("at-italic", "change", {});
   // now s=5, pad=3, colW=13; click cell (col 0, row 0) near its left edge
   assertEqual(app.atlasCellAt({ clientX: 3 * 5 + 2, clientY: 2 }), 0, "slanted cell (0,0) -> 0x00");
   assertEqual(app.atlasCellAt({ clientX: (3 + 15 * 13 + 5) * 5, clientY: (15 * 16 + 3) * 5 }), 255, "slanted cell (15,15) -> 0xFF");
   assertEqual(app.atlasCellAt({ clientX: 2, clientY: 2 }), null, "left of the pad is outside");
-  els["pv-italic"].checked = false;
-  globalThis.__stub.dispatch("pv-italic", "change", {});
+  els["at-italic"].checked = false;
+  globalThis.__stub.dispatch("at-italic", "change", {});
 });
 
 test("dom: atlas widens for slant spill and returns to plain width", function () {
   var app = globalThis.__stub.app;
   var els = globalThis.__stub.els;
-  els["pv-italic"].checked = true;
-  globalThis.__stub.dispatch("pv-italic", "change", {});
+  els["at-italic"].checked = true;
+  globalThis.__stub.dispatch("at-italic", "change", {});
   // default 8x16 font, baseline 5 from bottom: slant extent min=-3 max=5
   // => pad 3, colW 8+5=13, scale floor(640/128)=5
   assertEqual(els["atlas"].width, (3 + 16 * 13) * 5, "slanted atlas width");
-  els["pv-italic"].checked = false;
-  globalThis.__stub.dispatch("pv-italic", "change", {});
+  els["at-italic"].checked = false;
+  globalThis.__stub.dispatch("at-italic", "change", {});
   assertEqual(els["atlas"].width, 16 * 8 * 5, "plain atlas width restored");
 });
 
@@ -414,16 +414,18 @@ test("dom: PNG export background is a remembered setting (pngBg)", function () {
 
 // ---------- Atlas render controls (DECISIONS #52) ----------
 
-test("dom: atlas render controls mirror the preview controls (shared state)", function () {
+test("dom: atlas render controls drive the shared state; shared controls mirror both ways", function () {
   var app = globalThis.__stub.app;
   var els = globalThis.__stub.els;
   var stub = globalThis.__stub;
-  // Atlas -> preview direction
+  // Bold/italic live on the Atlas tab only (DECISIONS #62): atlas -> state
   els["at-italic"].checked = true;
   stub.dispatch("at-italic", "change", {});
-  assertEqual(app.state.italic, true, "atlas checkbox sets the shared state");
-  assertEqual(els["pv-italic"].checked, true, "preview checkbox follows");
-  // Preview -> atlas direction
+  assertEqual(app.state.italic, true, "atlas italic checkbox sets the shared state");
+  els["at-bold"].checked = true;
+  stub.dispatch("at-bold", "change", {});
+  assertEqual(app.state.bold, true, "atlas bold checkbox sets the shared state");
+  // Inverted is shared: Preview -> atlas direction
   els["pv-inverted"].checked = false;
   stub.dispatch("pv-inverted", "change", {});
   assertEqual(app.state.inverted, false);
@@ -525,7 +527,7 @@ test("dom: mousedown on a menu item must NOT close the menu (real-browser click 
 
 test("dom: About modal head + browser tab show the app version (DECISIONS #56)", function () {
   assert(/^\d+\.\d+\.\d+$/.test(BF.VERSION), "BF.VERSION is semver-ish: " + BF.VERSION);
-  assertEqual(BF.VERSION, "0.14.3", "pinned version — bump this test when you bump the app");
+  assertEqual(BF.VERSION, "0.15.1", "pinned version — bump this test when you bump the app");
   var els = globalThis.__stub.els;
   assertEqual(els["about-title"].textContent, "bitforge " + BF.VERSION, "modal head shows name + version");
   assertEqual(document.title, "bitforge " + BF.VERSION, "browser tab shows name + version");

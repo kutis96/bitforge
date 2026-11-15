@@ -209,6 +209,8 @@ button.btn-danger:hover { background: #fff5f5; }
 
 .qa-badge { color: #a00; font-size: 12px; }
 .qa-hint { color: var(--muted); font-size: 12px; }
+.markup-note { color: var(--muted); font-size: 12px; }
+.markup-note code { background: #f2f2f2; padding: 0 3px; }
 .qa-empty { color: var(--muted); padding: 10px; font-size: 13px; }
 .qa-table-wrap { overflow: auto; max-height: calc(100vh - 190px); }
 #qa-table { border-collapse: collapse; width: 100%; font-size: 12px; }

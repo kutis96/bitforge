@@ -111,14 +111,13 @@
       <div class="panel" id="panel-preview" role="tabpanel">
         <div class="panel-head">
           <label>Scale <input id="pv-scale" type="range" min="1" max="16" value="8"></label>
-          <label><input id="pv-bold" type="checkbox"> bold</label>
-          <label><input id="pv-italic" type="checkbox"> italic</label>
           <label>baseline <input id="pv-baseline" type="number" min="0" step="1" value="5"></label>
           <label title="Preview surfaces only (white on black); the editor stays black on white"><input id="pv-inverted" type="checkbox"> inverted</label>
         </div>
         <div class="textcol">
           <textarea id="pv-text" spellcheck="false"
             placeholder="Type text…  *bold*  _italic_  \u41  \*  (markups nest; \ escapes: \* \_ \\)"></textarea>
+          <div class="markup-note" id="pv-markup-note">markup: <code>*bold*</code> · <code>_italic_</code> · <code>\uXX</code> unprintables · <code>\</code> escapes (<code>\*</code> <code>\_</code> <code>\\</code>)</div>
           <div class="canvas-wrap"><canvas id="pv-text-canvas"></canvas></div>
         </div>
       </div>
@@ -127,8 +126,8 @@
         <div class="panel-head">
           <span>all 256 glyphs (0x00 top-left → 0xFF bottom-right) · click to select · right-click to set status</span>
           <span class="spacer"></span>
-          <label title="Shared with the Preview tab"><input id="at-bold" type="checkbox"> bold</label>
-          <label title="Shared with the Preview tab"><input id="at-italic" type="checkbox"> italic</label>
+          <label><input id="at-bold" type="checkbox"> bold</label>
+          <label><input id="at-italic" type="checkbox"> italic</label>
           <label title="Shared with the Preview tab">baseline <input id="at-baseline" type="number" min="0" step="1" value="5"></label>
           <label title="Shared with the Preview tab"><input id="at-inverted" type="checkbox"> inverted</label>
         </div>

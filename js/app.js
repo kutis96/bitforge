@@ -1062,10 +1062,11 @@
   }
 
   // ---------- render controls (Preview + Atlas share one state) ----------
-  // DECISIONS #52: the Atlas tab has its own bold/italic/baseline/inverted
-  // controls, but they drive the SAME state as the Preview tab's. The setters
+  // DECISIONS #52/#62: the Atlas tab has its own bold/italic/baseline/inverted
+  // controls driving the SAME state as the Preview tab's (bold/italic live on
+  // the Atlas tab only; baseline/inverted/scale exist on both). The setters
   // write state + settings, then syncRenderControls() pushes the values back
-  // into both control sets so neither can show a stale checked/unchecked state.
+  // into the control elements so none can show a stale checked state.
   function setBold(v) { state.bold = v; settingsSet("pvBold", v); syncRenderControls(); drawPvText(); drawAtlas(); }
   function setItalic(v) { state.italic = v; settingsSet("pvItalic", v); syncRenderControls(); drawPvText(); drawAtlas(); }
   function setInverted(v) { state.inverted = v; settingsSet("inverted", v); syncRenderControls(); drawPvText(); drawAtlas(); }
@@ -1075,9 +1076,8 @@
     syncRenderControls(); drawPvText(); drawAtlas();
   }
   function syncRenderControls() {
-    if (!el.pvBold || !state.font) return; // before init / before the first setFont
-    el.pvBold.checked = state.bold;        el.atBold.checked = state.bold;
-    el.pvItalic.checked = state.italic;    el.atItalic.checked = state.italic;
+    if (!el.pvInverted || !state.font) return; // before init / before the first setFont
+    el.atBold.checked = state.bold;        el.atItalic.checked = state.italic;
     el.pvInverted.checked = state.inverted; el.atInverted.checked = state.inverted;
     el.pvBaseline.value = String(state.baseline); el.atBaseline.value = String(state.baseline);
     el.pvBaseline.max = String(state.font.height - 1); el.atBaseline.max = String(state.font.height - 1);
@@ -1143,7 +1143,7 @@
       stUnfinished: $("st-unfinished"), stWip: $("st-wip"), stDone: $("st-done"),
       editor: $("editor"), editLabel: $("edit-label"),
       glock: $("glock"), glist: $("glist"),
-      pvScale: $("pv-scale"), pvBold: $("pv-bold"), pvItalic: $("pv-italic"), pvBaseline: $("pv-baseline"),
+      pvScale: $("pv-scale"), pvBaseline: $("pv-baseline"),
       pvInverted: $("pv-inverted"),
       atBold: $("at-bold"), atItalic: $("at-italic"), atBaseline: $("at-baseline"), atInverted: $("at-inverted"),
       pvText: $("pv-text"), pvTextCanvas: $("pv-text-canvas"),
@@ -1297,8 +1297,8 @@
       drawPvText();
     });
     function bindToggle(id, fn) { el[id].addEventListener("change", function () { fn(this.checked); }); }
-    bindToggle("pvBold", setBold); bindToggle("atBold", setBold);
-    bindToggle("pvItalic", setItalic); bindToggle("atItalic", setItalic);
+    bindToggle("atBold", setBold);
+    bindToggle("atItalic", setItalic);
     bindToggle("pvInverted", setInverted); bindToggle("atInverted", setInverted);
     function bindBaselineInput(id) { el[id].addEventListener("input", function () { setBaseline(this.value); }); }
     bindBaselineInput("pvBaseline"); bindBaselineInput("atBaseline");
