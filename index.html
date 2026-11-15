@@ -19,10 +19,12 @@
           <hr>
           <button type="button" id="mi-open-png" title="Import a PNG atlas (16x16)">Open PNG&#8230;<span class="mi-key">Alt+O</span></button>
           <button type="button" id="mi-open-bdf" title="Import a BDF font (first face)">Open BDF&#8230;<span class="mi-key">Alt+Shift+O</span></button>
+          <button type="button" id="mi-open-project" title="Import a .bitforge project file (font + guidelines + status + silences + settings)">Open project&#8230;<span class="mi-key">Alt+P</span></button>
           <hr>
           <button type="button" id="mi-export-png-solid" title="Export a PNG atlas with a white background">Export PNG (solid bg)<span class="mi-key">Ctrl+S</span></button>
           <button type="button" id="mi-export-png-transparent" title="Export a PNG atlas with a transparent background">Export PNG (transparent bg)</button>
           <button type="button" id="mi-export-bdf" title="Export a BDF font (single face, 256 codes)">Export BDF font<span class="mi-key">Alt+Shift+S</span></button>
+          <button type="button" id="mi-export-project" title="Export a .bitforge project file (font + guidelines + status + silences + settings)">Export project&#8230;<span class="mi-key">Alt+Shift+P</span></button>
           <button type="button" id="mi-export-verilog" title="Export a Verilog $readmemb ROM">Export Verilog ROM<span class="mi-key">Ctrl+Shift+S</span></button>
         </div>
       </div>
@@ -52,6 +54,7 @@
     <button id="btn-keys" type="button" title="Keyboard shortcuts (?)">?</button>
     <input id="file-png" type="file" accept="image/png" hidden>
     <input id="file-bdf" type="file" accept=".bdf,text/plain" hidden>
+    <input id="file-project" type="file" accept=".bitforge,application/json,text/plain" hidden>
   </header>
 
   <div id="keys-card" class="keys-card" hidden>

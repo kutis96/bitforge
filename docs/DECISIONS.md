@@ -3,7 +3,7 @@
 Requirements and design decisions agreed with the user. **Treat these as fixed** unless the user explicitly re-opens one. If a decision looks wrong, flag it — don't silently change it.
 
 ## Format & data
-1. **No native/JSON project file.** PNG atlas is the working format; Verilog is export-only.
+1. **No native/JSON project file.** PNG atlas is the working format; Verilog is export-only. — **Superseded by #64** (2026-11-15): the user re-opened this; the `.bitforge` project file exists, and PNG remains primary for finalized fonts.
 2. Exactly **256 glyphs** per font, 8-bit codepoints (0–255), "ASCII-ish". No Unicode beyond 8-bit.
 3. Atlas is always **16×16** characters.
 4. Glyph size **W×H is parametric per font**, default **8×16**. Any positive integer, soft-capped ~1–64.
@@ -39,7 +39,7 @@ Requirements and design decisions agreed with the user. **Treat these as fixed**
 22. **Vanilla JS, single-page, no build, no dependencies, no ES modules** (must run from `file://`). Single self-contained `index.html`, or split into `css/` + `js/` (plain scripts) — either is fine.
 23. **No Go backend, no Node/TS.** No server component.
 24. PNG I/O via `<canvas>` (no PNG library).
-25. **localStorage** auto-save as the only persistence (no project file).
+25. **localStorage** auto-save as the only persistence (no project file). — **Superseded by #64**: localStorage is still the auto-save, but no longer the *only* persistence.
 26. **Code split:** `js/core.js` = pure, DOM-free logic (global `BF`); `js/app.js` = DOM wiring (canvas, events, file ops). Keep pure logic in `core.js` so it stays testable.
 27. **Unit tests run headlessly** under macOS JavaScriptCore (`jsc`) via `test/run-tests.sh`; no Node/browser. DOM code is verified in a browser.
 
@@ -112,6 +112,9 @@ Requirements and design decisions agreed with the user. **Treat these as fixed**
 
 ## Preview newline fix (chunk O.2)
 63. **Newlines render as line breaks; markup state spans lines** (user report, 2026-11-15): the old `drawPvText()` parsed each raw line *separately* and then packed the items into display rows by appending to the last row while it had space — a new display row was only started by `maxCols` overflow. Consequences: a single `\n` vanished entirely (its line's items merged into the previous row), `N` newlines rendered `N−1` breaks, blank lines were swallowed, and the per-line parsing reset `*bold*`/`_italic_` state at every line boundary. Fix: `BF.parseMarkup` now emits a break token `{ code: -1, ok: true, nl: true }` per `\n` (formatting state carried across; DOM-free, so core-tested), and `drawPvText()` parses the **whole text once** and lays it out: every `nl` item starts a new display row (blank lines render as blank rows; a trailing newline adds one), while `maxCols` still soft-wraps long rows. `*AAA⏎AAA*` now renders both lines bold.
+
+## Project file (.bitforge) (chunk O.3)
+64. **Project file** (user re-opened #1/#25, 2026-11-15): a **`.bitforge`** project file — plain JSON, WIP snapshot. **PNG remains the primary interchange format for finalized fonts**; the project file is what carries the things a PNG can't: editor guidelines, glyph status, QA silences, and the small settings. Format (version 1): `{ "app": "bitforge", "kind": "font-project", "version": 1, "font": {w,h,d,g,s,si}, "settings": {...} }` — `font` is the **exact localStorage blob shape**; `settings` holds settings-API keys, is **optional on import** (missing → keep current values; unknown keys dropped; per-key type rules identical to the settings loader). Forward compat: this build reads `version === 1` only; anything else is rejected with a named error. The blob shape + all sanitizing moved to core.js — `BF.fontToBlob(font)` / `BF.fontFromBlob(obj, knownCheckIds)` — and are shared by localStorage restore, export, and import (no second serializer). One deliberate relaxation: a blob missing `d` now restores as a blank font at the saved dimensions (previously it failed to a fresh 8×16). UI: File → **Open project…** (`Alt+P`) and **Export project…** (`Alt+Shift+P`, suggested name `font-WxH.bitforge`); import follows the PNG pattern (confirm → replace → toast). No font-name field in v1 (user agreed to defer).
 
 ## Deferred (both since implemented)
 46. **Edge-ink lint — DONE in [N.2]** (#60). Was deferred until a per-glyph *silence* mechanism existed (shipped in [N.1]).

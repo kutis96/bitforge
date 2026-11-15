@@ -121,13 +121,14 @@ test("dom: shortcut card toggles; registry holds the full binding set", function
   assertEqual(els["keys-card"].hidden, false, "toggle shows it");
   app.toggleKeysCard();
   assertEqual(els["keys-card"].hidden, true, "toggle hides it");
-  // 8 nav + 6 file-ops + 5 tabs + 2 status + 4 shift + 3 undo/redo + 1 card = 29
-  assertEqual(app.shortcuts.list.length, 29, "29 shortcuts registered");
+  // 8 nav + 8 file-ops + 5 tabs + 2 status + 4 shift + 3 undo/redo + 1 card = 31
+  assertEqual(app.shortcuts.list.length, 31, "31 shortcuts registered");
   var combos = {};
   for (var i = 0; i < app.shortcuts.list.length; i++) combos[app.shortcuts.list[i].combo] = true;
   assert(combos["Ctrl+ArrowLeft"] && combos["?"] && combos["Ctrl+z"] && combos["PageUp"], "expected combos present");
   assert(combos["Alt+n"] && combos["Alt+o"] && combos["Ctrl+s"] && combos["Ctrl+q"] && combos["e"] && combos["q"],
     "file-op/tab combos present");
+  assert(combos["Alt+p"] && combos["Alt+Shift+p"], "project file combos present (DECISIONS #64)");
   assert(combos["d"] && combos["Shift+d"], "status-pumping combos present");
 });
 
@@ -143,6 +144,49 @@ test("dom: preview settings persist via the settings API", function () {
   els["at-bold"].checked = false;
   globalThis.__stub.dispatch("at-bold", "change", {});
   assertEqual(JSON.parse(globalThis.localStorage.getItem("bitforge.settings.v1")).pvBold, false, "unbold persisted");
+});
+
+// ---------- project file (.bitforge) (DECISIONS #64) ----------
+
+test("dom: project export/import roundtrips font + settings through the seam", function () {
+  var app = globalThis.__stub.app;
+  var f = app.state.font;
+  // give the current font something to carry: ink, status, a guide, a silence
+  BF.setPixel(f, 0x41, 1, 2, 1);
+  app.setStatus(0x41, 2);
+  f.guidelines.push({ o: "h", off: 5, label: "base", color: "#333333" });
+  f.silences["edge"] = { 65: true };
+  app.settingsSet("pvText", "hello");
+  app.settingsSet("pvScale", 4);
+  var o = JSON.parse(app.projectExportText());
+  assertEqual(o.app, "bitforge", "header app");
+  assertEqual(o.kind, "font-project", "header kind");
+  assertEqual(o.version, 1, "header version");
+  assertEqual(o.font.w, f.width, "font dims in the export");
+  assertEqual(o.settings.pvText, "hello", "settings included in the export");
+  assert(app.importProjectText(JSON.stringify(o), "test.bitforge"), "import succeeds");
+  assertEqual(BF.getPixel(app.state.font, 0x41, 1, 2), 1, "ink restored");
+  assertEqual(app.state.font.status[0x41], 2, "status restored");
+  assertEqual(app.state.font.guidelines.length, 1, "guideline restored");
+  assert(app.state.font.silences["edge"][65], "silence restored");
+  assertEqual(app.settingsGet("pvText"), "hello", "preview text restored");
+  assertEqual(app.state.scale, 4, "scale restored into state");
+  assert(app.getLastToast().indexOf("Imported project") === 0, "toast: " + app.getLastToast());
+  // user cancels the replace confirm -> import is a no-op
+  var stub = globalThis.__stub;
+  stub.setConfirm(false);
+  assertEqual(app.importProjectText(JSON.stringify(o), "again.bitforge"), false, "canceled import is a no-op");
+  stub.setConfirm(true);
+  // leave the shared font clean for the QA summary-count test (it runs later)
+  app.setStatus(0x41, 0);
+});
+
+test("dom: project import rejects malformed files with a toast", function () {
+  var app = globalThis.__stub.app;
+  assertEqual(app.importProjectText("not json", "bad.bitforge"), false, "non-JSON rejected");
+  assert(app.getLastToast().indexOf("not valid JSON") !== -1, "toast: " + app.getLastToast());
+  assertEqual(app.importProjectText(JSON.stringify({ app: "other" }), "bad.bitforge"), false, "foreign file rejected");
+  assert(app.getLastToast().indexOf("not a bitforge project file") !== -1, "toast: " + app.getLastToast());
 });
 
 // ---------- Preview newlines (DECISIONS #63) ----------
@@ -548,7 +592,7 @@ test("dom: mousedown on a menu item must NOT close the menu (real-browser click 
 
 test("dom: About modal head + browser tab show the app version (DECISIONS #56)", function () {
   assert(/^\d+\.\d+\.\d+$/.test(BF.VERSION), "BF.VERSION is semver-ish: " + BF.VERSION);
-  assertEqual(BF.VERSION, "0.15.2", "pinned version — bump this test when you bump the app");
+  assertEqual(BF.VERSION, "0.15.3", "pinned version — bump this test when you bump the app");
   var els = globalThis.__stub.els;
   assertEqual(els["about-title"].textContent, "bitforge " + BF.VERSION, "modal head shows name + version");
   assertEqual(document.title, "bitforge " + BF.VERSION, "browser tab shows name + version");

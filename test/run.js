@@ -17,6 +17,7 @@ load("test/test-dupes.js");
 load("test/test-edge.js");
 load("test/test-guide.js");
 load("test/test-bdf.js");
+load("test/test-project.js");
 
 // DOM smoke test: install the stub, load app.js (registers init as the
 // DOMContentLoaded handler), then run the test which invokes init under the stub.

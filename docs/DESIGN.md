@@ -162,7 +162,8 @@ Bindings (all via the registry; ⌘ = Ctrl):
 
 ## Persistence
 
-- No project file. The in-memory `Font` (glyph data, editor guidelines, **and glyph status**) is auto-saved to `localStorage` so a page reload doesn't lose work. On load: restore if present, else start with a blank default (8×16) font. Saved guidelines are sanitized on load (localStorage is user-editable).
+- **Project file (`.bitforge`, DECISIONS #64):** a JSON WIP snapshot — font (glyph data, guidelines, status, silences) + optional settings — via File → **Open project…** / **Export project…** (`Alt+P` / `Alt+Shift+P`). PNG remains the primary interchange format for finalized fonts; the project file carries what a PNG can't.
+- **localStorage** auto-save so a page reload doesn't lose work. On load: restore if present, else start with a blank default (8×16) font. The blob shape and all sanitizing live in core.js (`BF.fontToBlob` / `BF.fontFromBlob`) and are shared with the project file (no second serializer).
 - **Small settings use a dedicated settings API**, not raw `localStorage`: a defaults table + `settings.get(key)` / `settings.set(key, value)` backed by one JSON blob. First persisted settings: preview text, scale, bold, italic, baseline, inverted toggle. **Rule for future agents: new persistable UI value ⇒ add it to the defaults table and use the API** (see DECISIONS #40). The font blob stays on its own path — it's large binary-ish data with its own versioning/sanitizing needs.
 
 ## Testing

@@ -29,6 +29,7 @@
 - [x] **[N.3] Guideline-violation QA** (2026-11-15): `BF.guideBounds`/`BF.guideViolations` + check with guide names + overshoot in the detail — 122 tests
 - [x] **[O.1] Preview control cleanup** (2026-11-15): orphaned Preview bold/italic checkboxes removed (Atlas keeps them) + markup note for `*bold*`/`_italic_`/`\uXX`/escapes — 122 tests
 - [x] **[O.2] Preview newline fix** (2026-11-15): `\n` renders as a line break (blank lines kept, was N−1 breaks), markup state spans lines — 126 tests
+- [x] **[O.3] Project file** (2026-11-15): `.bitforge` export/import (font + guidelines + status + silences + settings), shared blob sanitizer moved to core, confirm-on-import — 135 tests
 - [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -49,7 +50,8 @@ Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–
 | 0.14.2 | [N.2] Edge-ink QA |
 | 0.14.3 | [N.3] Guideline-violation QA |
 | 0.15.1 | [O.1] Preview control cleanup |
-| **0.15.2** (current) | [O.2] Preview newline fix |
+| 0.15.2 | [O.2] Preview newline fix |
+| **0.15.3** (current) | [O.3] Project file (.bitforge) |
 
 **Lettering note (2026-11-15, chunk M):** chunk letters drifted at some point (the I-wave landed after L); they now follow list position. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Git commit subjects still use the old letters.
 
@@ -251,16 +253,24 @@ User report (a bug present since the first preview implementation): a single `\n
 - 3 core tests (break token shape, state spanning, consecutive breaks) + 1 DOM test (canvas height: 1 line vs 1 `\n` vs `\n\n` — the regression for the exact reported symptom). **Total 126 tests.**
 - **Browser-verify (user):** the two examples from the bug report — `AAA⏎AAA` now breaks; `AAA⏎⏎AAA` shows a blank line between; bold across a line break.
 
-## Plan — remaining chunks (decisions locked in DECISIONS #32–63)
+### [O.3] Project file (.bitforge) (`js/core.js` + `js/app.js` + `index.html` + `test/`, 2026-11-15)
+User re-opened DECISIONS #1/#25 ("no project file"): PNG stays primary for finalized fonts, but a WIP-snapshot project file should carry everything the app persists. See DECISIONS #64.
+- **Format:** `.bitforge` = JSON `{ app: "bitforge", kind: "font-project", version: 1, font: {w,h,d,g,s,si}, settings: {...} }`. `font` is the exact localStorage blob shape; `settings` optional on import (missing → keep current; unknown keys dropped; same per-key type rules as the settings loader). This build reads `version === 1` only — newer/foreign files are rejected with a named error toast.
+- **No second serializer:** the blob shape + all sanitizing moved to core.js — `BF.fontToBlob` / `BF.fontFromBlob(obj, knownCheckIds)` (plus the `projectToObj`/`objFromProject` wrapper). localStorage restore, export, and import all share it. Deliberate relaxation: a blob missing `d` restores as a blank font at the saved dims (was: failed to a fresh 8×16).
+- **UI:** File → **Open project…** (`Alt+P`) / **Export project…** (`Alt+Shift+P`, `font-WxH.bitforge`). Import = confirm (it replaces font **and** settings) → `setFont` → `applyImportedSettings` (same settings→state+controls restore path as init) → toast. New stub: `confirm()` (defaults yes; `__stub.setConfirm(false)` simulates cancel) + cancel-path test.
+- 7 core tests (blob roundtrip, sanitizing, no-check-list, wrapper shape, JSON roundtrip, rejection reasons, optional settings) + 2 DOM tests (full export→import roundtrip incl. settings + cancel no-op; malformed-file toasts). Shortcut registry count 29 → 31. **Total 135 tests.**
+- **Browser-verify (user):** File-menu items + shortcuts, the confirm dialog, export/import roundtrip with a real file, error toast on a foreign file.
+
+## Plan — remaining chunks (decisions locked in DECISIONS #32–64)
 
 **[N] QA checks are fully done** (N.1 + N.2 + N.3 — both deferred checks #46/#47 shipped with per-glyph silencing).
 
 ### [O] Polish (catch-all)
-**[O.1] Preview control cleanup and [O.2] Preview newline fix are done** (see Completed + DECISIONS #62/#63). The rest of [O] is still open:
+**[O.1] Preview control cleanup, [O.2] Preview newline fix, and [O.3] Project file are done** (see Completed + DECISIONS #62/#63/#64). The rest of [O] is still open:
 
 Browser-verify the visuals and interactions (the agent can't screenshot). Likely small fixes: slant spill clipping, jump UX, preview wrap width, hover cursor on the editor, layout nits, guidelines visual polish (line thickness, colors).
 
-**Handover note for the next agent:** A–N + O.1/O.2 are done. Remaining: [O] polish (catch-all) — in particular the accumulated browser-verification lists above (the agent can't screenshot; the user verifies). After each chunk: run `./test/run-tests.sh`, update this file's checkboxes + add a Completed section, commit. Pure-logic pieces belong in `core.js` with tests; DOM wiring in `app.js`.
+**Handover note for the next agent:** A–N + O.1/O.2/O.3 are done. Remaining: [O] polish (catch-all) — in particular the accumulated browser-verification lists above (the agent can't screenshot; the user verifies). After each chunk: run `./test/run-tests.sh`, update this file's checkboxes + add a Completed section, commit. Pure-logic pieces belong in `core.js` with tests; DOM wiring in `app.js`.
 
 **Fixed during review (user-reported):** editor click→cell mismatch + non-square cells. The canvas CSS size wasn't pinned, so flexbox stretched it to the panel and `getBoundingClientRect()` no longer matched the internal pixel size. Fix: `setCanvasSize()` pins `style.width/height` to the internal size; `.canvas-wrap canvas { flex: 0 0 auto }` stops the stretch; the wrapper scrolls instead. Now 1 internal px = 1 CSS px in all browsers. Regression-tested in `test-dom.js` (asserts CSS size == internal size).
 

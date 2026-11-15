@@ -87,58 +87,23 @@
   }
 
   // ---------- persistence (localStorage) ----------
+  // The blob shape + all sanitizing live in core.js (BF.fontToBlob / 
+  // BF.fontFromBlob, DECISIONS #64) and are shared with the project file.
+  function knownCheckIds() {
+    var out = [];
+    for (var i = 0; i < qaChecks.length; i++) out.push(qaChecks[i].id);
+    return out;
+  }
   function saveLS() {
     try {
-      var f = state.font;
-      localStorage.setItem(LS_KEY, JSON.stringify({
-        w: f.width, h: f.height,
-        d: Array.prototype.slice.call(f.data),
-        g: f.guidelines,
-        s: Array.prototype.slice.call(f.status),
-        si: f.silences
-      }));
+      localStorage.setItem(LS_KEY, JSON.stringify(BF.fontToBlob(state.font)));
     } catch (e) { /* quota / privacy mode — ignore */ }
   }
   function loadLS() {
     try {
       var raw = localStorage.getItem(LS_KEY);
       if (!raw) return null;
-      var o = JSON.parse(raw);
-      if (!BF.validateDims(o.w, o.h).ok) return null;
-      var font = BF.makeFont(o.w, o.h);
-      var d = font.data;
-      for (var i = 0; i < d.length && i < o.d.length; i++) d[i] = o.d[i] ? 1 : 0;
-      if (Array.isArray(o.g)) {
-        font.guidelines = [];
-        for (var k = 0; k < o.g.length; k++) {
-          var e = o.g[k];
-          if (e && (e.o === "h" || e.o === "v") && isFinite(e.off) && e.off === (e.off | 0))
-            font.guidelines.push({ o: e.o, off: e.off, label: String(e.label != null ? e.label : e.o), color: String(e.color != null ? e.color : "#444444") });
-        }
-      }
-      if (Array.isArray(o.s) && o.s.length === BF.NUM_GLYPHS) {
-        for (var m = 0; m < BF.NUM_GLYPHS; m++) {
-          var sv = o.s[m];
-          font.status[m] = (sv === 1 || sv === 2) ? sv : 0;
-        }
-      }
-      // Silenced QA checks per glyph (DECISIONS #59): { checkId: { code: true } }.
-      // Only known check ids and integer codes 0..255 survive sanitizing.
-      if (o.si && typeof o.si === "object") {
-        var known = {};
-        for (var qi = 0; qi < qaChecks.length; qi++) known[qaChecks[qi].id] = 1;
-        for (var sid in o.si) {
-          if (!known.hasOwnProperty(sid) || !o.si.hasOwnProperty(sid)) continue;
-          var sm = {};
-          for (var ckey in o.si[sid]) {
-            var cv = +ckey;
-            if (o.si[sid].hasOwnProperty(ckey) && isFinite(cv) && cv === (cv | 0) && cv >= 0 && cv < BF.NUM_GLYPHS)
-              sm[cv] = true;
-          }
-          font.silences[sid] = sm;
-        }
-      }
-      return font;
+      return BF.fontFromBlob(JSON.parse(raw), knownCheckIds());
     } catch (e) { return null; }
   }
 
@@ -1014,6 +979,71 @@
     downloadText(BF.toBDF(state.font), "bitforge-font.bdf");
   }
 
+  // ---------- project file (.bitforge) — DECISIONS #64 ----------
+  // WIP snapshot: font (data + guidelines + status + silences) + settings.
+  // PNG stays the primary interchange format for finalized fonts; this is
+  // what carries the things a PNG can't (guidelines/status/silences/text).
+  var PROJECT_EXT = ".bitforge";
+  function projectExportText() {
+    return JSON.stringify(BF.projectToObj(state.font, settingsCache), null, 2);
+  }
+  function exportProject() {
+    downloadText(projectExportText(), "font-" + state.font.width + "x" + state.font.height + PROJECT_EXT);
+  }
+  function onOpenProjectClick() { el.fileProject.click(); }
+  function onProjectFile(evt) {
+    var file = evt.target.files && evt.target.files[0];
+    evt.target.value = "";
+    if (!file) return;
+    var done = function (text) { importProjectText(text, file.name); };
+    if (typeof file.text === "function") {
+      file.text().then(done, function () { toast("Could not read " + file.name, true); });
+    } else {
+      var r = new FileReader();
+      r.onload = function () { done(String(r.result)); };
+      r.onerror = function () { toast("Could not read " + file.name, true); };
+      r.readAsText(file);
+    }
+  }
+  // Returns true on success; toasts the error and returns false on malformed input.
+  function importProjectText(text, name) {
+    var o;
+    try { o = JSON.parse(text); }
+    catch (e) { toast("Project: not valid JSON", true); return false; }
+    var p = BF.objFromProject(o, knownCheckIds());
+    if (!p.ok) { toast("Project: " + p.error, true); return false; }
+    if (!confirm("Replace the current font with the one from" + (name ? " " + name : "") + "? The project's settings are applied too.")) return false;
+    setFont(p.font);
+    if (p.settings) applyImportedSettings(p.settings);
+    toast("Imported project" + (name ? " (" + name + ")" : ""));
+    return true;
+  }
+  // Apply imported settings: same per-key type rules as loadSettings.
+  // Unknown keys are dropped; missing keys keep the current value.
+  function applyImportedSettings(o) {
+    var changed = false;
+    for (var k in settingsDefaults) {
+      if (!o.hasOwnProperty(k)) continue;
+      var want = typeof settingsDefaults[k], v = o[k];
+      var okv = (want === "boolean" && typeof v === "boolean") ||
+        (want === "number" && typeof v === "number" && isFinite(v)) ||
+        (want === "string" && typeof v === "string");
+      if (okv) { settingsSet(k, v); changed = true; }
+    }
+    if (!changed) return;
+    // Same restore path as init(): settings -> state + control elements.
+    state.scale = clamp(settingsGet("pvScale") | 0, 1, 64);
+    state.bold = !!settingsGet("pvBold");
+    state.italic = !!settingsGet("pvItalic");
+    state.inverted = !!settingsGet("inverted");
+    state.baseline = clamp(settingsGet("pvBaseline") | 0, 0, state.font.height - 1);
+    el.pvScale.value = String(state.scale);
+    el.pvText.value = settingsGet("pvText");
+    el.qaShowSilenced.checked = !!settingsGet("qaShowSilenced");
+    syncRenderControls();
+    redrawAll();
+  }
+
   // Copy glyph to clipboard (DECISIONS #44): PNG at 16 display px per glyph
   // pixel, black ink on transparent background; download fallback when the
   // clipboard API is unavailable (e.g. file:// without a secure context).
@@ -1129,14 +1159,14 @@
   function init() {
     el = {
       selHeader: $("sel-header"), jump: $("jump"), btnJump: $("btn-jump"), selector: $("selector"),
-      filePng: $("file-png"), fileBdf: $("file-bdf"),
+      filePng: $("file-png"), fileBdf: $("file-bdf"), fileProject: $("file-project"),
       menuFile: $("menu-file"), menuEdit: $("menu-edit"), menuAbout: $("menu-about"),
       mbFile: $("mb-file"), mbEdit: $("mb-edit"), mbAbout: $("mb-about"),
       aboutFontInfo: $("about-font-info"), miAboutBitforge: $("mi-about-bitforge"),
       aboutTitle: $("about-title"), aboutModal: $("about-modal"), aboutClose: $("about-close"),
-      miNew: $("mi-new"), miOpenPng: $("mi-open-png"), miOpenBdf: $("mi-open-bdf"),
+      miNew: $("mi-new"), miOpenPng: $("mi-open-png"), miOpenBdf: $("mi-open-bdf"), miOpenProject: $("mi-open-project"),
       miExportPngSolid: $("mi-export-png-solid"), miExportPngTransparent: $("mi-export-png-transparent"),
-      miExportBdf: $("mi-export-bdf"), miExportVerilog: $("mi-export-verilog"),
+      miExportBdf: $("mi-export-bdf"), miExportVerilog: $("mi-export-verilog"), miExportProject: $("mi-export-project"),
       miUndo: $("mi-undo"), miRedo: $("mi-redo"), miClearGlyph: $("mi-clear-glyph"), miCopyGlyph: $("mi-copy-glyph"),
       miCycleStatus: $("mi-cycle-status"), miDoneNext: $("mi-done-next"),
       btnClear: $("btn-clear"), btnUndo: $("btn-undo"), btnRedo: $("btn-redo"),
@@ -1166,6 +1196,7 @@
 
     el.filePng.addEventListener("change", onPngFile);
     el.fileBdf.addEventListener("change", onBdfFile);
+    el.fileProject.addEventListener("change", onProjectFile);
 
     // Menu bar: titles (open/toggle + hover-switch) and items (action + close).
     menuEls = [el.menuFile, el.menuEdit, el.menuAbout];
@@ -1201,9 +1232,11 @@
     menuItem("miNew", newFont);
     menuItem("miOpenPng", onOpenClick);
     menuItem("miOpenBdf", onOpenBdfClick);
+    menuItem("miOpenProject", onOpenProjectClick);
     menuItem("miExportPngSolid", function () { exportPng("solid"); });
     menuItem("miExportPngTransparent", function () { exportPng("transparent"); });
     menuItem("miExportBdf", exportBdf);
+    menuItem("miExportProject", exportProject);
     menuItem("miExportVerilog", exportVerilog);
     menuItem("miUndo", undo);
     menuItem("miRedo", redo);
@@ -1328,9 +1361,11 @@
     shortcuts.register({ combo: "Alt+n", description: "New blank font", handler: newFont });
     shortcuts.register({ combo: "Alt+o", description: "Open PNG atlas", handler: onOpenClick });
     shortcuts.register({ combo: "Alt+Shift+o", description: "Open BDF font", handler: onOpenBdfClick });
+    shortcuts.register({ combo: "Alt+p", description: "Open project file", handler: onOpenProjectClick });
     shortcuts.register({ combo: "Ctrl+s", description: "Export PNG (last-used bg)", handler: function () { exportPng(); } });
     shortcuts.register({ combo: "Ctrl+Shift+s", description: "Export Verilog ROM", handler: exportVerilog });
     shortcuts.register({ combo: "Alt+Shift+s", description: "Export BDF font", handler: exportBdf });
+    shortcuts.register({ combo: "Alt+Shift+p", description: "Export project file", handler: exportProject });
     shortcuts.register({ combo: "e", description: "Show the Edit tab", handler: function () { setActiveTab("edit"); } });
     shortcuts.register({ combo: "p", description: "Show the Preview tab", handler: function () { setActiveTab("preview"); } });
     shortcuts.register({ combo: "a", description: "Show the Atlas tab", handler: function () { setActiveTab("atlas"); } });
@@ -1369,6 +1404,7 @@
       setStatus: setStatus, qaRefresh: qaRefresh, qaRows: qaComputeRows, qaStale: qaStale, atlasCellAt: atlasCellAt,
       toggleSilence: toggleSilence, qaChecks: qaChecks,
       importBdfText: importBdfText, exportBdf: exportBdf,
+      importProjectText: importProjectText, projectExportText: projectExportText,
       copyGlyph: copyGlyphToClipboard, glyphCanvas: glyphCanvas,
       getLastToast: function () { return lastToast; },
       exportPng: exportPng, settingsGet: settingsGet, settingsSet: settingsSet };

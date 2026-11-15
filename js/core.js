@@ -26,7 +26,7 @@
    * (1-indexed) in the STATUS.md "Current state" list; PATCH = 0 for a single
    * chunk, the sub-index for a wave (chunk L.3 shipped 0.12.3). Bump in the
    * same commit as the chunk — a headless test pins the exact value. */
-  var VERSION = "0.15.2";
+  var VERSION = "0.15.3";
 
   /* ============================================================
    * [1] Font model
@@ -545,6 +545,90 @@
   }
 
   /* ============================================================
+   * [12] Project file (.bitforge)  (DECISIONS #64)
+   * WIP snapshot: the font blob (same shape as the localStorage blob) plus
+   * optional settings. Pure data in/out — the app handles file IO and UI.
+   * PNG remains the primary interchange format for finalized fonts; this
+   * format is what carries guidelines / status / silences / preview text.
+   * ============================================================ */
+
+  var PROJECT_APP = "bitforge";
+  var PROJECT_KIND = "font-project";
+  var PROJECT_VERSION = 1;
+
+  // Font -> blob { w, h, d, g, s, si } (the localStorage blob shape).
+  function fontToBlob(font) {
+    return {
+      w: font.width, h: font.height,
+      d: Array.prototype.slice.call(font.data),
+      g: font.guidelines,
+      s: Array.prototype.slice.call(font.status),
+      si: font.silences
+    };
+  }
+
+  // Blob -> Font, or null. Shared by localStorage restore and project import.
+  // `knownCheckIds` (app-level list) bounds which QA silences survive.
+  function fontFromBlob(o, knownCheckIds) {
+    if (!o || typeof o !== "object") return null;
+    if (!validateDims(o.w, o.h).ok) return null;
+    var font = makeFont(o.w, o.h);
+    var d = font.data;
+    if (Array.isArray(o.d))
+      for (var i = 0; i < d.length && i < o.d.length; i++) d[i] = o.d[i] ? 1 : 0;
+    if (Array.isArray(o.g)) {
+      font.guidelines = [];
+      for (var k = 0; k < o.g.length; k++) {
+        var e = o.g[k];
+        if (e && (e.o === "h" || e.o === "v") && isFinite(e.off) && e.off === (e.off | 0))
+          font.guidelines.push({ o: e.o, off: e.off, label: String(e.label != null ? e.label : e.o), color: String(e.color != null ? e.color : "#444444") });
+      }
+    }
+    if (Array.isArray(o.s) && o.s.length === NUM_GLYPHS) {
+      for (var m = 0; m < NUM_GLYPHS; m++) {
+        var sv = o.s[m];
+        font.status[m] = (sv === 1 || sv === 2) ? sv : 0;
+      }
+    }
+    if (o.si && typeof o.si === "object" && Array.isArray(knownCheckIds)) {
+      var known = {};
+      for (var qi = 0; qi < knownCheckIds.length; qi++) known[knownCheckIds[qi]] = 1;
+      for (var sid in o.si) {
+        if (!known.hasOwnProperty(sid) || !o.si.hasOwnProperty(sid)) continue;
+        var sm = {};
+        for (var ckey in o.si[sid]) {
+          var cv = +ckey;
+          if (o.si[sid].hasOwnProperty(ckey) && isFinite(cv) && cv === (cv | 0) && cv >= 0 && cv < NUM_GLYPHS)
+            sm[cv] = true;
+        }
+        font.silences[sid] = sm;
+      }
+    }
+    return font;
+  }
+
+  // Font (+ optional settings object) -> project object (JSON-serializable).
+  function projectToObj(font, settingsObj) {
+    var o = { app: PROJECT_APP, kind: PROJECT_KIND, version: PROJECT_VERSION, font: fontToBlob(font) };
+    if (settingsObj && typeof settingsObj === "object") o.settings = settingsObj;
+    return o;
+  }
+
+  // Project object -> { ok: true, font, settings } | { ok: false, error }.
+  // `settings` is null when the file has none (or has a malformed one).
+  function objFromProject(o, knownCheckIds) {
+    if (!o || typeof o !== "object") return { ok: false, error: "not a JSON object" };
+    if (o.app !== PROJECT_APP || o.kind !== PROJECT_KIND)
+      return { ok: false, error: "not a bitforge project file" };
+    if (o.version !== PROJECT_VERSION)
+      return { ok: false, error: "unsupported project version " + o.version + " (this build reads " + PROJECT_VERSION + ")" };
+    var font = fontFromBlob(o.font, knownCheckIds);
+    if (!font) return { ok: false, error: "invalid font data" };
+    var settings = (o.settings && typeof o.settings === "object") ? o.settings : null;
+    return { ok: true, font: font, settings: settings };
+  }
+
+  /* ============================================================
    * API
    * ============================================================ */
   var api = {
@@ -584,7 +668,15 @@
     // guideline-violation QA
     GUIDE_BOUND_LABELS: GUIDE_BOUND_LABELS,
     guideBounds: guideBounds,
-    guideViolations: guideViolations
+    guideViolations: guideViolations,
+    // project file
+    PROJECT_APP: PROJECT_APP,
+    PROJECT_KIND: PROJECT_KIND,
+    PROJECT_VERSION: PROJECT_VERSION,
+    fontToBlob: fontToBlob,
+    fontFromBlob: fontFromBlob,
+    projectToObj: projectToObj,
+    objFromProject: objFromProject
   };
 
   if (typeof module !== "undefined" && module.exports) {
