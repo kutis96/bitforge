@@ -68,7 +68,7 @@ bitforge/
   test/               # headless unit tests (macOS JavaScriptCore, no Node)
   docs/               # handover documentation + screenshot (see below)
   AGENTS.md           # guide for AI coding agents
-  LICENSE             # WTFPL
+  LICENSE             # MIT
 ```
 
 Run the tests — no Node, no browser, just macOS JavaScriptCore:
@@ -81,7 +81,7 @@ Documentation: [DESIGN.md](docs/DESIGN.md) (architecture) · [DECISIONS.md](docs
 
 ## License
 
-This project is licensed under the [WTFPL](LICENSE) (Do What The Fuck You Want To Public License, Version 2).
+This project is licensed under the [MIT License](LICENSE).
 
 ---
 
