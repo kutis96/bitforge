@@ -308,9 +308,15 @@ User request: wire the user-provided screenshot (placed at the workspace root) i
 - Version bumped to 0.15.8 (mechanical, DECISIONS #56 — assets/docs-only change). **Total 139 tests.**
 - **Browser-verify (user):** the hero image renders and sizes sanely in a markdown previewer (or GitHub).
 
-## Plan — remaining chunks (decisions locked in DECISIONS #32–69)
+## Plan — remaining chunks (decisions locked in DECISIONS #32–71)
 
 **[N] QA checks are fully done** (N.1 + N.2 + N.3 — both deferred checks #46/#47 shipped with per-glyph silencing).
+
+### [P] Font name + Properties modal (greenlit 2026-11-16)
+Font name (`font.name`, default `font`) wired into export filenames + BDF `FONT` line; name derived from the source filename on import; **Edit → Properties** modal (editable name + live font info). DECISIONS #70.
+
+### [Q] Cell resize (greenlit 2026-11-16)
+**Edit → Resize…** modal: per-edge row/column deltas (crop/extend at a chosen edge), live result readout, guidelines + slant baseline shift with it, clip warning on lossy crops, one undo step (new full-font history entry). DECISIONS #71.
 
 ### [O] Polish (catch-all)
 **[O.1]–[O.8] are done** (Preview control cleanup, newline fix, project file, bound-guide off-by-one fix, clipboard PNG atlas, reference-glyph hint, docs reorg, screenshot + MIT license — see Completed + DECISIONS #62–#69). The rest of [O] is still open:
@@ -322,10 +328,7 @@ Browser-verify the visuals and interactions (the agent can't screenshot). Likely
 **Fixed during review (user-reported):** editor click→cell mismatch + non-square cells. The canvas CSS size wasn't pinned, so flexbox stretched it to the panel and `getBoundingClientRect()` no longer matched the internal pixel size. Fix: `setCanvasSize()` pins `style.width/height` to the internal size; `.canvas-wrap canvas { flex: 0 0 auto }` stops the stretch; the wrapper scrolls instead. Now 1 internal px = 1 CSS px in all browsers. Regression-tested in `test-dom.js` (asserts CSS size == internal size).
 
 ## Open items / verify during implementation
-- Slant per-row formula — implement to the DECISIONS #11 contract; tune the constant.
-- Confirm `file://` works with the chosen file layout (plain scripts, no modules).
-- PNG import edge cases: dims not a multiple of 16 (must error), semi-transparent pixels, light checkerboard borders.
-- Verilog bit-order is covered by tests; still re-check against a real exported file in the browser.
+All closed (2026-11-16): slant formula shipped in [D]; `file://` layout confirmed working from day one; PNG import edge cases covered by tests (E) and in use; the user verified the clipboard roundtrip, the README hero image, and a **real exported Verilog ROM file** against their toolchain (bit order fine, or trivially adjustable on their hardware side).
 
 ## Notes for the next agent
 - Read [DECISIONS.md](DECISIONS.md) first — most things are locked; don't re-litigate.
