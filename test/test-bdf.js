@@ -154,3 +154,37 @@ test("BDF export: 256 chars, header fields, trailing newline", function () {
   assert(lines.indexOf("BW 8") !== -1, "BW field");
   assert(lines.indexOf("DH 16") !== -1, "DH field");
 });
+
+// ---------- face name (DECISIONS #70) ----------
+
+test("BDF: face name goes into the FONT/FAMILY header and roundtrips", function () {
+  var f = BF.makeFont(8, 4);
+  f.name = "My Face";
+  var out = BF.toBDF(f);
+  assert(out.indexOf('FONT "My Face"') >= 0, "FONT line has the name");
+  assert(out.indexOf('FAMILY "My Face"') >= 0, "FAMILY line has the name");
+  assertEqual(BF.parseBDF(out).name, "My Face", "roundtrips back");
+  f.name = "Qu\"ote";
+  assert(BF.toBDF(f).indexOf('FONT "Quote"') >= 0, "quotes dropped for the BDF label");
+});
+
+test("BDF: parse takes the name from the FONT line when present", function () {
+  var bdf = [
+    "STARTFONT 2.1",
+    "FONT \"from-bdf\"",
+    "SIZE 2",
+    "FONTBOUNDBOX 4 2 0 0",
+    "BW 4",
+    "DH 2",
+    "STARTCHAR a",
+    "ENCODING 97",
+    "BBX 2 2 0 0",
+    "BITMAP",
+    "80",
+    "40",
+    "ENDCHAR",
+    "ENDFONT"
+  ].join("\n");
+  var p = BF.parseBDF(bdf);
+  assertEqual(p.name, "from-bdf");
+});

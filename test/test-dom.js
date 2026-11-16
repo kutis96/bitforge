@@ -630,10 +630,41 @@ test("dom: mousedown on a menu item must NOT close the menu (real-browser click 
 
 test("dom: About modal head + browser tab show the app version (DECISIONS #56)", function () {
   assert(/^\d+\.\d+\.\d+$/.test(BF.VERSION), "BF.VERSION is semver-ish: " + BF.VERSION);
-  assertEqual(BF.VERSION, "0.15.8", "pinned version — bump this test when you bump the app");
+  assertEqual(BF.VERSION, "0.16.0", "pinned version — bump this test when you bump the app");
   var els = globalThis.__stub.els;
   assertEqual(els["about-title"].textContent, "bitforge " + BF.VERSION, "modal head shows name + version");
   assertEqual(document.title, "bitforge " + BF.VERSION, "browser tab shows name + version");
+});
+
+// ---------- font name + Properties modal (DECISIONS #70) ----------
+
+test("dom: font name — Properties modal, export filenames, persistence", function () {
+  var app = globalThis.__stub.app;
+  var els = globalThis.__stub.els;
+  // Open the modal from the Edit-menu item
+  globalThis.__stub.dispatch("mi-props", "click", {});
+  assertEqual(els["props-modal"].hidden, false, "modal opens");
+  assertEqual(els["props-name"].value, app.state.font.name, "shows the current name");
+  els["props-name"].value = "My Test Font";
+  globalThis.__stub.dispatch("props-save", "click", {});
+  assertEqual(app.state.font.name, "My Test Font", "name saved");
+  assertEqual(els["props-modal"].hidden, true, "modal closed after save");
+  // Export filenames carry the name
+  globalThis.__stub.downloads.length = 0;
+  app.exportBdf();
+  assertEqual(globalThis.__stub.downloads[0], "My Test Font.bdf", "BDF download name");
+  app.exportProject();
+  assertEqual(globalThis.__stub.downloads[1], "My Test Font.bitforge", "project download name");
+  // BDF header carries the name
+  assert(BF.toBDF(app.state.font).indexOf('FONT "My Test Font"') >= 0, "BDF FONT line");
+  // Persistence: the localStorage blob carries n
+  var blob = JSON.parse(localStorage.getItem("bitforge.font.v1"));
+  assertEqual(blob.n, "My Test Font", "blob carries the name");
+  // A blank name falls back to the default (leaves the shared state clean)
+  globalThis.__stub.dispatch("mi-props", "click", {});
+  els["props-name"].value = "   ";
+  globalThis.__stub.dispatch("props-save", "click", {});
+  assertEqual(app.state.font.name, "font", "blank -> default");
 });
 
 // ---------- QA severity + silencing (DECISIONS #59) ----------

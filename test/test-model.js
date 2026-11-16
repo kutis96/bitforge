@@ -113,3 +113,7 @@ test("model: makeFont initializes silences for QA silencing (DECISIONS #59)", fu
   assert(f.silences !== null && typeof f.silences === "object", "silences is an object");
   assertEqual(Object.keys(f.silences).length, 0, "starts empty");
 });
+
+test("model: makeFont defaults the face name to \"font\" (DECISIONS #70)", function () {
+  assertEqual(BF.makeFont(8, 16).name, "font");
+});

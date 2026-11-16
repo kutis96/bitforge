@@ -77,7 +77,10 @@
       // Passes the stub's fake blob (null by default = rasterization failed).
       // Tests set __stub.blob to exercise the success path (see copy-glyph tests).
       toBlob: function (cb) { cb && cb(root.__stub.blob || null); },
-      focus: function () {}, blur: function () {}, click: function () {}
+      focus: function () {}, blur: function () {},
+      // downloadBlob() sets a.download and clicks; record the filename so
+      // tests can assert export names (DECISIONS #70).
+      click: function () { if (this.download != null) root.__stub.downloads.push(this.download); }
     };
   }
 
@@ -158,6 +161,7 @@
   root.__stub = {
     els: els,
     runInit: function () { documentStub._ready(); },
+    downloads: [],         // filenames passed to a.download + click()
     blob: null,            // fake canvas.toBlob result (null = failed)
     setConfirm: function (v) { confirmAnswer = v != null ? !!v : true; },
     clipboardCalls: [],    // ClipboardItem arrays passed to navigator.clipboard.write

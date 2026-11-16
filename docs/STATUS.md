@@ -35,6 +35,7 @@
 - [x] **[O.6] Reference-glyph hint** (2026-11-16): caption under the selector + fuller canvas title document the Shift-click reference selection — test count unchanged (DOM-only, smoke-covered)
 - [x] **[O.7] Docs reorg** (2026-11-16): root `README.md` (user/dev) + `AGENTS.md` (agent handover map) replace `docs/README.md` — test count unchanged (139; version pin moved to 0.15.7)
 - [x] **[O.8] Screenshot + license** (2026-11-16): user-provided screenshot → `docs/screenshot.png`, README hero image; MIT `LICENSE` — test count unchanged (139; version pin moved to 0.15.8)
+- [x] **[P] Font name + Properties modal** (2026-11-16): `font.name` wired into export filenames + BDF header; imports derive the name; **Edit → Properties…** (name + live info) — 146 tests
 - [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -61,7 +62,8 @@ Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–
 | 0.15.5 | [O.5] Clipboard PNG atlas |
 | 0.15.6 | [O.6] Reference-glyph hint |
 | 0.15.7 | [O.7] Docs reorg (root README + AGENTS.md) |
-| **0.15.8** (current) | [O.8] Screenshot + MIT license |
+| 0.15.8 | [O.8] Screenshot + MIT license |
+| **0.16.0** (current) | [P] Font name + Properties modal |
 
 **Lettering note (2026-11-15, chunk M):** chunk letters drifted at some point (the I-wave landed after L); they now follow list position. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Git commit subjects still use the old letters.
 
@@ -308,12 +310,22 @@ User request: wire the user-provided screenshot (placed at the workspace root) i
 - Version bumped to 0.15.8 (mechanical, DECISIONS #56 — assets/docs-only change). **Total 139 tests.**
 - **Browser-verify (user):** the hero image renders and sizes sanely in a markdown previewer (or GitHub).
 
+### [P] Font name + Properties modal (`js/core.js` + `js/app.js` + `index.html` + `css/style.css` + `test/`, 2026-11-16)
+User request (greenlit with [Q]): the font name wired into the exports, editable from the app — **Edit → Properties…** (name + basic font info/metadata). See DECISIONS #70.
+- **Model (core):** `font.name` (default `"font"`), `BF.sanitizeFontName` (printable ASCII, ≤ 64, trimmed), `BF.filenameBase` (empty → `font`); blob key `n` (missing/invalid → default; the `.bitforge` format **stays version 1** — additive optional field, pre-1.0); the BDF `FONT`/`FAMILY` header carries the name (quotes dropped; fallback `bitforge`); `parseBDF` reads the `FONT` line into `p.name` (`"FONT "` prefix can't collide with FONTBOUNDBOX/ADD_FONT).
+- **Exports wired:** every download filename is now `filenameBase(name) + ext` — `.png` (file export + clipboard fallbacks), `.mem`, `.bdf`, `.bitforge` (the project file drops the old `font-WxH` prefix).
+- **Imports derive the name:** PNG file → the file's basename; BDF → its own `FONT` line wins, else the file's basename; project file → the blob's `n`; **clipboard PNG → default** (no source filename to derive from). The import toast shows `as "name"` when a name was derived.
+- **UI:** Edit → **Properties…** (no shortcut) modal — editable name + a live info line **shared with the About menu** (extracted `fontInfoText()`; the About-menu info now leads with the font name). Same close paths as the About modal (× / Cancel / backdrop / Escape). A name change is `saveLS()` only — metadata, not a mutation (no QA staleness bump, not undoable).
+- **Stub:** `downloadBlob`'s `a.click()` now records the filename into `__stub.downloads`; the seam gained `exportProject`.
+- 7 new tests (1 model default + 3 name/blob core + 2 BDF + 1 DOM modal/filenames/persistence). Two test-side bugs fixed on first run (my BDF fixture lacked BW/DH; wrong expectation for the precomposed `é`). **Total 146 tests.**
+- **Browser-verify (user):** Edit → Properties (name roundtrip + info line); exports download with the name; a PNG/BDF import picks up the name from the filename.
+
 ## Plan — remaining chunks (decisions locked in DECISIONS #32–71)
 
 **[N] QA checks are fully done** (N.1 + N.2 + N.3 — both deferred checks #46/#47 shipped with per-glyph silencing).
 
-### [P] Font name + Properties modal (greenlit 2026-11-16)
-Font name (`font.name`, default `font`) wired into export filenames + BDF `FONT` line; name derived from the source filename on import; **Edit → Properties** modal (editable name + live font info). DECISIONS #70.
+### [P] Font name + Properties modal — **done** (2026-11-16; see Completed + DECISIONS #70)
+Font name (`font.name`, default `font`) wired into export filenames + BDF `FONT` line; name derived from the source filename on import; **Edit → Properties** modal (editable name + live font info).
 
 ### [Q] Cell resize (greenlit 2026-11-16)
 **Edit → Resize…** modal: per-edge row/column deltas (crop/extend at a chosen edge), live result readout, guidelines + slant baseline shift with it, clip warning on lossy crops, one undo step (new full-font history entry). DECISIONS #71.

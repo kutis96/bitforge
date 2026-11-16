@@ -99,3 +99,34 @@ test("project: objFromProject treats missing settings as optional", function () 
   assert(p.ok, "parses");
   assertEqual(p.settings, null, "no settings -> null (caller keeps current)");
 });
+
+// ---------- font name (DECISIONS #70) ----------
+
+test("name: sanitizeFontName keeps printable ASCII, trims, caps at 64", function () {
+  assertEqual(BF.sanitizeFontName("My Font"), "My Font");
+  assertEqual(BF.sanitizeFontName("  padded  "), "padded", "trimmed");
+  assertEqual(BF.sanitizeFontName("a\nb\tc"), "abc", "control chars dropped");
+  assertEqual(BF.sanitizeFontName("h\u00e9llo"), "hllo", "non-ASCII dropped (single precomposed char)");
+  assertEqual(BF.sanitizeFontName("x".repeat(100)).length, 64, "capped at 64");
+  assertEqual(BF.sanitizeFontName(123), "", "non-string -> empty");
+  assertEqual(BF.sanitizeFontName(""), "", "empty stays empty");
+});
+
+test("name: filenameBase falls back to \"font\"", function () {
+  assertEqual(BF.filenameBase("My Font"), "My Font");
+  assertEqual(BF.filenameBase(""), "font", "empty -> font");
+  assertEqual(BF.filenameBase("   "), "font", "blank -> font");
+  assertEqual(BF.filenameBase(null), "font", "null -> font");
+});
+
+test("name: blob roundtrip carries the name; missing/invalid -> default", function () {
+  var f = BF.makeFont(8, 16);
+  f.name = "Round Trip";
+  var b = BF.fontToBlob(f);
+  assertEqual(b.n, "Round Trip", "blob carries n");
+  assertEqual(BF.fontFromBlob(b, CHECK_IDS).name, "Round Trip", "restored");
+  delete b.n;
+  assertEqual(BF.fontFromBlob(b, CHECK_IDS).name, "font", "missing n -> default");
+  b.n = 42;
+  assertEqual(BF.fontFromBlob(b, CHECK_IDS).name, "font", "invalid n -> default");
+});

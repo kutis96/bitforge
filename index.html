@@ -35,6 +35,9 @@
         <div class="menu-items" id="mi-edit">
           <button type="button" id="mi-undo" title="Undo (Ctrl/&#8984;+Z)">Undo<span class="mi-key">Ctrl+Z</span></button>
           <button type="button" id="mi-redo" title="Redo (Ctrl/&#8984;+Shift+Z)">Redo<span class="mi-key">Ctrl+Shift+Z</span></button>
+          <hr>
+          <button type="button" id="mi-props" title="Font name and basic info">Properties&hellip;</button>
+          <hr>
           <button type="button" id="mi-clear-glyph" title="Clear the current glyph (undoable)">Clear glyph</button>
           <hr>
           <button type="button" id="mi-cycle-status" title="Cycle the current glyph's status: unfinished \u2192 wip \u2192 done">Cycle glyph status<span class="mi-key">D</span></button>
@@ -167,6 +170,21 @@
         <p><b>bitforge</b> is a <b>bitmap font editor</b> for fixed-size, zero-spacing, non-proportional <b>monospaced fonts</b> &mdash; 256 glyphs per face, cell size of your choosing (default 8&times;16).</p>
         <p>Edit a 256-glyph bitmap font of any size (default 8&times;16), preview it with artificial bold and a cheap slant, track per-glyph status (unfinished / wip / done), run QA checks, and export a <b>PNG atlas</b>, <b>BDF</b>, or a <b>Verilog $readmemb</b> ROM.</p>
         <p class="muted" id="about-credit">Designed by spacecat &middot; Coded by Qwen 3.8 (Bionic harness) &middot; vanilla JS, zero dependencies, runs straight from file://</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="props-modal" class="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Font properties">
+      <div class="modal-head"><b>Font properties</b><button id="props-close" type="button" title="Close">&times;</button></div>
+      <div class="modal-body">
+        <p id="props-info" class="muted">&mdash;</p>
+        <label for="props-name">Name</label>
+        <input id="props-name" type="text" maxlength="64" spellcheck="false" autocomplete="off">
+        <div class="modal-actions">
+          <button id="props-save" type="button">Save</button>
+          <button id="props-cancel" type="button">Cancel</button>
+        </div>
       </div>
     </div>
   </div>

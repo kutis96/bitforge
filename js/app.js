@@ -883,10 +883,11 @@
   // ---------- file ops ----------
   function onOpenClick() { el.filePng.click(); }
   // Blob/File -> Image -> importPngImage (shared by file and clipboard import).
-  function pngBlobToFont(blob) {
+  // `baseName` (optional) becomes the imported font's name when given.
+  function pngBlobToFont(blob, baseName) {
     var url = URL.createObjectURL(blob);
     var img = new Image();
-    img.onload = function () { URL.revokeObjectURL(url); importPngImage(img); };
+    img.onload = function () { URL.revokeObjectURL(url); importPngImage(img, baseName); };
     img.onerror = function () { URL.revokeObjectURL(url); toast("Could not load that PNG", true); };
     img.src = url;
   }
@@ -894,7 +895,7 @@
     var file = evt.target.files && evt.target.files[0];
     evt.target.value = "";
     if (!file) return;
-    pngBlobToFont(file); // a File is a Blob
+    pngBlobToFont(file, baseName(file.name)); // a File is a Blob
   }
   // Import the first PNG image on the system clipboard (DECISIONS #66).
   // Deliberately NO Ctrl+V binding: PNG import replaces the whole font without
@@ -918,7 +919,7 @@
     return true;
   }
 
-  function importPngImage(img) {
+  function importPngImage(img, baseName) {
     var W = img.naturalWidth, H = img.naturalHeight;
     if (W % 16 !== 0 || H % 16 !== 0) {
       toast("PNG must be a 16×16 atlas — dims " + W + "×" + H + " aren't multiples of 16", true);
@@ -942,8 +943,10 @@
         }
       }
     }
+    if (baseName) { var nm = BF.sanitizeFontName(baseName); if (nm) font.name = nm; }
     setFont(font);
-    toast("Imported " + cw + "×" + ch + " font from " + W + "×" + H + " PNG");
+    toast("Imported " + cw + "×" + ch + " font from " + W + "×" + H + " PNG" +
+      (font.name !== "font" ? ' as "' + font.name + '"' : ""));
   }
 
   // Atlas PNG canvas (16×16 grid, 1px per glyph px, black ink) with the
@@ -964,12 +967,20 @@
     }
     return c;
   }
+  // File name without the extension (for deriving the font name on import).
+  function baseName(fileName) {
+    var n = String(fileName || "");
+    var dot = n.lastIndexOf(".");
+    if (dot > 0) n = n.slice(0, dot);
+    return n;
+  }
+
   function exportPng(bgMode) {
     // bgMode "solid"/"transparent" (from the File-menu items) remembers the
     // choice; a bare call (Ctrl+S) exports with the remembered mode.
     if (bgMode === "solid" || bgMode === "transparent") settingsSet("pngBg", bgMode);
     atlasCanvas().toBlob(function (blob) {
-      if (blob) downloadBlob(blob, "bitforge-atlas.png");
+      if (blob) downloadBlob(blob, BF.filenameBase(state.font.name) + ".png");
       else toast("PNG export failed", true);
     }, "image/png");
   }
@@ -984,18 +995,18 @@
         clip.write([new ClipboardItem({ "image/png": blob })]).then(function () {
           toast("Copied PNG atlas to clipboard");
         }, function () {
-          downloadBlob(blob, "bitforge-atlas.png");
+          downloadBlob(blob, BF.filenameBase(state.font.name) + ".png");
           toast("Clipboard write blocked — PNG atlas downloaded", true);
         });
       } else {
-        downloadBlob(blob, "bitforge-atlas.png");
+        downloadBlob(blob, BF.filenameBase(state.font.name) + ".png");
         toast("Clipboard unavailable — PNG atlas downloaded", true);
       }
     }, "image/png");
   }
 
   function exportVerilog() {
-    downloadText(BF.toVerilog(state.font), "bitforge-font.mem");
+    downloadText(BF.toVerilog(state.font), BF.filenameBase(state.font.name) + ".mem");
   }
 
   // BDF import/export (DECISIONS #43). Import is text, not canvas — a
@@ -1022,6 +1033,10 @@
     try { p = BF.parseBDF(text); }
     catch (e) { toast(e.message || "BDF: malformed file", true); return false; }
     var font = BF.makeFont(p.width, p.height);
+    // Name: the BDF's own FONT line wins, else the source file's basename.
+    var nm = (p.name != null && BF.sanitizeFontName(p.name)) ||
+             (name != null && BF.sanitizeFontName(baseName(name)));
+    if (nm) font.name = nm;
     var d = font.data;
     for (var i = 0; i < d.length && i < p.data.length; i++) d[i] = p.data[i] ? 1 : 0;
     setFont(font);
@@ -1030,7 +1045,7 @@
   }
 
   function exportBdf() {
-    downloadText(BF.toBDF(state.font), "bitforge-font.bdf");
+    downloadText(BF.toBDF(state.font), BF.filenameBase(state.font.name) + ".bdf");
   }
 
   // ---------- project file (.bitforge) — DECISIONS #64 ----------
@@ -1042,7 +1057,7 @@
     return JSON.stringify(BF.projectToObj(state.font, settingsCache), null, 2);
   }
   function exportProject() {
-    downloadText(projectExportText(), "font-" + state.font.width + "x" + state.font.height + PROJECT_EXT);
+    downloadText(projectExportText(), BF.filenameBase(state.font.name) + PROJECT_EXT);
   }
   function onOpenProjectClick() { el.fileProject.click(); }
   function onProjectFile(evt) {
@@ -1186,16 +1201,37 @@
   function toggleMenu(m) { if (openMenu === m) closeMenus(); else showMenu(m); }
   function hoverMenu(m) { if (openMenu !== m) showMenu(m); }
 
-  // About menu: live font info (dims moved here from the toolbar, DECISIONS #55).
-  function renderAboutInfo() {
+  // About menu + Properties modal share this live font info line
+  // (DECISIONS #55 moved the dims here from the toolbar; #70 added the name).
+  function fontInfoText() {
     var f = state.font, c = BF.statusCounts(f), ink = 0, code;
     for (code = 0; code < BF.NUM_GLYPHS; code++) ink += BF.inkCount(f, code);
-    el.aboutFontInfo.textContent =
+    return '"' + f.name + '" \u00b7 ' +
       f.width + " \u00d7 " + f.height + " px \u00b7 256 glyphs \u00b7 " + ink + " ink px\n" +
       "done " + c.all.done + " \u00b7 wip " + c.all.wip + " \u00b7 unfinished " + c.all.unfinished;
   }
+  function renderAboutInfo() { el.aboutFontInfo.textContent = fontInfoText(); }
   function openAboutModal() { el.aboutModal.hidden = false; }
   function closeAboutModal() { el.aboutModal.hidden = true; }
+
+  // Font properties modal (DECISIONS #70): editable name + live info.
+  // A name change is metadata, not a mutation: saveLS only — no QA staleness
+  // bump, not undoable.
+  function openPropsModal() {
+    el.propsName.value = state.font.name;
+    renderPropsInfo();
+    el.propsModal.hidden = false;
+    el.propsName.focus();
+  }
+  function closePropsModal() { el.propsModal.hidden = true; }
+  function renderPropsInfo() { el.propsInfo.textContent = fontInfoText(); }
+  function saveProps() {
+    var nm = BF.sanitizeFontName(el.propsName.value);
+    state.font.name = nm || "font";
+    saveLS();
+    closePropsModal();
+    toast('Font name: "' + state.font.name + '"');
+  }
 
   // ---------- tabs ----------
   function setActiveTab(name) {
@@ -1221,8 +1257,10 @@
       miNew: $("mi-new"), miOpenPng: $("mi-open-png"), miOpenBdf: $("mi-open-bdf"), miOpenProject: $("mi-open-project"), miImportPngClip: $("mi-import-png-clip"),
       miExportPngSolid: $("mi-export-png-solid"), miExportPngTransparent: $("mi-export-png-transparent"), miCopyPngClip: $("mi-copy-png-clip"),
       miExportBdf: $("mi-export-bdf"), miExportVerilog: $("mi-export-verilog"), miExportProject: $("mi-export-project"),
-      miUndo: $("mi-undo"), miRedo: $("mi-redo"), miClearGlyph: $("mi-clear-glyph"), miCopyGlyph: $("mi-copy-glyph"),
+      miUndo: $("mi-undo"), miRedo: $("mi-redo"), miProps: $("mi-props"), miClearGlyph: $("mi-clear-glyph"), miCopyGlyph: $("mi-copy-glyph"),
       miCycleStatus: $("mi-cycle-status"), miDoneNext: $("mi-done-next"),
+      propsModal: $("props-modal"), propsClose: $("props-close"), propsInfo: $("props-info"),
+      propsName: $("props-name"), propsSave: $("props-save"), propsCancel: $("props-cancel"),
       btnClear: $("btn-clear"), btnUndo: $("btn-undo"), btnRedo: $("btn-redo"),
       stUnfinished: $("st-unfinished"), stWip: $("st-wip"), stDone: $("st-done"),
       editor: $("editor"), editLabel: $("edit-label"),
@@ -1278,7 +1316,7 @@
       if (!inside) closeMenus();
     });
     document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape") { closeMenus(); closeAboutModal(); }
+      if (e.key === "Escape") { closeMenus(); closeAboutModal(); closePropsModal(); }
     });
     function menuItem(id, fn) {
       el[id].addEventListener("click", function () { closeMenus(); fn(); });
@@ -1296,6 +1334,7 @@
     menuItem("miExportVerilog", exportVerilog);
     menuItem("miUndo", undo);
     menuItem("miRedo", redo);
+    menuItem("miProps", openPropsModal);
     menuItem("miClearGlyph", clearGlyphAction);
     menuItem("miCycleStatus", cycleStatusAction);
     menuItem("miDoneNext", doneNextAction);
@@ -1308,6 +1347,14 @@
     el.aboutClose.addEventListener("click", closeAboutModal);
     el.aboutModal.addEventListener("mousedown", function (e) {
       if (e.target === el.aboutModal) closeAboutModal();
+    });
+
+    // Properties modal: same close paths as the About modal.
+    el.propsClose.addEventListener("click", closePropsModal);
+    el.propsCancel.addEventListener("click", closePropsModal);
+    el.propsSave.addEventListener("click", saveProps);
+    el.propsModal.addEventListener("mousedown", function (e) {
+      if (e.target === el.propsModal) closePropsModal();
     });
 
     // Edit-tab status buttons (DECISIONS #50): mark the current glyph, then
@@ -1461,7 +1508,7 @@
       setStatus: setStatus, qaRefresh: qaRefresh, qaRows: qaComputeRows, qaStale: qaStale, atlasCellAt: atlasCellAt,
       toggleSilence: toggleSilence, qaChecks: qaChecks, guidePresets: GUIDE_PRESETS,
       importBdfText: importBdfText, exportBdf: exportBdf,
-      importProjectText: importProjectText, projectExportText: projectExportText,
+      importProjectText: importProjectText, projectExportText: projectExportText, exportProject: exportProject,
       copyPngToClipboard: copyPngToClipboard, importPngFromClipboard: importPngFromClipboard,
       copyGlyph: copyGlyphToClipboard, glyphCanvas: glyphCanvas,
       getLastToast: function () { return lastToast; },
