@@ -34,6 +34,7 @@
 - [x] **[O.5] Clipboard PNG atlas** (2026-11-16): copy whole PNG to clipboard (`Alt+Shift+C`, download fallback) + import PNG from clipboard (deliberately no Ctrl+V binding) — 139 tests
 - [x] **[O.6] Reference-glyph hint** (2026-11-16): caption under the selector + fuller canvas title document the Shift-click reference selection — test count unchanged (DOM-only, smoke-covered)
 - [x] **[O.7] Docs reorg** (2026-11-16): root `README.md` (user/dev) + `AGENTS.md` (agent handover map) replace `docs/README.md` — test count unchanged (139; version pin moved to 0.15.7)
+- [x] **[O.8] Screenshot + license** (2026-11-16): user-provided screenshot → `docs/screenshot.png`, README hero image; WTFPL `LICENSE` — test count unchanged (139; version pin moved to 0.15.8)
 - [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -59,7 +60,8 @@ Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–
 | 0.15.4 | [O.4] Bound-guide off-by-one fix |
 | 0.15.5 | [O.5] Clipboard PNG atlas |
 | 0.15.6 | [O.6] Reference-glyph hint |
-| **0.15.7** (current) | [O.7] Docs reorg (root README + AGENTS.md) |
+| 0.15.7 | [O.7] Docs reorg (root README + AGENTS.md) |
+| **0.15.8** (current) | [O.8] Screenshot + WTFPL license |
 
 **Lettering note (2026-11-15, chunk M):** chunk letters drifted at some point (the I-wave landed after L); they now follow list position. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Git commit subjects still use the old letters.
 
@@ -299,16 +301,23 @@ User request: make the project "worthy of github" — move the agent-facing mate
 - **Total 139 tests.**
 - **Browser-verify (user):** nothing beyond the About modal / tab title now showing 0.15.7.
 
-## Plan — remaining chunks (decisions locked in DECISIONS #32–68)
+### [O.8] Screenshot + WTFPL license (`docs/screenshot.png` + `LICENSE` + `README.md` + `docs/`, 2026-11-16)
+User request: wire the user-provided screenshot (placed at the workspace root) into the README as suggested, and license the project under WTFPL. See DECISIONS #69.
+- **Screenshot:** moved `screenshot.png` (1996×1224 full-window capture) to `docs/screenshot.png` (the user's suggested spot; it sits beside the handover docs — if more images accumulate, a dedicated `images/` folder would be the move) and placed it in the README as the **hero image** under the intro paragraph. Layout-tree comment updated.
+- **License:** new root `LICENSE` — full WTFPL 2.0 text, copyright line `Copyright (C) 2026 spacecat` (the user named the license but not the copyright line — flagged for correction). README gains a one-line **License** section linking to `LICENSE`, plus a `LICENSE` row in the layout tree.
+- Version bumped to 0.15.8 (mechanical, DECISIONS #56 — assets/docs-only change). **Total 139 tests.**
+- **Browser-verify (user):** the hero image renders and sizes sanely in a markdown previewer (or GitHub).
+
+## Plan — remaining chunks (decisions locked in DECISIONS #32–69)
 
 **[N] QA checks are fully done** (N.1 + N.2 + N.3 — both deferred checks #46/#47 shipped with per-glyph silencing).
 
 ### [O] Polish (catch-all)
-**[O.1]–[O.7] are done** (Preview control cleanup, newline fix, project file, bound-guide off-by-one fix, clipboard PNG atlas, reference-glyph hint, docs reorg — see Completed + DECISIONS #62–#68). The rest of [O] is still open:
+**[O.1]–[O.8] are done** (Preview control cleanup, newline fix, project file, bound-guide off-by-one fix, clipboard PNG atlas, reference-glyph hint, docs reorg, screenshot + license — see Completed + DECISIONS #62–#69). The rest of [O] is still open:
 
 Browser-verify the visuals and interactions (the agent can't screenshot). Likely small fixes: slant spill clipping, jump UX, preview wrap width, hover cursor on the editor, layout nits, guidelines visual polish (line thickness, colors).
 
-**Handover note for the next agent:** A–N + O.1–O.7 are done. The repo root now has `README.md` (user/dev) and `AGENTS.md` (agents) — `docs/` holds DESIGN/DECISIONS/STATUS/TESTING only. Remaining: [O] polish (catch-all) — in particular the accumulated browser-verification lists above (the agent can't screenshot; the user verifies). After each chunk: run `./test/run-tests.sh`, update this file's checkboxes + add a Completed section, commit. Pure-logic pieces belong in `core.js` with tests; DOM wiring in `app.js`.
+**Handover note for the next agent:** A–N + O.1–O.8 are done. The repo root now has `README.md` (user/dev), `AGENTS.md` (agents) and `LICENSE` (WTFPL) — `docs/` holds DESIGN/DECISIONS/STATUS/TESTING + `screenshot.png`. Remaining: [O] polish (catch-all) — in particular the accumulated browser-verification lists above (the agent can't screenshot; the user verifies). After each chunk: run `./test/run-tests.sh`, update this file's checkboxes + add a Completed section, commit. Pure-logic pieces belong in `core.js` with tests; DOM wiring in `app.js`.
 
 **Fixed during review (user-reported):** editor click→cell mismatch + non-square cells. The canvas CSS size wasn't pinned, so flexbox stretched it to the panel and `getBoundingClientRect()` no longer matched the internal pixel size. Fix: `setCanvasSize()` pins `style.width/height` to the internal size; `.canvas-wrap canvas { flex: 0 0 auto }` stops the stretch; the wrapper scrolls instead. Now 1 internal px = 1 CSS px in all browsers. Regression-tested in `test-dom.js` (asserts CSS size == internal size).
 

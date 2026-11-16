@@ -4,6 +4,8 @@ A **bitmap font editor** for fixed-size, zero-spacing, non-proportional **monosp
 
 Pure vanilla JS: no build, no dependencies, no server. Open `index.html` in a browser and it runs — straight from `file://`.
 
+![bitforge — the bitmap font editor](docs/screenshot.png)
+
 ## Features
 
 - **Bitmap editor** — click toggles a pixel, drag paints, right-drag erases; undo/redo; clear glyph.
@@ -64,8 +66,9 @@ bitforge/
   js/core.js          # PURE logic — model, exports, markup, slant, QA math (global BF, no DOM)
   js/app.js           # DOM wiring — editor, preview, atlas, menus, QA UI, settings, shortcuts
   test/               # headless unit tests (macOS JavaScriptCore, no Node)
-  docs/               # handover documentation (see below)
+  docs/               # handover documentation + screenshot (see below)
   AGENTS.md           # guide for AI coding agents
+  LICENSE             # WTFPL
 ```
 
 Run the tests — no Node, no browser, just macOS JavaScriptCore:
@@ -75,6 +78,10 @@ Run the tests — no Node, no browser, just macOS JavaScriptCore:
 ```
 
 Documentation: [DESIGN.md](docs/DESIGN.md) (architecture) · [DECISIONS.md](docs/DECISIONS.md) (locked requirements) · [STATUS.md](docs/STATUS.md) (progress) · [TESTING.md](docs/TESTING.md) (test guide) · [AGENTS.md](AGENTS.md) (for agents).
+
+## License
+
+This project is licensed under the [WTFPL](LICENSE) (Do What The Fuck You Want To Public License, Version 2).
 
 ---
 
