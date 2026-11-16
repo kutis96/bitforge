@@ -36,6 +36,7 @@
 - [x] **[O.7] Docs reorg** (2026-11-16): root `README.md` (user/dev) + `AGENTS.md` (agent handover map) replace `docs/README.md` — test count unchanged (139; version pin moved to 0.15.7)
 - [x] **[O.8] Screenshot + license** (2026-11-16): user-provided screenshot → `docs/screenshot.png`, README hero image; MIT `LICENSE` — test count unchanged (139; version pin moved to 0.15.8)
 - [x] **[P] Font name + Properties modal** (2026-11-16): `font.name` wired into export filenames + BDF header; imports derive the name; **Edit → Properties…** (name + live info) — 146 tests
+- [x] **[Q] Cell resize** (2026-11-16): **Edit → Resize…** — per-edge row/col deltas, guides + slant baseline shift with the content, clip warning, full-font undo — 156 tests
 - [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -63,7 +64,8 @@ Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–
 | 0.15.6 | [O.6] Reference-glyph hint |
 | 0.15.7 | [O.7] Docs reorg (root README + AGENTS.md) |
 | 0.15.8 | [O.8] Screenshot + MIT license |
-| **0.16.0** (current) | [P] Font name + Properties modal |
+| 0.16.0 | [P] Font name + Properties modal |
+| **0.17.0** (current) | [Q] Cell resize (Resize… modal) |
 
 **Lettering note (2026-11-15, chunk M):** chunk letters drifted at some point (the I-wave landed after L); they now follow list position. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Git commit subjects still use the old letters.
 
@@ -320,6 +322,14 @@ User request (greenlit with [Q]): the font name wired into the exports, editable
 - 7 new tests (1 model default + 3 name/blob core + 2 BDF + 1 DOM modal/filenames/persistence). Two test-side bugs fixed on first run (my BDF fixture lacked BW/DH; wrong expectation for the precomposed `é`). **Total 146 tests.**
 - **Browser-verify (user):** Edit → Properties (name roundtrip + info line); exports download with the name; a PNG/BDF import picks up the name from the filename.
 
+### [Q] Cell resize (`js/core.js` + `js/app.js` + `index.html` + `css/style.css` + `test/`, 2026-11-16)
+User request (greenlit with [P]): crop/extend the character size by one or more pixels **in a specified direction** (8×16 → 9×16 or 6×12) — choosing the edge is crucial, and the guides must shift so they stay in place relative to the existing content. See DECISIONS #71.
+- **Core (new section [13]):** `BF.resizeFont(font, { dTop, dBottom, dLeft, dRight })` → `{ font, inkClipped }` — a **new** font object (input untouched). Ink (x, y) → (x + dLeft, y + dTop): extending left/top pushes content down/right; extending right/bottom leaves it in place. New dims validated 1..1024 (throws otherwise; fractional/string deltas throw too). **Guidelines shift with the content** (h: `off += dTop`, v: `off += dLeft`) and clamp to `[0, newDim]` (a guide clamped to the far edge is the least-surprising rest). Name/status/silences survive (per-code, not per-pixel). `BF.cloneFont` (deep copy) added for undo snapshots.
+- **Undo:** the history gained a second entry shape — full-font `{ full: snapshot }` alongside the per-glyph `{ code, snap }`; undo/redo handle both; snapshots are cloned so the history never aliases the live font.
+- **UI:** Edit → **Resize…** modal — four per-edge delta inputs (any integer; positive adds, negative removes), a live `→ newW×newH` readout (validity reuses `BF.validateDims`), and the **clip warning**: when a crop would drop ink, the first Apply shows "N px of ink will be clipped — click Apply again to confirm" and arms a confirming second click. Apply = one full-font undo step + the normal mutation flow (staleness bump + saveLS + clip toast); the **slant baseline** (app state) also shifts by `dTop` (clamped).
+- 10 new tests (8 core: extend right/left/top, per-edge crops, all-four-edges crop counted once, guide clamping, validation, meta-survival + clone independence; 2 DOM: modal flow + live readout + undo; clip-warning arm/confirm + undo). **Total 156 tests.**
+- **Browser-verify (user):** the Resize modal — extend/crop per direction, guides staying put relative to the content, the clip warning + second click, undo.
+
 ## Plan — remaining chunks (decisions locked in DECISIONS #32–71)
 
 **[N] QA checks are fully done** (N.1 + N.2 + N.3 — both deferred checks #46/#47 shipped with per-glyph silencing).
@@ -327,8 +337,8 @@ User request (greenlit with [Q]): the font name wired into the exports, editable
 ### [P] Font name + Properties modal — **done** (2026-11-16; see Completed + DECISIONS #70)
 Font name (`font.name`, default `font`) wired into export filenames + BDF `FONT` line; name derived from the source filename on import; **Edit → Properties** modal (editable name + live font info).
 
-### [Q] Cell resize (greenlit 2026-11-16)
-**Edit → Resize…** modal: per-edge row/column deltas (crop/extend at a chosen edge), live result readout, guidelines + slant baseline shift with it, clip warning on lossy crops, one undo step (new full-font history entry). DECISIONS #71.
+### [Q] Cell resize — **done** (2026-11-16; see Completed + DECISIONS #71)
+**Edit → Resize…** modal: per-edge row/column deltas (crop/extend at a chosen edge), live result readout, guidelines + slant baseline shift with it, clip warning on lossy crops, one undo step (new full-font history entry).
 
 ### [O] Polish (catch-all)
 **[O.1]–[O.8] are done** (Preview control cleanup, newline fix, project file, bound-guide off-by-one fix, clipboard PNG atlas, reference-glyph hint, docs reorg, screenshot + MIT license — see Completed + DECISIONS #62–#69). The rest of [O] is still open:

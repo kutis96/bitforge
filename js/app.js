@@ -830,6 +830,26 @@
     saveLS();
   }
 
+  // Cell resize (DECISIONS #71): apply per-edge deltas; one full-font undo
+  // step. Guidelines shift inside the core; the slant baseline is app state.
+  function applyResize(d) {
+    var before = BF.cloneFont(state.font);
+    var res;
+    try { res = BF.resizeFont(state.font, d); }
+    catch (e) { toast(e.message || "Invalid resize", true); return false; }
+    state.font = res.font;
+    state.history.push({ full: before });
+    if (state.history.length > 100) state.history.shift();
+    state.redo = [];
+    state.baseline = clamp(state.baseline + d.dTop, 0, state.font.height - 1);
+    syncRenderControls();
+    redrawAll();
+    saveLS();
+    bumpFontVersion();
+    if (res.inkClipped > 0) toast("Resize clipped " + res.inkClipped + " px", true);
+    return true;
+  }
+
   // Shared by the Edit-tab button and the Edit-menu item (DECISIONS #51).
   function clearGlyphAction() {
     var code = state.selected;
@@ -842,19 +862,36 @@
     bumpFontVersion();
   }
 
+  // Full-font restore (resize undo/redo, DECISIONS #71). The snapshot is
+  // cloned so the history never aliases the live font.
+  function restoreFull(snap) {
+    state.font = BF.cloneFont(snap);
+    state.baseline = clamp(state.baseline, 0, state.font.height - 1);
+    syncRenderControls();
+  }
   function undo() {
     if (!state.history.length) return;
     var entry = state.history.pop();
-    state.redo.push({ code: entry.code, snap: snapshotGlyph(entry.code) });
-    restoreGlyph(entry.code, entry.snap);
+    if (entry.full) {
+      state.redo.push({ full: BF.cloneFont(state.font) });
+      restoreFull(entry.full);
+    } else {
+      state.redo.push({ code: entry.code, snap: snapshotGlyph(entry.code) });
+      restoreGlyph(entry.code, entry.snap);
+    }
     redrawAll();
     saveLS();
   }
   function redo() {
     if (!state.redo.length) return;
     var entry = state.redo.pop();
-    state.history.push({ code: entry.code, snap: snapshotGlyph(entry.code) });
-    restoreGlyph(entry.code, entry.snap);
+    if (entry.full) {
+      state.history.push({ full: BF.cloneFont(state.font) });
+      restoreFull(entry.full);
+    } else {
+      state.history.push({ code: entry.code, snap: snapshotGlyph(entry.code) });
+      restoreGlyph(entry.code, entry.snap);
+    }
     redrawAll();
     saveLS();
   }
@@ -1233,6 +1270,50 @@
     toast('Font name: "' + state.font.name + '"');
   }
 
+  // Resize… modal (DECISIONS #71): per-edge deltas, live result readout, and
+  // a confirming second Apply when the crop would clip ink.
+  var rzArmed = false;
+  function rzDeltas() {
+    function v(id) { var n = parseInt(el[id].value, 10); return isNaN(n) ? 0 : n; }
+    return { dTop: v("rzTop"), dBottom: v("rzBottom"), dLeft: v("rzLeft"), dRight: v("rzRight") };
+  }
+  function rzRender() {
+    var d = rzDeltas();
+    var newW = state.font.width + d.dLeft + d.dRight;
+    var newH = state.font.height + d.dTop + d.dBottom;
+    if (!BF.validateDims(newW, newH).ok) {
+      el.rzResult.textContent = "invalid — new size out of range";
+    } else if (newW === state.font.width && newH === state.font.height) {
+      el.rzResult.textContent = "\u2192 " + newW + "\u00d7" + newH + " (no change)";
+    } else {
+      el.rzResult.textContent = "\u2192 " + newW + "\u00d7" + newH;
+    }
+  }
+  function openResizeModal() {
+    el.rzTop.value = "0"; el.rzBottom.value = "0"; el.rzLeft.value = "0"; el.rzRight.value = "0";
+    rzArmed = false;
+    el.rzWarn.hidden = true;
+    rzRender();
+    el.rzModal.hidden = false;
+  }
+  function closeResizeModal() { el.rzModal.hidden = true; }
+  function applyResizeAction() {
+    var d = rzDeltas();
+    if (!d.dTop && !d.dBottom && !d.dLeft && !d.dRight) { closeResizeModal(); return; }
+    if (!rzArmed) {
+      var peek;
+      try { peek = BF.resizeFont(state.font, d); }
+      catch (e) { toast(e.message || "Invalid resize", true); return; }
+      if (peek.inkClipped > 0) {
+        rzArmed = true;
+        el.rzWarn.hidden = false;
+        el.rzWarn.textContent = peek.inkClipped + " px of ink will be clipped — click Apply again to confirm";
+        return;
+      }
+    }
+    if (applyResize(d)) closeResizeModal();
+  }
+
   // ---------- tabs ----------
   function setActiveTab(name) {
     state.activeTab = name;
@@ -1261,6 +1342,9 @@
       miCycleStatus: $("mi-cycle-status"), miDoneNext: $("mi-done-next"),
       propsModal: $("props-modal"), propsClose: $("props-close"), propsInfo: $("props-info"),
       propsName: $("props-name"), propsSave: $("props-save"), propsCancel: $("props-cancel"),
+      miResize: $("mi-resize"), rzModal: $("rz-modal"), rzClose: $("rz-close"), rzResult: $("rz-result"),
+      rzWarn: $("rz-warn"), rzTop: $("rz-top"), rzBottom: $("rz-bottom"), rzLeft: $("rz-left"),
+      rzRight: $("rz-right"), rzApply: $("rz-apply"), rzCancel: $("rz-cancel"),
       btnClear: $("btn-clear"), btnUndo: $("btn-undo"), btnRedo: $("btn-redo"),
       stUnfinished: $("st-unfinished"), stWip: $("st-wip"), stDone: $("st-done"),
       editor: $("editor"), editLabel: $("edit-label"),
@@ -1316,7 +1400,7 @@
       if (!inside) closeMenus();
     });
     document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape") { closeMenus(); closeAboutModal(); closePropsModal(); }
+      if (e.key === "Escape") { closeMenus(); closeAboutModal(); closePropsModal(); closeResizeModal(); }
     });
     function menuItem(id, fn) {
       el[id].addEventListener("click", function () { closeMenus(); fn(); });
@@ -1335,6 +1419,7 @@
     menuItem("miUndo", undo);
     menuItem("miRedo", redo);
     menuItem("miProps", openPropsModal);
+    menuItem("miResize", openResizeModal);
     menuItem("miClearGlyph", clearGlyphAction);
     menuItem("miCycleStatus", cycleStatusAction);
     menuItem("miDoneNext", doneNextAction);
@@ -1356,6 +1441,17 @@
     el.propsModal.addEventListener("mousedown", function (e) {
       if (e.target === el.propsModal) closePropsModal();
     });
+
+    // Resize modal: same close paths; live result readout on input.
+    el.rzClose.addEventListener("click", closeResizeModal);
+    el.rzCancel.addEventListener("click", closeResizeModal);
+    el.rzApply.addEventListener("click", applyResizeAction);
+    el.rzModal.addEventListener("mousedown", function (e) {
+      if (e.target === el.rzModal) closeResizeModal();
+    });
+    var rzInputs = ["rzTop", "rzBottom", "rzLeft", "rzRight"];
+    for (var rzi = 0; rzi < rzInputs.length; rzi++)
+      el[rzInputs[rzi]].addEventListener("input", rzRender);
 
     // Edit-tab status buttons (DECISIONS #50): mark the current glyph, then
     // move on to the next one (arrows / atlas click). Re-clicking the active
@@ -1510,7 +1606,7 @@
       importBdfText: importBdfText, exportBdf: exportBdf,
       importProjectText: importProjectText, projectExportText: projectExportText, exportProject: exportProject,
       copyPngToClipboard: copyPngToClipboard, importPngFromClipboard: importPngFromClipboard,
-      copyGlyph: copyGlyphToClipboard, glyphCanvas: glyphCanvas,
+      copyGlyph: copyGlyphToClipboard, glyphCanvas: glyphCanvas, applyResize: applyResize,
       getLastToast: function () { return lastToast; },
       exportPng: exportPng, settingsGet: settingsGet, settingsSet: settingsSet };
 

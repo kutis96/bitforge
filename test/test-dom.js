@@ -630,7 +630,7 @@ test("dom: mousedown on a menu item must NOT close the menu (real-browser click 
 
 test("dom: About modal head + browser tab show the app version (DECISIONS #56)", function () {
   assert(/^\d+\.\d+\.\d+$/.test(BF.VERSION), "BF.VERSION is semver-ish: " + BF.VERSION);
-  assertEqual(BF.VERSION, "0.16.0", "pinned version — bump this test when you bump the app");
+  assertEqual(BF.VERSION, "0.17.0", "pinned version — bump this test when you bump the app");
   var els = globalThis.__stub.els;
   assertEqual(els["about-title"].textContent, "bitforge " + BF.VERSION, "modal head shows name + version");
   assertEqual(document.title, "bitforge " + BF.VERSION, "browser tab shows name + version");
@@ -835,4 +835,61 @@ test("dom: bound-guide presets leave exactly 1px outside each line (DECISIONS #6
   assertEqual(app.guidePresets.descender.off(f), 15, "line between rows 14|15: row 15 outside (fires with the >= fix)");
   assertEqual(app.guidePresets.left.off(f), 1, "line between cols 0|1: col 0 outside");
   assertEqual(app.guidePresets.right.off(f), 7, "line between cols 6|7: col 7 outside");
+});
+
+// ---------- cell resize (DECISIONS #71) ----------
+
+function undoKey() { // Ctrl/⌘+Z through the real dispatcher
+  globalThis.__stub.app.shortcuts.dispatch({ key: "z", ctrlKey: true, preventDefault: function () {} });
+}
+
+test("dom: resize modal — extend right, live readout, undo restores", function () {
+  var app = globalThis.__stub.app;
+  var els = globalThis.__stub.els;
+  // Deterministic start: an earlier import test leaves a small font behind,
+  // and these are the last tests in the file (nothing runs after them).
+  app.state.font = BF.makeFont(8, 16);
+  var f = app.state.font;
+  BF.setPixel(f, 0x41, 3, 5, 1);
+  var w0 = f.width, h0 = f.height;
+  var hlen = app.state.history.length;
+  globalThis.__stub.dispatch("mi-resize", "click", {});
+  assertEqual(els["rz-modal"].hidden, false, "modal opens");
+  els["rz-right"].value = "2";
+  globalThis.__stub.dispatch("rz-right", "input", {});
+  assert(els["rz-result"].textContent.indexOf((w0 + 2) + "\u00d7" + h0) >= 0, "live readout shows the new size: " + els["rz-result"].textContent);
+  globalThis.__stub.dispatch("rz-apply", "click", {});
+  assertEqual(els["rz-modal"].hidden, true, "modal closed after apply");
+  assertEqual(app.state.font.width, w0 + 2, "width grew");
+  assertEqual(BF.getPixel(app.state.font, 0x41, 3, 5), 1, "ink unmoved for a right-extend");
+  undoKey();
+  assertEqual(app.state.font.width, w0, "undo restored the width");
+  assertEqual(BF.getPixel(app.state.font, 0x41, 3, 5), 1, "undo restored the ink");
+  assertEqual(app.state.history.length, hlen, "history balanced (one push, one pop)");
+});
+
+test("dom: resize crop with ink loss needs a confirming second apply", function () {
+  var app = globalThis.__stub.app;
+  var els = globalThis.__stub.els;
+  app.state.font = BF.makeFont(8, 16); // deterministic start (see above)
+  var f = app.state.font;
+  BF.setPixel(f, 0x42, 2, f.height - 1, 1); // ink on the bottom row
+  var h0 = f.height;
+  var hlen = app.state.history.length;
+  globalThis.__stub.dispatch("mi-resize", "click", {});
+  els["rz-bottom"].value = "-1";
+  globalThis.__stub.dispatch("rz-bottom", "input", {});
+  globalThis.__stub.dispatch("rz-apply", "click", {});
+  assertEqual(els["rz-modal"].hidden, false, "still open after the first Apply");
+  assertEqual(els["rz-warn"].hidden, false, "clip warning shown");
+  assert(els["rz-warn"].textContent.indexOf("1 px") >= 0, "warning names the pixel count");
+  assertEqual(app.state.font.height, h0, "not applied yet");
+  globalThis.__stub.dispatch("rz-apply", "click", {});
+  assertEqual(app.state.font.height, h0 - 1, "applied on the confirming click");
+  assertEqual(els["rz-modal"].hidden, true, "modal closed");
+  assertEqual(BF.getPixel(app.state.font, 0x42, 2, h0 - 1), 0, "clipped ink is gone");
+  undoKey();
+  assertEqual(app.state.font.height, h0, "undo restored the height");
+  assertEqual(BF.getPixel(app.state.font, 0x42, 2, h0 - 1), 1, "undo restored the ink");
+  assertEqual(app.state.history.length, hlen, "history balanced");
 });

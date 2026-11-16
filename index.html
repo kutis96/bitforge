@@ -37,6 +37,7 @@
           <button type="button" id="mi-redo" title="Redo (Ctrl/&#8984;+Shift+Z)">Redo<span class="mi-key">Ctrl+Shift+Z</span></button>
           <hr>
           <button type="button" id="mi-props" title="Font name and basic info">Properties&hellip;</button>
+          <button type="button" id="mi-resize" title="Crop or extend the cell at a chosen edge">Resize&hellip;</button>
           <hr>
           <button type="button" id="mi-clear-glyph" title="Clear the current glyph (undoable)">Clear glyph</button>
           <hr>
@@ -184,6 +185,27 @@
         <div class="modal-actions">
           <button id="props-save" type="button">Save</button>
           <button id="props-cancel" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="rz-modal" class="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Resize cell">
+      <div class="modal-head"><b>Resize cell</b><button id="rz-close" type="button" title="Close">&times;</button></div>
+      <div class="modal-body">
+        <p class="muted">Add or remove rows/columns at each edge — positive adds, negative removes. Guides and the slant baseline shift with the content.</p>
+        <div class="rz-grid">
+          <label>Top<input id="rz-top" type="number" value="0" step="1"></label>
+          <label>Bottom<input id="rz-bottom" type="number" value="0" step="1"></label>
+          <label>Left<input id="rz-left" type="number" value="0" step="1"></label>
+          <label>Right<input id="rz-right" type="number" value="0" step="1"></label>
+        </div>
+        <p id="rz-result">&mdash;</p>
+        <p id="rz-warn" class="muted" hidden></p>
+        <div class="modal-actions">
+          <button id="rz-apply" type="button">Apply</button>
+          <button id="rz-cancel" type="button">Cancel</button>
         </div>
       </div>
     </div>

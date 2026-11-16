@@ -12,6 +12,7 @@ load("test/test-slant.js");
 load("test/test-ink.js");
 load("test/test-nav.js");
 load("test/test-shift.js");
+load("test/test-resize.js");
 load("test/test-status.js");
 load("test/test-dupes.js");
 load("test/test-edge.js");

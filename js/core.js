@@ -26,7 +26,7 @@
    * (1-indexed) in the STATUS.md "Current state" list; PATCH = 0 for a single
    * chunk, the sub-index for a wave (chunk L.3 shipped 0.12.3). Bump in the
    * same commit as the chunk — a headless test pins the exact value. */
-  var VERSION = "0.16.0";
+  var VERSION = "0.17.0";
 
   /* ============================================================
    * [1] Font model
@@ -668,6 +668,73 @@
   }
 
   /* ============================================================
+   * [13] Cell resize (DECISIONS #71)
+   * ============================================================ */
+
+  function clampInt(n, lo, hi) { return n < lo ? lo : (n > hi ? hi : n); }
+
+  // Deep-copy a font (undo snapshots, resize). Pure.
+  function cloneFont(font) {
+    var out = makeFont(font.width, font.height);
+    out.name = font.name;
+    out.data.set(font.data);
+    for (var i = 0; i < font.guidelines.length; i++) {
+      var g = font.guidelines[i];
+      out.guidelines.push({ o: g.o, off: g.off, label: g.label, color: g.color });
+    }
+    out.status.set(font.status);
+    for (var sid in font.silences) {
+      out.silences[sid] = {};
+      for (var k in font.silences[sid]) out.silences[sid][k] = true;
+    }
+    return out;
+  }
+
+  // Resize the cell by adding/removing rows/cols at the chosen edges.
+  // deltas: { dTop, dBottom, dLeft, dRight } — integers, positive = add at
+  // that edge, negative = remove. Ink at (x, y) moves to (x + dLeft,
+  // y + dTop): extending left/top pushes content down/right; extending
+  // right/bottom leaves it in place. Guidelines shift with the content
+  // (h: off += dTop, v: off += dLeft), clamped to [0, newDim]. Name,
+  // status and silences survive (per-code, not per-pixel).
+  // Returns { font, inkClipped } — a NEW font object; the input is
+  // untouched. Throws on non-integer deltas or out-of-range new dims.
+  function resizeFont(font, d) {
+    var keys = ["dTop", "dBottom", "dLeft", "dRight"];
+    for (var i = 0; i < 4; i++) {
+      var v0 = d[keys[i]];
+      if (typeof v0 !== "number" || !isFinite(v0) || v0 !== (v0 | 0))
+        throw new Error("resize: " + keys[i] + " must be an integer (got " + v0 + ")");
+    }
+    var newW = font.width + d.dLeft + d.dRight;
+    var newH = font.height + d.dTop + d.dBottom;
+    var v = validateDims(newW, newH);
+    if (!v.ok) throw new Error("resize: " + v.error);
+    var out = cloneFont(font);
+    // Rebuild the buffer at the new size, shifting ink; count clipped px.
+    var src = font.data;
+    var dst = new Uint8Array(NUM_GLYPHS * newH * newW);
+    var inkClipped = 0, code, y, x, nx, ny;
+    for (code = 0; code < NUM_GLYPHS; code++) {
+      for (y = 0; y < font.height; y++) {
+        for (x = 0; x < font.width; x++) {
+          if (!src[((code * font.height) + y) * font.width + x]) continue;
+          nx = x + d.dLeft; ny = y + d.dTop;
+          if (nx < 0 || nx >= newW || ny < 0 || ny >= newH) { inkClipped++; continue; }
+          dst[((code * newH) + ny) * newW + nx] = 1;
+        }
+      }
+    }
+    out.width = newW; out.height = newH; out.data = dst;
+    for (var gi = 0; gi < out.guidelines.length; gi++) {
+      var g = out.guidelines[gi];
+      var max = (g.o === "h") ? newH : newW;
+      g.off = clampInt(g.off + ((g.o === "h") ? d.dTop : d.dLeft), 0, max);
+    }
+    return { font: out, inkClipped: inkClipped };
+  }
+
+  /* ============================================================
    * API
    * ============================================================ */
   var api = {
@@ -705,6 +772,9 @@
     // font name
     sanitizeFontName: sanitizeFontName,
     filenameBase: filenameBase,
+    // cell resize (DECISIONS #71)
+    cloneFont: cloneFont,
+    resizeFont: resizeFont,
     // edge-ink QA
     edgeInk: edgeInk,
     // guideline-violation QA
