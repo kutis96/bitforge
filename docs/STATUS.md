@@ -32,6 +32,7 @@
 - [x] **[O.3] Project file** (2026-11-15): `.bitforge` export/import (font + guidelines + status + silences + settings), shared blob sanitizer moved to core, confirm-on-import — 135 tests
 - [x] **[O.4] Bound-guide off-by-one fix** (2026-11-15/16): guide lines are drawn *between* pixels; the bottom/right comparisons in `guideViolations` missed the first pixel past the line (`>` → `>=`, overshoot `+1`); presets reverted to h-1/w-1, which are correct under the fixed comparison (first attempt was a misdiagnosis) — 137 tests
 - [x] **[O.5] Clipboard PNG atlas** (2026-11-16): copy whole PNG to clipboard (`Alt+Shift+C`, download fallback) + import PNG from clipboard (deliberately no Ctrl+V binding) — 139 tests
+- [x] **[O.6] Reference-glyph hint** (2026-11-16): caption under the selector + fuller canvas title document the Shift-click reference selection — test count unchanged (DOM-only, smoke-covered)
 - [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -55,7 +56,8 @@ Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–
 | 0.15.2 | [O.2] Preview newline fix |
 | 0.15.3 | [O.3] Project file (.bitforge) |
 | 0.15.4 | [O.4] Bound-guide off-by-one fix |
-| **0.15.5** (current) | [O.5] Clipboard PNG atlas |
+| 0.15.5 | [O.5] Clipboard PNG atlas |
+| **0.15.6** (current) | [O.6] Reference-glyph hint |
 
 **Lettering note (2026-11-15, chunk M):** chunk letters drifted at some point (the I-wave landed after L); they now follow list position. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Git commit subjects still use the old letters.
 
@@ -280,16 +282,22 @@ User request: export the whole font PNG to the clipboard, and import it back fro
 - Stub's clipboard gained `read()` (fed by `__stub.clipboardRead`, rejectable via `__stub.clipboardReadError`). 2 new DOM tests (write + download fallback; the three error paths). The success path is browser-verified (image decode can't run under jsc — same limitation as file PNG import). **Total 139 tests.**
 - **Browser-verify (user):** copy → paste into an image tool; copy a known atlas PNG in the OS → Import PNG from clipboard.
 
-## Plan — remaining chunks (decisions locked in DECISIONS #32–66)
+### [O.6] Reference-glyph hint (`index.html` + `css/style.css` + `js/core.js` + `test/`, 2026-11-16)
+User request: surface the reference-character (Shift-click) selection somewhere in the character-selection panel — mouseover text on the panel and/or under it. See DECISIONS #67.
+- Both options, cheaply: a muted **caption under the selector canvas** (`#sel-hint`: `Click: select · Shift-click: reference glyph (underlay in Edit tab)`) plus the **canvas `title` tooltip** expanded to the full sentence (including that Shift-click again clears it). The caption is always visible (tooltips need a hover pause, so the caption carries the discoverability); the tooltip carries the extra detail.
+- Static HTML + one CSS rule (`.sel-hint`: 11px, `var(--muted)`); no behavior change. **No test-count change** — DOM-only, init smoke still passes. The stub does not parse `index.html`, so static HTML text isn't testable headlessly (same category as [L.6]/[O.1]). **Total 139 tests.**
+- **Browser-verify (user):** caption visible under the atlas grid; tooltip on hover mentions Shift-click.
+
+## Plan — remaining chunks (decisions locked in DECISIONS #32–67)
 
 **[N] QA checks are fully done** (N.1 + N.2 + N.3 — both deferred checks #46/#47 shipped with per-glyph silencing).
 
 ### [O] Polish (catch-all)
-**[O.1]–[O.5] are done** (Preview control cleanup, newline fix, project file, bound-guide off-by-one fix, clipboard PNG atlas — see Completed + DECISIONS #62–#66). The rest of [O] is still open:
+**[O.1]–[O.6] are done** (Preview control cleanup, newline fix, project file, bound-guide off-by-one fix, clipboard PNG atlas, reference-glyph hint — see Completed + DECISIONS #62–#67). The rest of [O] is still open:
 
 Browser-verify the visuals and interactions (the agent can't screenshot). Likely small fixes: slant spill clipping, jump UX, preview wrap width, hover cursor on the editor, layout nits, guidelines visual polish (line thickness, colors).
 
-**Handover note for the next agent:** A–N + O.1–O.5 are done. Remaining: [O] polish (catch-all) — in particular the accumulated browser-verification lists above (the agent can't screenshot; the user verifies). After each chunk: run `./test/run-tests.sh`, update this file's checkboxes + add a Completed section, commit. Pure-logic pieces belong in `core.js` with tests; DOM wiring in `app.js`.
+**Handover note for the next agent:** A–N + O.1–O.6 are done. Remaining: [O] polish (catch-all) — in particular the accumulated browser-verification lists above (the agent can't screenshot; the user verifies). After each chunk: run `./test/run-tests.sh`, update this file's checkboxes + add a Completed section, commit. Pure-logic pieces belong in `core.js` with tests; DOM wiring in `app.js`.
 
 **Fixed during review (user-reported):** editor click→cell mismatch + non-square cells. The canvas CSS size wasn't pinned, so flexbox stretched it to the panel and `getBoundingClientRect()` no longer matched the internal pixel size. Fix: `setCanvasSize()` pins `style.width/height` to the internal size; `.canvas-wrap canvas { flex: 0 0 auto }` stops the stretch; the wrapper scrolls instead. Now 1 internal px = 1 CSS px in all browsers. Regression-tested in `test-dom.js` (asserts CSS size == internal size).
 

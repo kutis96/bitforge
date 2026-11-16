@@ -54,7 +54,7 @@ Font {
 Black-on-white, monospace UI, terminal-tool aesthetic. **No green/amber.**
 
 - **Left sidebar (persistent):**
-  - 16×16 grid of mini-glyphs (the whole atlas). Click to select the active glyph; **Shift-click sets a *reference glyph*** (drawn as a light-gray underlay behind the glyph being edited; Shift-click again clears it). Cells are tinted by glyph status (see QA).
+  - 16×16 grid of mini-glyphs (the whole atlas). Click to select the active glyph; **Shift-click sets a *reference glyph*** (drawn as a light-gray underlay behind the glyph being edited; Shift-click again clears it) — a muted caption under the grid (and the canvas tooltip) reminds users of both click behaviours. Cells are tinted by glyph status (see QA).
   - Header for the active glyph: `0x41 · A` (hex code + printable char; char shown for `0x20`–`0x7E` only).
   - A jump field: type a hex code (`41`) or a literal char to select.
 - **Main pane** with four tabs:

@@ -105,6 +105,7 @@ button.btn-danger:hover { background: #fff5f5; }
   border-radius: 3px;
 }
 #selector { border: 1px solid var(--line); background: #fff; image-rendering: pixelated; }
+.sel-hint { font-size: 11px; color: var(--muted); line-height: 1.35; }
 
 /* ---------- content / tabs ---------- */
 #content { flex: 1; display: flex; flex-direction: column; min-width: 0; }

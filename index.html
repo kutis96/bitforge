@@ -71,7 +71,8 @@
         <input id="jump" type="text" placeholder="hex or char" spellcheck="false" autocomplete="off" aria-label="Jump to glyph">
         <button id="btn-jump" type="button">Go</button>
       </div>
-      <canvas id="selector" title="Click a glyph to select it" aria-label="Glyph selector (256 glyphs, 16 by 16; click to select)"></canvas>
+      <canvas id="selector" title="Click a glyph to select it. Shift-click sets the reference glyph (gray underlay in the Edit tab); Shift-click again clears it." aria-label="Glyph selector (256 glyphs, 16 by 16; click to select, Shift-click for reference)"></canvas>
+      <div class="sel-hint">Click: select · Shift-click: reference glyph (underlay in Edit tab)</div>
     </aside>
 
     <section id="content">
