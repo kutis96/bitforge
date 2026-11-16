@@ -33,6 +33,7 @@
 - [x] **[O.4] Bound-guide off-by-one fix** (2026-11-15/16): guide lines are drawn *between* pixels; the bottom/right comparisons in `guideViolations` missed the first pixel past the line (`>` → `>=`, overshoot `+1`); presets reverted to h-1/w-1, which are correct under the fixed comparison (first attempt was a misdiagnosis) — 137 tests
 - [x] **[O.5] Clipboard PNG atlas** (2026-11-16): copy whole PNG to clipboard (`Alt+Shift+C`, download fallback) + import PNG from clipboard (deliberately no Ctrl+V binding) — 139 tests
 - [x] **[O.6] Reference-glyph hint** (2026-11-16): caption under the selector + fuller canvas title document the Shift-click reference selection — test count unchanged (DOM-only, smoke-covered)
+- [x] **[O.7] Docs reorg** (2026-11-16): root `README.md` (user/dev) + `AGENTS.md` (agent handover map) replace `docs/README.md` — test count unchanged (139; version pin moved to 0.15.7)
 - [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -57,7 +58,8 @@ Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–
 | 0.15.3 | [O.3] Project file (.bitforge) |
 | 0.15.4 | [O.4] Bound-guide off-by-one fix |
 | 0.15.5 | [O.5] Clipboard PNG atlas |
-| **0.15.6** (current) | [O.6] Reference-glyph hint |
+| 0.15.6 | [O.6] Reference-glyph hint |
+| **0.15.7** (current) | [O.7] Docs reorg (root README + AGENTS.md) |
 
 **Lettering note (2026-11-15, chunk M):** chunk letters drifted at some point (the I-wave landed after L); they now follow list position. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Git commit subjects still use the old letters.
 
@@ -288,16 +290,25 @@ User request: surface the reference-character (Shift-click) selection somewhere 
 - Static HTML + one CSS rule (`.sel-hint`: 11px, `var(--muted)`); no behavior change. **No test-count change** — DOM-only, init smoke still passes. The stub does not parse `index.html`, so static HTML text isn't testable headlessly (same category as [L.6]/[O.1]). **Total 139 tests.**
 - **Browser-verify (user):** caption visible under the atlas grid; tooltip on hover mentions Shift-click.
 
-## Plan — remaining chunks (decisions locked in DECISIONS #32–67)
+### [O.7] Docs reorg — root README.md + AGENTS.md (`README.md` + `AGENTS.md` + `docs/`, 2026-11-16)
+User request: make the project "worthy of github" — move the agent-facing material to AGENTS.md and rework the README to be user/developer-facing. See DECISIONS #68.
+- **New root `README.md`** (so GitHub renders it): what it is, features, getting started (real menu labels), the four file formats (PNG / Verilog / BDF / .bitforge), the preview markup table, a developer section (layout + running the tests), doc pointers, and the About-modal credit line. Deliberately does **not** duplicate the shortcut list — the in-app `?` reference card renders from the live registry (DECISIONS #35), so a README copy would drift.
+- **New root `AGENTS.md`**: the agent entry point — read order (DECISIONS → DESIGN → STATUS; TESTING before core.js work), hard constraints, the test gotchas (version pin, shortcut-count assertion, cross-test state bleed, stub not parsing `index.html`), the per-chunk ritual, and the standing conventions (`shortcuts.register`, the settings API, the `qaChecks` list).
+- **`docs/README.md` deleted** — its content fully redistributed (user-facing → root README, agent-facing → AGENTS.md). Nothing linked to it (grep-verified).
+- Version bumped to 0.15.7 to keep the Versions table 1:1 with the Current-state list even for this docs-only change (DECISIONS #56 is mechanical: new chunk ⇒ bump + pin update).
+- **Total 139 tests.**
+- **Browser-verify (user):** nothing beyond the About modal / tab title now showing 0.15.7.
+
+## Plan — remaining chunks (decisions locked in DECISIONS #32–68)
 
 **[N] QA checks are fully done** (N.1 + N.2 + N.3 — both deferred checks #46/#47 shipped with per-glyph silencing).
 
 ### [O] Polish (catch-all)
-**[O.1]–[O.6] are done** (Preview control cleanup, newline fix, project file, bound-guide off-by-one fix, clipboard PNG atlas, reference-glyph hint — see Completed + DECISIONS #62–#67). The rest of [O] is still open:
+**[O.1]–[O.7] are done** (Preview control cleanup, newline fix, project file, bound-guide off-by-one fix, clipboard PNG atlas, reference-glyph hint, docs reorg — see Completed + DECISIONS #62–#68). The rest of [O] is still open:
 
 Browser-verify the visuals and interactions (the agent can't screenshot). Likely small fixes: slant spill clipping, jump UX, preview wrap width, hover cursor on the editor, layout nits, guidelines visual polish (line thickness, colors).
 
-**Handover note for the next agent:** A–N + O.1–O.6 are done. Remaining: [O] polish (catch-all) — in particular the accumulated browser-verification lists above (the agent can't screenshot; the user verifies). After each chunk: run `./test/run-tests.sh`, update this file's checkboxes + add a Completed section, commit. Pure-logic pieces belong in `core.js` with tests; DOM wiring in `app.js`.
+**Handover note for the next agent:** A–N + O.1–O.7 are done. The repo root now has `README.md` (user/dev) and `AGENTS.md` (agents) — `docs/` holds DESIGN/DECISIONS/STATUS/TESTING only. Remaining: [O] polish (catch-all) — in particular the accumulated browser-verification lists above (the agent can't screenshot; the user verifies). After each chunk: run `./test/run-tests.sh`, update this file's checkboxes + add a Completed section, commit. Pure-logic pieces belong in `core.js` with tests; DOM wiring in `app.js`.
 
 **Fixed during review (user-reported):** editor click→cell mismatch + non-square cells. The canvas CSS size wasn't pinned, so flexbox stretched it to the panel and `getBoundingClientRect()` no longer matched the internal pixel size. Fix: `setCanvasSize()` pins `style.width/height` to the internal size; `.canvas-wrap canvas { flex: 0 0 auto }` stops the stretch; the wrapper scrolls instead. Now 1 internal px = 1 CSS px in all browsers. Regression-tested in `test-dom.js` (asserts CSS size == internal size).
 
