@@ -31,6 +31,7 @@
 - [x] **[O.2] Preview newline fix** (2026-11-15): `\n` renders as a line break (blank lines kept, was N−1 breaks), markup state spans lines — 126 tests
 - [x] **[O.3] Project file** (2026-11-15): `.bitforge` export/import (font + guidelines + status + silences + settings), shared blob sanitizer moved to core, confirm-on-import — 135 tests
 - [x] **[O.4] Bound-guide off-by-one fix** (2026-11-15/16): guide lines are drawn *between* pixels; the bottom/right comparisons in `guideViolations` missed the first pixel past the line (`>` → `>=`, overshoot `+1`); presets reverted to h-1/w-1, which are correct under the fixed comparison (first attempt was a misdiagnosis) — 137 tests
+- [x] **[O.5] Clipboard PNG atlas** (2026-11-16): copy whole PNG to clipboard (`Alt+Shift+C`, download fallback) + import PNG from clipboard (deliberately no Ctrl+V binding) — 139 tests
 - [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -53,7 +54,8 @@ Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–
 | 0.15.1 | [O.1] Preview control cleanup |
 | 0.15.2 | [O.2] Preview newline fix |
 | 0.15.3 | [O.3] Project file (.bitforge) |
-| **0.15.4** (current) | [O.4] Bound-guide off-by-one fix |
+| 0.15.4 | [O.4] Bound-guide off-by-one fix |
+| **0.15.5** (current) | [O.5] Clipboard PNG atlas |
 
 **Lettering note (2026-11-15, chunk M):** chunk letters drifted at some point (the I-wave landed after L); they now follow list position. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Git commit subjects still use the old letters.
 
@@ -271,16 +273,23 @@ User report ×2: asc/L guideline violations were flagged, but desc/R "never show
 - Tests: core now covers all four directions (bottom+left added in the first attempt; bottom/right overshoot assertions updated to the between-pixels semantics, e.g. R line at boundary 5 + ink in col 7 = 3px right) + a DOM test pinning the preset positions via the `guidePresets` seam export. **Total 137 tests.**
 - **Browser-verify (user):** with the default desc/R presets, ink on the bottom row / right column now raises a QA row, and the line visually sits between the last two rows/cols (1px outside = flagged).
 
-## Plan — remaining chunks (decisions locked in DECISIONS #32–65)
+### [O.5] Clipboard PNG atlas (`js/app.js` + `index.html` + `test/`, 2026-11-16)
+User request: export the whole font PNG to the clipboard, and import it back from the clipboard. See DECISIONS #66.
+- **Copy PNG to clipboard** (File menu, `Alt+Shift+C`): the atlas-canvas builder was extracted from `exportPng` into `atlasCanvas()` (shared with file export; remembered `pngBg` background) and written as an `image/png` ClipboardItem. Same fallback as the single-glyph copy: download `bitforge-atlas.png` when the clipboard API is unavailable or the write is blocked.
+- **Import PNG from clipboard** (File menu, no shortcut): `navigator.clipboard.read()` → first `image/png` entry → the **shared** `pngBlobToFont()` blob→Image→`importPngImage` path (file import now uses the same helper too — `onPngFile` just hands its File to it). Unavailable API / denial / no-PNG-on-clipboard all toast. **Deliberately no Ctrl+V:** PNG import replaces the font without a confirm, so a stray paste must not nuke current work (documented in the code + DECISIONS #66).
+- Stub's clipboard gained `read()` (fed by `__stub.clipboardRead`, rejectable via `__stub.clipboardReadError`). 2 new DOM tests (write + download fallback; the three error paths). The success path is browser-verified (image decode can't run under jsc — same limitation as file PNG import). **Total 139 tests.**
+- **Browser-verify (user):** copy → paste into an image tool; copy a known atlas PNG in the OS → Import PNG from clipboard.
+
+## Plan — remaining chunks (decisions locked in DECISIONS #32–66)
 
 **[N] QA checks are fully done** (N.1 + N.2 + N.3 — both deferred checks #46/#47 shipped with per-glyph silencing).
 
 ### [O] Polish (catch-all)
-**[O.1]–[O.4] are done** (Preview control cleanup, newline fix, project file, bound-guide off-by-one fix — see Completed + DECISIONS #62–#65). The rest of [O] is still open:
+**[O.1]–[O.5] are done** (Preview control cleanup, newline fix, project file, bound-guide off-by-one fix, clipboard PNG atlas — see Completed + DECISIONS #62–#66). The rest of [O] is still open:
 
 Browser-verify the visuals and interactions (the agent can't screenshot). Likely small fixes: slant spill clipping, jump UX, preview wrap width, hover cursor on the editor, layout nits, guidelines visual polish (line thickness, colors).
 
-**Handover note for the next agent:** A–N + O.1–O.4 are done. Remaining: [O] polish (catch-all) — in particular the accumulated browser-verification lists above (the agent can't screenshot; the user verifies). After each chunk: run `./test/run-tests.sh`, update this file's checkboxes + add a Completed section, commit. Pure-logic pieces belong in `core.js` with tests; DOM wiring in `app.js`.
+**Handover note for the next agent:** A–N + O.1–O.5 are done. Remaining: [O] polish (catch-all) — in particular the accumulated browser-verification lists above (the agent can't screenshot; the user verifies). After each chunk: run `./test/run-tests.sh`, update this file's checkboxes + add a Completed section, commit. Pure-logic pieces belong in `core.js` with tests; DOM wiring in `app.js`.
 
 **Fixed during review (user-reported):** editor click→cell mismatch + non-square cells. The canvas CSS size wasn't pinned, so flexbox stretched it to the panel and `getBoundingClientRect()` no longer matched the internal pixel size. Fix: `setCanvasSize()` pins `style.width/height` to the internal size; `.canvas-wrap canvas { flex: 0 0 auto }` stops the stretch; the wrapper scrolls instead. Now 1 internal px = 1 CSS px in all browsers. Regression-tested in `test-dom.js` (asserts CSS size == internal size).
 

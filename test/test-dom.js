@@ -121,14 +121,15 @@ test("dom: shortcut card toggles; registry holds the full binding set", function
   assertEqual(els["keys-card"].hidden, false, "toggle shows it");
   app.toggleKeysCard();
   assertEqual(els["keys-card"].hidden, true, "toggle hides it");
-  // 8 nav + 8 file-ops + 5 tabs + 2 status + 4 shift + 3 undo/redo + 1 card = 31
-  assertEqual(app.shortcuts.list.length, 31, "31 shortcuts registered");
+  // 8 nav + 9 file-ops + 5 tabs + 2 status + 4 shift + 3 undo/redo + 1 card = 32
+  assertEqual(app.shortcuts.list.length, 32, "32 shortcuts registered");
   var combos = {};
   for (var i = 0; i < app.shortcuts.list.length; i++) combos[app.shortcuts.list[i].combo] = true;
   assert(combos["Ctrl+ArrowLeft"] && combos["?"] && combos["Ctrl+z"] && combos["PageUp"], "expected combos present");
   assert(combos["Alt+n"] && combos["Alt+o"] && combos["Ctrl+s"] && combos["Ctrl+q"] && combos["e"] && combos["q"],
     "file-op/tab combos present");
   assert(combos["Alt+p"] && combos["Alt+Shift+p"], "project file combos present (DECISIONS #64)");
+  assert(combos["Alt+Shift+c"], "clipboard PNG copy combo present (DECISIONS #66)");
   assert(combos["d"] && combos["Shift+d"], "status-pumping combos present");
 });
 
@@ -348,6 +349,43 @@ test("dom: copy glyph writes a PNG ClipboardItem when the clipboard is available
   assert(app.getLastToast().indexOf("Copied ") === 0, "success toast: " + app.getLastToast());
   stub.blob = null;
   stub.setClipboard("none"); // leave the stub in its default state
+});
+
+// ---------- clipboard PNG atlas (DECISIONS #66) ----------
+
+test("dom: copy PNG atlas to clipboard (write + download fallback)", function () {
+  var app = globalThis.__stub.app;
+  var stub = globalThis.__stub;
+  stub.setClipboard("available");
+  stub.blob = { fake: "atlas" };
+  stub.clipboardCalls.length = 0;
+  app.copyPngToClipboard();
+  assertEqual(stub.clipboardCalls.length, 1, "clipboard.write called once");
+  assert(stub.clipboardCalls[0][0] && stub.clipboardCalls[0][0].data["image/png"] === stub.blob, "atlas PNG blob in the ClipboardItem");
+  assert(app.getLastToast().indexOf("Copied PNG atlas") === 0, "success toast: " + app.getLastToast());
+  stub.blob = null;
+  stub.setClipboard("none"); // unavailable -> download fallback + toast
+  stub.blob = { fake: "atlas" };
+  app.copyPngToClipboard();
+  assert(app.getLastToast().indexOf("Clipboard unavailable") === 0, "fallback toast: " + app.getLastToast());
+  stub.blob = null;
+});
+
+test("dom: import PNG from clipboard errors cleanly (success path is browser-verified)", function () {
+  var app = globalThis.__stub.app;
+  var stub = globalThis.__stub;
+  stub.setClipboard("none");
+  assertEqual(app.importPngFromClipboard(), false, "no clipboard API -> false");
+  assert(app.getLastToast().indexOf("not available") !== -1, "toast: " + app.getLastToast());
+  stub.setClipboard("available");
+  stub.clipboardRead = [{ types: ["text/plain"] }];
+  assertEqual(app.importPngFromClipboard(), true, "read started");
+  assert(app.getLastToast().indexOf("No PNG image") !== -1, "toast: " + app.getLastToast());
+  stub.clipboardReadError = true;
+  app.importPngFromClipboard();
+  assert(app.getLastToast().indexOf("denied or failed") !== -1, "toast: " + app.getLastToast());
+  stub.clipboardReadError = false;
+  stub.clipboardRead = []; // leave the stub in its default state
 });
 
 // ---------- file-op & tab shortcuts (DECISIONS #48) ----------
@@ -592,7 +630,7 @@ test("dom: mousedown on a menu item must NOT close the menu (real-browser click 
 
 test("dom: About modal head + browser tab show the app version (DECISIONS #56)", function () {
   assert(/^\d+\.\d+\.\d+$/.test(BF.VERSION), "BF.VERSION is semver-ish: " + BF.VERSION);
-  assertEqual(BF.VERSION, "0.15.4", "pinned version — bump this test when you bump the app");
+  assertEqual(BF.VERSION, "0.15.5", "pinned version — bump this test when you bump the app");
   var els = globalThis.__stub.els;
   assertEqual(els["about-title"].textContent, "bitforge " + BF.VERSION, "modal head shows name + version");
   assertEqual(document.title, "bitforge " + BF.VERSION, "browser tab shows name + version");

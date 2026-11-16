@@ -163,12 +163,26 @@
     clipboardCalls: [],    // ClipboardItem arrays passed to navigator.clipboard.write
     setClipboard: function (mode) {
       if (mode === "available")
-        root.navigator.clipboard = { write: function (items) {
-          root.__stub.clipboardCalls.push(items);
-          return { then: function (ok) { ok && ok(); return this; } };
-        } };
+        root.navigator.clipboard = {
+          write: function (items) {
+            root.__stub.clipboardCalls.push(items);
+            return { then: function (ok) { ok && ok(); return this; } };
+          },
+          // read(): resolves with __stub.clipboardRead (a list of fake
+          // ClipboardItems with { types, getType }), or rejects when
+          // __stub.clipboardReadError is set (permission denial).
+          read: function () {
+            return { then: function (ok, err) {
+              if (root.__stub.clipboardReadError) { err && err(new Error("denied")); return this; }
+              ok && ok(root.__stub.clipboardRead || []);
+              return this;
+            } };
+          }
+        };
       else root.navigator.clipboard = null;
     },
+    clipboardRead: [],      // items returned by the stub's clipboard.read()
+    clipboardReadError: false,
     // Invoke a document-level listener (menu mousedown-close, Escape close).
     // NOTE: the stub does not model the DOM tree — for the menu "inside" walk
     // to reach the container, set the target's parentElement chain in the test

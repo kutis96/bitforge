@@ -882,15 +882,40 @@
 
   // ---------- file ops ----------
   function onOpenClick() { el.filePng.click(); }
-  function onPngFile(evt) {
-    var file = evt.target.files && evt.target.files[0];
-    evt.target.value = "";
-    if (!file) return;
-    var url = URL.createObjectURL(file);
+  // Blob/File -> Image -> importPngImage (shared by file and clipboard import).
+  function pngBlobToFont(blob) {
+    var url = URL.createObjectURL(blob);
     var img = new Image();
     img.onload = function () { URL.revokeObjectURL(url); importPngImage(img); };
     img.onerror = function () { URL.revokeObjectURL(url); toast("Could not load that PNG", true); };
     img.src = url;
+  }
+  function onPngFile(evt) {
+    var file = evt.target.files && evt.target.files[0];
+    evt.target.value = "";
+    if (!file) return;
+    pngBlobToFont(file); // a File is a Blob
+  }
+  // Import the first PNG image on the system clipboard (DECISIONS #66).
+  // Deliberately NO Ctrl+V binding: PNG import replaces the whole font without
+  // a confirm, so a stray paste must not be able to nuke the current work.
+  function importPngFromClipboard() {
+    var clip = (typeof navigator !== "undefined") ? navigator.clipboard : null;
+    if (!clip || typeof clip.read !== "function") {
+      toast("Clipboard read is not available in this browser", true);
+      return false;
+    }
+    clip.read().then(function (items) {
+      var item = null;
+      for (var i = 0; i < items.length; i++)
+        if (items[i] && items[i].types && items[i].types.indexOf("image/png") !== -1) { item = items[i]; break; }
+      if (!item) { toast("No PNG image on the clipboard", true); return; }
+      item.getType("image/png").then(function (blob) { pngBlobToFont(blob); },
+        function () { toast("Could not read the clipboard PNG", true); });
+    }, function () {
+      toast("Clipboard read was denied or failed", true);
+    });
+    return true;
   }
 
   function importPngImage(img) {
@@ -921,10 +946,9 @@
     toast("Imported " + cw + "×" + ch + " font from " + W + "×" + H + " PNG");
   }
 
-  function exportPng(bgMode) {
-    // bgMode "solid"/"transparent" (from the File-menu items) remembers the
-    // choice; a bare call (Ctrl+S) exports with the remembered mode.
-    if (bgMode === "solid" || bgMode === "transparent") settingsSet("pngBg", bgMode);
+  // Atlas PNG canvas (16×16 grid, 1px per glyph px, black ink) with the
+  // remembered background. Shared by file export and clipboard copy.
+  function atlasCanvas() {
     var f = state.font, transparent = settingsGet("pngBg") === "transparent";
     var W = 16 * f.width, H = 16 * f.height;
     var c = document.createElement("canvas");
@@ -938,9 +962,35 @@
         for (var x = 0; x < f.width; x++)
           if (BF.getPixel(f, code, x, y)) ctx.fillRect(col * f.width + x, row * f.height + y, 1, 1);
     }
-    c.toBlob(function (blob) {
+    return c;
+  }
+  function exportPng(bgMode) {
+    // bgMode "solid"/"transparent" (from the File-menu items) remembers the
+    // choice; a bare call (Ctrl+S) exports with the remembered mode.
+    if (bgMode === "solid" || bgMode === "transparent") settingsSet("pngBg", bgMode);
+    atlasCanvas().toBlob(function (blob) {
       if (blob) downloadBlob(blob, "bitforge-atlas.png");
       else toast("PNG export failed", true);
+    }, "image/png");
+  }
+  // Copy the whole atlas PNG to the clipboard (DECISIONS #66): remembered
+  // pngBg, same fallback as the glyph copy (download) when the clipboard
+  // API is unavailable or the write is blocked.
+  function copyPngToClipboard() {
+    atlasCanvas().toBlob(function (blob) {
+      if (!blob) { toast("Could not rasterize the atlas", true); return; }
+      var clip = (typeof navigator !== "undefined") ? navigator.clipboard : null;
+      if (clip && typeof clip.write === "function" && typeof ClipboardItem !== "undefined") {
+        clip.write([new ClipboardItem({ "image/png": blob })]).then(function () {
+          toast("Copied PNG atlas to clipboard");
+        }, function () {
+          downloadBlob(blob, "bitforge-atlas.png");
+          toast("Clipboard write blocked — PNG atlas downloaded", true);
+        });
+      } else {
+        downloadBlob(blob, "bitforge-atlas.png");
+        toast("Clipboard unavailable — PNG atlas downloaded", true);
+      }
     }, "image/png");
   }
 
@@ -1168,8 +1218,8 @@
       mbFile: $("mb-file"), mbEdit: $("mb-edit"), mbAbout: $("mb-about"),
       aboutFontInfo: $("about-font-info"), miAboutBitforge: $("mi-about-bitforge"),
       aboutTitle: $("about-title"), aboutModal: $("about-modal"), aboutClose: $("about-close"),
-      miNew: $("mi-new"), miOpenPng: $("mi-open-png"), miOpenBdf: $("mi-open-bdf"), miOpenProject: $("mi-open-project"),
-      miExportPngSolid: $("mi-export-png-solid"), miExportPngTransparent: $("mi-export-png-transparent"),
+      miNew: $("mi-new"), miOpenPng: $("mi-open-png"), miOpenBdf: $("mi-open-bdf"), miOpenProject: $("mi-open-project"), miImportPngClip: $("mi-import-png-clip"),
+      miExportPngSolid: $("mi-export-png-solid"), miExportPngTransparent: $("mi-export-png-transparent"), miCopyPngClip: $("mi-copy-png-clip"),
       miExportBdf: $("mi-export-bdf"), miExportVerilog: $("mi-export-verilog"), miExportProject: $("mi-export-project"),
       miUndo: $("mi-undo"), miRedo: $("mi-redo"), miClearGlyph: $("mi-clear-glyph"), miCopyGlyph: $("mi-copy-glyph"),
       miCycleStatus: $("mi-cycle-status"), miDoneNext: $("mi-done-next"),
@@ -1237,8 +1287,10 @@
     menuItem("miOpenPng", onOpenClick);
     menuItem("miOpenBdf", onOpenBdfClick);
     menuItem("miOpenProject", onOpenProjectClick);
+    menuItem("miImportPngClip", importPngFromClipboard);
     menuItem("miExportPngSolid", function () { exportPng("solid"); });
     menuItem("miExportPngTransparent", function () { exportPng("transparent"); });
+    menuItem("miCopyPngClip", copyPngToClipboard);
     menuItem("miExportBdf", exportBdf);
     menuItem("miExportProject", exportProject);
     menuItem("miExportVerilog", exportVerilog);
@@ -1370,6 +1422,7 @@
     shortcuts.register({ combo: "Ctrl+Shift+s", description: "Export Verilog ROM", handler: exportVerilog });
     shortcuts.register({ combo: "Alt+Shift+s", description: "Export BDF font", handler: exportBdf });
     shortcuts.register({ combo: "Alt+Shift+p", description: "Export project file", handler: exportProject });
+    shortcuts.register({ combo: "Alt+Shift+c", description: "Copy PNG atlas to clipboard", handler: copyPngToClipboard });
     shortcuts.register({ combo: "e", description: "Show the Edit tab", handler: function () { setActiveTab("edit"); } });
     shortcuts.register({ combo: "p", description: "Show the Preview tab", handler: function () { setActiveTab("preview"); } });
     shortcuts.register({ combo: "a", description: "Show the Atlas tab", handler: function () { setActiveTab("atlas"); } });
@@ -1409,6 +1462,7 @@
       toggleSilence: toggleSilence, qaChecks: qaChecks, guidePresets: GUIDE_PRESETS,
       importBdfText: importBdfText, exportBdf: exportBdf,
       importProjectText: importProjectText, projectExportText: projectExportText,
+      copyPngToClipboard: copyPngToClipboard, importPngFromClipboard: importPngFromClipboard,
       copyGlyph: copyGlyphToClipboard, glyphCanvas: glyphCanvas,
       getLastToast: function () { return lastToast; },
       exportPng: exportPng, settingsGet: settingsGet, settingsSet: settingsSet };
