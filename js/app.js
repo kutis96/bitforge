@@ -1251,6 +1251,56 @@
   function openAboutModal() { el.aboutModal.hidden = false; }
   function closeAboutModal() { el.aboutModal.hidden = true; }
 
+  // ---------- Changelog / what's new (DECISIONS #73) ----------
+  // The last-run version is app metadata, not a user setting: its own
+  // localStorage key, never part of the .bitforge project file.
+  var VERSION_KEY = "bitforge.version.v1";
+  function whatsNew() {
+    var stored = null;
+    try { stored = localStorage.getItem(VERSION_KEY); } catch (e) { /* ignore */ }
+    return BF.changelogSince(BF_CHANGELOG, stored);
+  }
+  function renderChangelogList(entries) {
+    var list = el.clList, i, j, e, div, head, ul, li;
+    list.innerHTML = "";
+    for (i = 0; i < entries.length; i++) {
+      e = entries[i];
+      div = document.createElement("div"); div.className = "cl-entry";
+      head = document.createElement("div"); head.className = "cl-head";
+      head.textContent = e.version;
+      if (e.date) {
+        var d = document.createElement("span");
+        d.className = "muted"; d.textContent = "  " + e.date;
+        head.appendChild(d);
+      }
+      div.appendChild(head);
+      ul = document.createElement("ul");
+      for (j = 0; j < e.changes.length; j++) {
+        li = document.createElement("li"); li.textContent = e.changes[j];
+        ul.appendChild(li);
+      }
+      div.appendChild(ul);
+      list.appendChild(div);
+    }
+  }
+  // whatsNewMode = "what's new since last run" (startup): only the given
+  // entries + a "Full changelog…" switch. Otherwise: the full list (About menu).
+  function openChangelogModal(entries, whatsNewMode) {
+    if (whatsNewMode) {
+      el.clTitle.textContent = "What\u2019s new in bitforge " + BF.VERSION;
+      el.clFull.hidden = false;
+      el.clOk.textContent = "OK";
+      renderChangelogList(entries);
+    } else {
+      el.clTitle.textContent = "bitforge changelog";
+      el.clFull.hidden = true;
+      el.clOk.textContent = "Close";
+      renderChangelogList(BF_CHANGELOG);
+    }
+    el.clModal.hidden = false;
+  }
+  function closeChangelogModal() { el.clModal.hidden = true; }
+
   // Font properties modal (DECISIONS #70): editable name + live info.
   // A name change is metadata, not a mutation: saveLS only — no QA staleness
   // bump, not undoable.
@@ -1345,7 +1395,8 @@
       filePng: $("file-png"), fileBdf: $("file-bdf"), fileProject: $("file-project"),
       menuFile: $("menu-file"), menuEdit: $("menu-edit"), menuAbout: $("menu-about"),
       mbFile: $("mb-file"), mbEdit: $("mb-edit"), mbAbout: $("mb-about"),
-      aboutFontInfo: $("about-font-info"), miAboutBitforge: $("mi-about-bitforge"),
+      aboutFontInfo: $("about-font-info"), miAboutBitforge: $("mi-about-bitforge"), miChangelog: $("mi-changelog"),
+      clModal: $("cl-modal"), clClose: $("cl-close"), clTitle: $("cl-title"), clList: $("cl-list"), clFull: $("cl-full"), clOk: $("cl-ok"),
       aboutTitle: $("about-title"), aboutModal: $("about-modal"), aboutClose: $("about-close"),
       miNew: $("mi-new"), miOpenPng: $("mi-open-png"), miOpenBdf: $("mi-open-bdf"), miOpenProject: $("mi-open-project"), miImportPngClip: $("mi-import-png-clip"),
       miExportPngSolid: $("mi-export-png-solid"), miExportPngTransparent: $("mi-export-png-transparent"), miCopyPngClip: $("mi-copy-png-clip"),
@@ -1412,7 +1463,7 @@
       if (!inside) closeMenus();
     });
     document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape") { closeMenus(); closeAboutModal(); closePropsModal(); closeResizeModal(); }
+      if (e.key === "Escape") { closeMenus(); closeAboutModal(); closePropsModal(); closeResizeModal(); closeChangelogModal(); }
     });
     function menuItem(id, fn) {
       el[id].addEventListener("click", function () { closeMenus(); fn(); });
@@ -1437,6 +1488,7 @@
     menuItem("miDoneNext", doneNextAction);
     menuItem("miCopyGlyph", copyGlyphToClipboard);
     menuItem("miAboutBitforge", openAboutModal);
+    menuItem("miChangelog", function () { openChangelogModal(BF_CHANGELOG, false); });
 
     // About modal: close via the × button or a click on the backdrop itself
     // (document-level outside-click / Escape are handled above; browser-only
@@ -1444,6 +1496,15 @@
     el.aboutClose.addEventListener("click", closeAboutModal);
     el.aboutModal.addEventListener("mousedown", function (e) {
       if (e.target === el.aboutModal) closeAboutModal();
+    });
+
+    // Changelog modal: same close paths; “Full changelog…” switches the
+    // what's-new view to the full list.
+    el.clClose.addEventListener("click", closeChangelogModal);
+    el.clOk.addEventListener("click", closeChangelogModal);
+    el.clFull.addEventListener("click", function () { openChangelogModal(BF_CHANGELOG, false); });
+    el.clModal.addEventListener("mousedown", function (e) {
+      if (e.target === el.clModal) closeChangelogModal();
     });
 
     // Properties modal: same close paths as the About modal.
@@ -1607,6 +1668,13 @@
     el.pvText.value = settingsGet("pvText");
     el.qaShowSilenced.checked = !!settingsGet("qaShowSilenced");
     setFont(font); // setFont -> syncRenderControls (state.font must exist first)
+
+    // Changelog (DECISIONS #73): remember this run's version, and if the
+    // user is on a newer bitforge than before, show what has changed since
+    // their last run (first run = no stored version = full changelog).
+    var newEntries = whatsNew();
+    try { localStorage.setItem(VERSION_KEY, BF.VERSION); } catch (e) { /* ignore */ }
+    if (newEntries.length) openChangelogModal(newEntries, true);
   }
 
   // Test seam: only under the jsc DOM stub (harmless in the browser). Lets the
@@ -1620,7 +1688,9 @@
       copyPngToClipboard: copyPngToClipboard, importPngFromClipboard: importPngFromClipboard,
       copyGlyph: copyGlyphToClipboard, glyphCanvas: glyphCanvas, applyResize: applyResize,
       getLastToast: function () { return lastToast; },
-      exportPng: exportPng, settingsGet: settingsGet, settingsSet: settingsSet };
+      exportPng: exportPng, settingsGet: settingsGet, settingsSet: settingsSet,
+      whatsNew: whatsNew, openChangelogModal: openChangelogModal, closeChangelogModal: closeChangelogModal,
+      changelogVersionKey: VERSION_KEY };
 
   if (typeof document !== "undefined") {
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

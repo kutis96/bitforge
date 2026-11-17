@@ -26,7 +26,7 @@
    * (1-indexed) in the STATUS.md "Current state" list; PATCH = 0 for a single
    * chunk, the sub-index for a wave (chunk L.3 shipped 0.12.3). Bump in the
    * same commit as the chunk — a headless test pins the exact value. */
-  var VERSION = "0.17.1";
+  var VERSION = "0.18.0";
 
   /* ============================================================
    * [1] Font model
@@ -742,6 +742,41 @@
   }
 
   /* ============================================================
+   * [14] Changelog / version compare (DECISIONS #73)
+   * ============================================================ */
+
+  // Compare two semver-ish "X.Y.Z" strings: -1 / 0 / 1.
+  // Lenient by design: missing/invalid components count as 0, so a
+  // corrupted stored version degrades to 0.0.0 (=> "show everything")
+  // rather than breaking the what's-new check.
+  function cmpVersions(a, b) {
+    function p(v) {
+      var parts = String(v).split("."), out = [], i, n;
+      for (i = 0; i < 3; i++) {
+        n = parseInt(parts[i], 10);
+        out.push(isFinite(n) ? n : 0);
+      }
+      return out;
+    }
+    var pa = p(a), pb = p(b), i;
+    for (i = 0; i < 3; i++) if (pa[i] !== pb[i]) return pa[i] < pb[i] ? -1 : 1;
+    return 0;
+  }
+
+  // Entries a user coming from lastVersion has not seen yet: every entry
+  // strictly NEWER than lastVersion, in the changelog's own order (newest
+  // first). lastVersion null/empty/invalid => ALL entries (first run);
+  // lastVersion >= newest entry => [] (nothing new, e.g. same or downgraded).
+  function changelogSince(changelog, lastVersion) {
+    if (!lastVersion) return changelog.slice();
+    var out = [], i;
+    for (i = 0; i < changelog.length; i++) {
+      if (cmpVersions(changelog[i].version, lastVersion) > 0) out.push(changelog[i]);
+    }
+    return out;
+  }
+
+  /* ============================================================
    * API
    * ============================================================ */
   var api = {
@@ -782,6 +817,9 @@
     // cell resize (DECISIONS #71)
     cloneFont: cloneFont,
     resizeFont: resizeFont,
+    // changelog (DECISIONS #73)
+    cmpVersions: cmpVersions,
+    changelogSince: changelogSince,
     // edge-ink QA
     edgeInk: edgeInk,
     // guideline-violation QA

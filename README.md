@@ -64,7 +64,9 @@ bitforge/
   index.html          # app shell: DOM, tabs, menus
   css/style.css       # styling (black-on-white, monospace)
   js/core.js          # PURE logic — model, exports, markup, slant, QA math (global BF, no DOM)
+  js/changelog.js     # changelog data (BF_CHANGELOG) — rendered into the in-app changelog
   js/app.js           # DOM wiring — editor, preview, atlas, menus, QA UI, settings, shortcuts
+  CHANGELOG.md        # changelog (human-readable mirror of js/changelog.js)
   test/               # headless unit tests (macOS JavaScriptCore, no Node)
   docs/               # handover documentation + screenshot (see below)
   AGENTS.md           # guide for AI coding agents
@@ -78,6 +80,12 @@ Run the tests — no Node, no browser, just macOS JavaScriptCore:
 ```
 
 Documentation: [DESIGN.md](docs/DESIGN.md) (architecture) · [DECISIONS.md](docs/DECISIONS.md) (locked requirements) · [STATUS.md](docs/STATUS.md) (progress) · [TESTING.md](docs/TESTING.md) (test guide) · [AGENTS.md](AGENTS.md) (for agents).
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md). Inside the app, the same changelog is under
+**About → Changelog…**, and a “What's new” popup appears automatically when
+you open a newer version than the one you ran last.
 
 ## License
 

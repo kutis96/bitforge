@@ -630,7 +630,7 @@ test("dom: mousedown on a menu item must NOT close the menu (real-browser click 
 
 test("dom: About modal head + browser tab show the app version (DECISIONS #56)", function () {
   assert(/^\d+\.\d+\.\d+$/.test(BF.VERSION), "BF.VERSION is semver-ish: " + BF.VERSION);
-  assertEqual(BF.VERSION, "0.17.1", "pinned version — bump this test when you bump the app");
+  assertEqual(BF.VERSION, "0.18.0", "pinned version — bump this test when you bump the app");
   var els = globalThis.__stub.els;
   assertEqual(els["about-title"].textContent, "bitforge " + BF.VERSION, "modal head shows name + version");
   assertEqual(document.title, "bitforge " + BF.VERSION, "browser tab shows name + version");
@@ -892,4 +892,45 @@ test("dom: resize crop with ink loss needs a confirming second apply", function 
   assertEqual(app.state.font.height, h0, "undo restored the height");
   assertEqual(BF.getPixel(app.state.font, 0x42, 2, h0 - 1), 1, "undo restored the ink");
   assertEqual(app.state.history.length, hlen, "history balanced");
+});
+
+// ---------- changelog / what's new (DECISIONS #73) ----------
+
+test("dom: changelog — version remembered, what's-new filtering, modal views", function () {
+  var app = globalThis.__stub.app;
+  var els = globalThis.__stub.els;
+  // init ran with no stored version (first run) and remembered the current
+  // version. (The modal it opened may have been closed already by an earlier
+  // test's Escape dispatch — the open path is re-driven below via the seam.)
+  assertEqual(localStorage.getItem(app.changelogVersionKey), BF.VERSION, "last-run version stored");
+  // Up to date now: nothing new.
+  assertEqual(app.whatsNew().length, 0, "current version => nothing new");
+  // Coming from an older version: exactly the entries since then.
+  localStorage.setItem(app.changelogVersionKey, "0.16.0");
+  var seen = app.whatsNew();
+  assertEqual(seen.length, 3, "0.17.0, 0.17.1, 0.18.0 (update on version bumps)");
+  assertEqual(seen[0].version, "0.18.0", "newest first");
+  assertEqual(seen[2].version, "0.17.0", "oldest of the new");
+  // Downgrade / future version: nothing new.
+  localStorage.setItem(app.changelogVersionKey, "9.9.9");
+  assertEqual(app.whatsNew().length, 0, "downgrade => nothing new");
+  // What's-new mode (first run = full list): title + switch + all entries.
+  app.openChangelogModal(BF_CHANGELOG, true);
+  assertEqual(els["cl-modal"].hidden, false, "modal opens");
+  assertEqual(els["cl-title"].textContent, "What\u2019s new in bitforge " + BF.VERSION, "what's-new title");
+  assertEqual(els["cl-list"].children.length, BF_CHANGELOG.length, "first run = full list");
+  assert(!els["cl-full"].hidden, "full-list switch visible");
+  // The switch flips to the full view (on-demand mode: no switch, Close).
+  globalThis.__stub.dispatch("cl-full", "click", {});
+  assertEqual(els["cl-title"].textContent, "bitforge changelog", "full mode title");
+  assertEqual(els["cl-list"].children.length, BF_CHANGELOG.length, "all entries rendered");
+  assert(els["cl-full"].hidden, "no full-list button in full mode");
+  app.closeChangelogModal();
+  assertEqual(els["cl-modal"].hidden, true, "closed");
+  // What's-new mode renders the subset.
+  app.openChangelogModal(seen, true);
+  assertEqual(els["cl-list"].children.length, 3, "subset rendered");
+  app.closeChangelogModal();
+  // Leave the stub in a clean state for any later tests.
+  localStorage.setItem(app.changelogVersionKey, BF.VERSION);
 });

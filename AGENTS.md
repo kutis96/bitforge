@@ -29,6 +29,7 @@ Rules that bite:
 
 - New pure-logic module ⇒ `test/test-<module>.js` **and** a `load(...)` line in `test/run.js`.
 - `BF.VERSION` is **pinned** by a test in `test/test-dom.js` — a bump must update that pin in the same commit.
+- **Changelog data is tested**: `BF_CHANGELOG` (in `js/changelog.js`, loaded by `test/run.js`) must be strictly descending, have ≥1 change per entry, and its newest entry must equal `BF.VERSION` — a bump without a changelog entry fails the suite (DECISIONS #73).
 - The **shortcut registry count** is asserted in `test/test-dom.js` — every new `shortcuts.register(...)` call must update it.
 - DOM tests share one app instance — clean up font/status mutations you make, or later tests fail (see the cross-test state-bleed note in TESTING.md).
 - Stub seams (`__stub.app`, `__stub.dispatch`, `__stub.setClipboard`, …) are documented in TESTING.md. The headless stub does **not** parse `index.html`, so static HTML text/attributes can't be asserted headlessly.
@@ -37,7 +38,7 @@ Rules that bite:
 
 1. Implement — pure logic in `core.js` (+ tests), DOM wiring in `app.js`.
 2. `./test/run-tests.sh` — green.
-3. Bump `BF.VERSION` in `js/core.js` — **0.MINOR.PATCH**: MINOR = the chunk's 1-indexed position in the STATUS.md Current-state list, PATCH = the wave sub-index (DECISIONS #56) — and update the pin in `test/test-dom.js`.
+3. Bump `BF.VERSION` in `js/core.js` — **0.MINOR.PATCH**: MINOR = the chunk's 1-indexed position in the STATUS.md Current-state list, PATCH = the wave sub-index (DECISIONS #56) — and update the pin in `test/test-dom.js`. **Also add the changelog entry to `js/changelog.js` AND `CHANGELOG.md` in the same commit** (DECISIONS #73) — the data-sanity test fails otherwise.
 4. Update the docs: a new numbered entry in `docs/DECISIONS.md`; in `docs/STATUS.md` — the Current-state line, the Versions table row, the Completed section entry, and the Plan section. Update `README.md` when user-facing behavior changes.
 5. Commit: `git add -A && git commit -m "bitforge [X]: <summary>"` (X = the chunk label, e.g. `[O.7]`).
 6. Open `index.html` in the in-app browser and **ask the user to verify visually** — the agent can't screenshot.
@@ -45,7 +46,7 @@ Rules that bite:
 ## Standing conventions (violating these is how this codebase rots)
 
 - **New shortcut ⇒ `shortcuts.register({ combo, description, handler })`, full stop** — no raw `keydown` listeners for app shortcuts. The in-app reference card (toggle with `?`) renders from the registry, so it can't drift (DECISIONS #35).
-- **New persistable value ⇒ the settings API** — an entry in `settingsDefaults` + `settingsGet`/`settingsSet` (DECISIONS #40). No ad-hoc `localStorage` writes.
+- **New persistable value ⇒ the settings API** — an entry in `settingsDefaults` + `settingsGet`/`settingsSet` (DECISIONS #40). No ad-hoc `localStorage` writes. **One documented exception:** the last-run version key `bitforge.version.v1` (DECISIONS #73) is app metadata, not user data — it stays outside the settings blob and the project file.
 - **New QA check ⇒ an entry in `qaChecks`** with `severity` + `silenceable`; the silencing machinery derives the known check ids from it — there is no second literal list.
 - **Docs are handover-grade and updated as you go** — STATUS.md must let the *next* agent resume cold. Commit docs in the same commit as the work.
 - The user's suggestions are **weak suggestions**: you may refine or rework, but surface the deviation clearly in the reply.

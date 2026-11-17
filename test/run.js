@@ -2,6 +2,7 @@
  * Loads core + harness + every test file, then runs all registered tests.
  */
 load("js/core.js");
+load("js/changelog.js"); // BF_CHANGELOG data (tested in test-changelog.js)
 load("test/harness.js");
 
 // Pure-logic modules
@@ -13,6 +14,7 @@ load("test/test-ink.js");
 load("test/test-nav.js");
 load("test/test-shift.js");
 load("test/test-resize.js");
+load("test/test-changelog.js");
 load("test/test-status.js");
 load("test/test-dupes.js");
 load("test/test-edge.js");

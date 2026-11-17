@@ -71,6 +71,15 @@ body { display: flex; flex-direction: column; }
   width: 72px; font: inherit; text-align: right;
   padding: 3px 6px; border: 1px solid var(--line-strong); border-radius: 3px; background: #fff; color: var(--ink);
 }
+.modal-scroll { max-height: 60vh; overflow-y: auto; } /* long modals (changelog) */
+
+/* changelog entries (DECISIONS #73) */
+#cl-list .cl-entry { margin-top: 12px; }
+#cl-list .cl-entry:first-child { margin-top: 0; }
+#cl-list .cl-head { font-weight: 700; }
+#cl-list .cl-head .muted { font-weight: 400; }
+#cl-list ul { margin: 4px 0 0; padding-left: 18px; }
+#cl-list li { margin-top: 2px; }
 
 button {
   font: inherit;

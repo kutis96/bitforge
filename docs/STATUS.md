@@ -38,13 +38,14 @@
 - [x] **[P] Font name + Properties modal** (2026-11-16): `font.name` wired into export filenames + BDF header; imports derive the name; **Edit → Properties…** (name + live info) — 146 tests
 - [x] **[Q] Cell resize** (2026-11-16): **Edit → Resize…** — per-edge row/col deltas, guides + slant baseline shift with the content, clip warning, full-font undo — 156 tests
 - [x] **[Q.1] Clip warning lists glyphs** (2026-11-17): the lossy-crop confirm warning names the affected characters/codepoints (`clippedCodes` in core, full list + affected-glyph count) — 158 tests
+- [x] **[R] Changelog + what's-new modal** (2026-11-17): `js/changelog.js` + `CHANGELOG.md` (backfilled), “What's new” modal on version bump (semver-aware, last-run version remembered), About → Changelog… — 162 tests
 - [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
 
 ## Versions
 
-`BF.VERSION` in `js/core.js` — shown in the About modal head and the browser tab. Bump rule ([DECISIONS.md #56](DECISIONS.md)): **0.MINOR.PATCH** — MINOR = the chunk's position (1-indexed) in the Current-state list above; PATCH = 0 for a single chunk, the sub-index for a wave. Bump in the same commit as the chunk; a headless test pins the exact value.
+`BF.VERSION` in `js/core.js` — shown in the About modal head and the browser tab. Bump rule ([DECISIONS.md #56](DECISIONS.md)): **0.MINOR.PATCH** — MINOR = the chunk's position (1-indexed) in the Current-state list above; PATCH = 0 for a single chunk, the sub-index for a wave. Bump in the same commit as the chunk; a headless test pins the exact value. **A bump also requires a changelog entry in `js/changelog.js` + `CHANGELOG.md` in the same commit** (DECISIONS #73) — the data-sanity test fails if the newest entry doesn't match `BF.VERSION`.
 
 | Version | Chunk |
 |---------|-------|
@@ -67,7 +68,8 @@ Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–
 | 0.15.8 | [O.8] Screenshot + MIT license |
 | 0.16.0 | [P] Font name + Properties modal |
 | 0.17.0 | [Q] Cell resize (Resize… modal) |
-| **0.17.1** (current) | [Q.1] Clip warning lists affected glyphs |
+| 0.17.1 | [Q.1] Clip warning lists affected glyphs |
+| **0.18.0** (current) | [R] Changelog + what's-new modal |
 
 **Lettering note (2026-11-15, chunk M):** chunk letters drifted at some point (the I-wave landed after L); they now follow list position. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Git commit subjects still use the old letters.
 
@@ -339,7 +341,15 @@ User request: the clip warning should list the characters/codepoints a lossy cro
 - 2 new core tests (list content + ordering + empty; dedupe). **Total 158 tests.**
 - **Browser-verify (user):** a crop that clips ink lists the right glyphs in the warning.
 
-## Plan — remaining chunks (decisions locked in DECISIONS #32–72)
+### [R] Changelog + what's-new modal (`js/changelog.js` + `CHANGELOG.md` + `js/core.js` + `js/app.js` + `index.html` + `css/style.css` + `test/`, 2026-11-17)
+User request: a changelog (machine-readable for the app, readable for the repo) and a modal on version bumps showing what changed since the user's last run — semver-aware, with an option for the whole changelog; also viewable on demand from the About dropdown. See DECISIONS #73.
+- **Data:** new `js/changelog.js` — `BF_CHANGELOG`, newest first, `{ version, date, changes: [...] }`, **backfilled for every released version 0.1.0 → 0.18.0** (dates from the status log; the early A–F entries are undated). `CHANGELOG.md` is the human-readable mirror; both updated in the same commit as a version bump (now part of the per-chunk ritual; a data-sanity test enforces the shape + that the newest entry matches `BF.VERSION`).
+- **Core (new section [14]):** `BF.cmpVersions(a, b)` (semver-ish triple compare, lenient: invalid component ⇒ 0) + `BF.changelogSince(changelog, lastVersion)` (entries strictly newer than lastVersion; null/empty/invalid ⇒ all; same-or-newer ⇒ []).
+- **App:** last-run version in `localStorage` key `bitforge.version.v1` (deliberately *not* the settings blob — app metadata, never in the project file). Startup: read stored → `whatsNew()` → refresh stored to current → if anything is new, open the modal in **what's-new mode** (title “What's new in bitforge X”, only the new entries, a **Full changelog…** switch, OK). About → **Changelog…** opens **full mode** (title “bitforge changelog”, all entries, Close). One modal (`#cl-modal`), scrollable body (`.modal-scroll`, 60vh); standard close paths (× / OK / backdrop / Escape). First run (no stored version) = full changelog in what's-new mode; a downgrade (stored newer) shows nothing.
+- 4 new tests (3 core: cmpVersions, changelogSince, data sanity; 1 DOM: version remembered, filtering from 0.16.0 and a downgrade, both modal views + the full-list switch). **Total 162 tests.**
+- **Browser-verify (user):** the modal on first run / after a bump (clear the localStorage key, or run an old build then this one); the switch to the full list; About → Changelog…; scroll behaviour.
+
+## Plan — remaining chunks (decisions locked in DECISIONS #32–73)
 
 **[N] QA checks are fully done** (N.1 + N.2 + N.3 — both deferred checks #46/#47 shipped with per-glyph silencing).
 
