@@ -6,6 +6,7 @@
  *
  * RULE: bumping BF.VERSION requires adding the matching entry here AND in
  * CHANGELOG.md (the human-readable mirror for the repo) in the same commit.
+ * Full procedure: the "How to add an entry" section in CHANGELOG.md.
  * A headless test checks: versions strictly descending, first entry matches
  * BF.VERSION, every entry has at least one change line.
  *

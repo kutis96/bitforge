@@ -45,7 +45,7 @@ Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–
 
 ## Versions
 
-`BF.VERSION` in `js/core.js` — shown in the About modal head and the browser tab. Bump rule ([DECISIONS.md #56](DECISIONS.md)): **0.MINOR.PATCH** — MINOR = the chunk's position (1-indexed) in the Current-state list above; PATCH = 0 for a single chunk, the sub-index for a wave. Bump in the same commit as the chunk; a headless test pins the exact value. **A bump also requires a changelog entry in `js/changelog.js` + `CHANGELOG.md` in the same commit** (DECISIONS #73) — the data-sanity test fails if the newest entry doesn't match `BF.VERSION`.
+`BF.VERSION` in `js/core.js` — shown in the About modal head and the browser tab. Bump rule ([DECISIONS.md #56](DECISIONS.md)): **0.MINOR.PATCH** — MINOR = the chunk's position (1-indexed) in the Current-state list above; PATCH = 0 for a single chunk, the sub-index for a wave. Bump in the same commit as the chunk; a headless test pins the exact value. **A bump also requires a changelog entry in `js/changelog.js` + `CHANGELOG.md` in the same commit** (DECISIONS #73) — the data-sanity test fails if the newest entry doesn't match `BF.VERSION`. Procedure: the **"How to add an entry"** section in `CHANGELOG.md`.
 
 | Version | Chunk |
 |---------|-------|

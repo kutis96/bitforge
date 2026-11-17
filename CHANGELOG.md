@@ -2,10 +2,44 @@
 
 All notable changes to bitforge. The in-app changelog (About → Changelog…, and
 the “What’s new” modal on version bumps) is rendered from `js/changelog.js` —
-**keep both in sync**: bumping `BF.VERSION` means adding the entry here *and*
-in `js/changelog.js` in the same commit (see `docs/DECISIONS.md` #73).
+**keep both files in sync** (procedure below; design: `docs/DECISIONS.md` #73).
 
 Format: newest first, one section per released version (`0.MINOR.PATCH`).
+
+## How to add an entry (read before touching this file)
+
+One entry per released version, added **in the same commit as the
+`BF.VERSION` bump** (per-chunk ritual step 3, [AGENTS.md](AGENTS.md)). Update
+**both** files — they must say the same thing:
+
+1. **`js/changelog.js`** (machine-readable source; what the app renders) —
+   insert a new object at the **top** of `BF_CHANGELOG`:
+
+   ```js
+   { version: "0.18.1", date: "2026-11-18", changes: [
+     "One short, user-facing bullet per feature or fix."
+   ] },
+   ```
+
+   - `version` must equal the new `BF.VERSION` **exactly** — a headless test
+     checks this and the suite fails if you bump without adding the entry.
+   - `date` = the release date, `YYYY-MM-DD` (use `""` only if genuinely unknown).
+   - `changes` = what the **user can observe** — menus, keys, behaviours — not
+     implementation detail. 1–5 short bullets.
+2. **`CHANGELOG.md`** (this file) — add a matching `## version (date)` section
+   directly below this “How to add” section, with the same bullets (markdown
+   formatting is fine: backticks, links, menu names).
+
+Rules:
+
+- **Newest first, strictly descending** — a test enforces the ordering.
+- **One commit = at most one version bump = one entry.** If a chunk really
+  needs two versions, ship them as two commits.
+- **Don’t rewrite history.** Old entries describe what shipped; fix genuine
+  errors in place (typos), but if behaviour was wrong and later fixed, that
+  fix gets its own entry under the new version.
+- Run `./test/run-tests.sh` before committing — the changelog data-sanity
+  test is the safety net.
 
 ## 0.18.0 (2026-11-17)
 

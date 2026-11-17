@@ -38,7 +38,7 @@ Rules that bite:
 
 1. Implement — pure logic in `core.js` (+ tests), DOM wiring in `app.js`.
 2. `./test/run-tests.sh` — green.
-3. Bump `BF.VERSION` in `js/core.js` — **0.MINOR.PATCH**: MINOR = the chunk's 1-indexed position in the STATUS.md Current-state list, PATCH = the wave sub-index (DECISIONS #56) — and update the pin in `test/test-dom.js`. **Also add the changelog entry to `js/changelog.js` AND `CHANGELOG.md` in the same commit** (DECISIONS #73) — the data-sanity test fails otherwise.
+3. Bump `BF.VERSION` in `js/core.js` — **0.MINOR.PATCH**: MINOR = the chunk's 1-indexed position in the STATUS.md Current-state list, PATCH = the wave sub-index (DECISIONS #56) — and update the pin in `test/test-dom.js`. **Also add the changelog entry to `js/changelog.js` AND `CHANGELOG.md` in the same commit** — follow the **"How to add an entry" section in `CHANGELOG.md`** (format, ordering, both files; DECISIONS #73). The data-sanity test fails if the bump has no matching entry.
 4. Update the docs: a new numbered entry in `docs/DECISIONS.md`; in `docs/STATUS.md` — the Current-state line, the Versions table row, the Completed section entry, and the Plan section. Update `README.md` when user-facing behavior changes.
 5. Commit: `git add -A && git commit -m "bitforge [X]: <summary>"` (X = the chunk label, e.g. `[O.7]`).
 6. Open `index.html` in the in-app browser and **ask the user to verify visually** — the agent can't screenshot.
