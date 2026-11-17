@@ -28,6 +28,7 @@ Headless under macOS JavaScriptCore (`jsc`) — no Node, no browser. From the re
 Rules that bite:
 
 - New pure-logic module ⇒ `test/test-<module>.js` **and** a `load(...)` line in `test/run.js`.
+- **New `.js` file ⇒ TWO registrations:** a `<script src>` in `index.html` (before `js/app.js`) **and** a `load(...)` in `test/run.js`. The headless stub doesn't parse `index.html`, so a forgotten script tag is invisible to the suite and surfaces in the browser only as `ReferenceError: Can't find variable: …` (this actually happened — chunk [R], 2026-11-17).
 - `BF.VERSION` is **pinned** by a test in `test/test-dom.js` — a bump must update that pin in the same commit.
 - **Changelog data is tested**: `BF_CHANGELOG` (in `js/changelog.js`, loaded by `test/run.js`) must be strictly descending, have ≥1 change per entry, and its newest entry must equal `BF.VERSION` — a bump without a changelog entry fails the suite (DECISIONS #73).
 - The **shortcut registry count** is asserted in `test/test-dom.js` — every new `shortcuts.register(...)` call must update it.
