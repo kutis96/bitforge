@@ -26,7 +26,7 @@
    * (1-indexed) in the STATUS.md "Current state" list; PATCH = 0 for a single
    * chunk, the sub-index for a wave (chunk L.3 shipped 0.12.3). Bump in the
    * same commit as the chunk — a headless test pins the exact value. */
-  var VERSION = "0.17.0";
+  var VERSION = "0.17.1";
 
   /* ============================================================
    * [1] Font model
@@ -697,8 +697,10 @@
   // right/bottom leaves it in place. Guidelines shift with the content
   // (h: off += dTop, v: off += dLeft), clamped to [0, newDim]. Name,
   // status and silences survive (per-code, not per-pixel).
-  // Returns { font, inkClipped } — a NEW font object; the input is
-  // untouched. Throws on non-integer deltas or out-of-range new dims.
+  // Returns { font, inkClipped, clippedCodes } — a NEW font object; the
+  // input is untouched. clippedCodes = ascending list of glyph codes that
+  // lost at least one pixel (each code once). Throws on non-integer deltas
+  // or out-of-range new dims.
   function resizeFont(font, d) {
     var keys = ["dTop", "dBottom", "dLeft", "dRight"];
     for (var i = 0; i < 4; i++) {
@@ -715,12 +717,17 @@
     var src = font.data;
     var dst = new Uint8Array(NUM_GLYPHS * newH * newW);
     var inkClipped = 0, code, y, x, nx, ny;
+    var clippedCodes = [], clipSeen = {};
     for (code = 0; code < NUM_GLYPHS; code++) {
       for (y = 0; y < font.height; y++) {
         for (x = 0; x < font.width; x++) {
           if (!src[((code * font.height) + y) * font.width + x]) continue;
           nx = x + d.dLeft; ny = y + d.dTop;
-          if (nx < 0 || nx >= newW || ny < 0 || ny >= newH) { inkClipped++; continue; }
+          if (nx < 0 || nx >= newW || ny < 0 || ny >= newH) {
+            inkClipped++;
+            if (!clipSeen[code]) { clipSeen[code] = true; clippedCodes.push(code); }
+            continue;
+          }
           dst[((code * newH) + ny) * newW + nx] = 1;
         }
       }
@@ -731,7 +738,7 @@
       var max = (g.o === "h") ? newH : newW;
       g.off = clampInt(g.off + ((g.o === "h") ? d.dTop : d.dLeft), 0, max);
     }
-    return { font: out, inkClipped: inkClipped };
+    return { font: out, inkClipped: inkClipped, clippedCodes: clippedCodes };
   }
 
   /* ============================================================

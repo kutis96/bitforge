@@ -37,6 +37,7 @@
 - [x] **[O.8] Screenshot + license** (2026-11-16): user-provided screenshot → `docs/screenshot.png`, README hero image; MIT `LICENSE` — test count unchanged (139; version pin moved to 0.15.8)
 - [x] **[P] Font name + Properties modal** (2026-11-16): `font.name` wired into export filenames + BDF header; imports derive the name; **Edit → Properties…** (name + live info) — 146 tests
 - [x] **[Q] Cell resize** (2026-11-16): **Edit → Resize…** — per-edge row/col deltas, guides + slant baseline shift with the content, clip warning, full-font undo — 156 tests
+- [x] **[Q.1] Clip warning lists glyphs** (2026-11-17): the lossy-crop confirm warning names the affected characters/codepoints (`clippedCodes` in core, capped list) — 158 tests
 - [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -65,7 +66,8 @@ Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–
 | 0.15.7 | [O.7] Docs reorg (root README + AGENTS.md) |
 | 0.15.8 | [O.8] Screenshot + MIT license |
 | 0.16.0 | [P] Font name + Properties modal |
-| **0.17.0** (current) | [Q] Cell resize (Resize… modal) |
+| 0.17.0 | [Q] Cell resize (Resize… modal) |
+| **0.17.1** (current) | [Q.1] Clip warning lists affected glyphs |
 
 **Lettering note (2026-11-15, chunk M):** chunk letters drifted at some point (the I-wave landed after L); they now follow list position. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Git commit subjects still use the old letters.
 
@@ -330,7 +332,14 @@ User request (greenlit with [P]): crop/extend the character size by one or more 
 - 10 new tests (8 core: extend right/left/top, per-edge crops, all-four-edges crop counted once, guide clamping, validation, meta-survival + clone independence; 2 DOM: modal flow + live readout + undo; clip-warning arm/confirm + undo). **Total 156 tests.**
 - **Browser-verify (user):** the Resize modal — extend/crop per direction, guides staying put relative to the content, the clip warning + second click, undo.
 
-## Plan — remaining chunks (decisions locked in DECISIONS #32–71)
+### [Q.1] Clip warning lists affected glyphs (`js/core.js` + `js/app.js` + `test/`, 2026-11-17)
+User request: the clip warning should list the characters/codepoints a lossy crop affects, not just a pixel count — so the user can check the affected glyphs instead of scrambling through the atlas. See DECISIONS #72.
+- **Core:** `BF.resizeFont` additionally returns **`clippedCodes`** — ascending, each code once (a glyph losing several pixels is listed once).
+- **UI:** the confirm warning now reads `N px of ink will be clipped on: 0x41 · A, 0x07, … — click Apply again to confirm`. Labels use the app's `hex · char` convention (printable char for `0x20`–`0x7E` only); the list is **capped at the first 16** with a `… +N more` tail. The post-apply toast keeps the short pixel count.
+- 2 new core tests (list content + ordering + empty; dedupe). **Total 158 tests.**
+- **Browser-verify (user):** a crop that clips ink lists the right glyphs in the warning.
+
+## Plan — remaining chunks (decisions locked in DECISIONS #32–72)
 
 **[N] QA checks are fully done** (N.1 + N.2 + N.3 — both deferred checks #46/#47 shipped with per-glyph silencing).
 
@@ -338,7 +347,7 @@ User request (greenlit with [P]): crop/extend the character size by one or more 
 Font name (`font.name`, default `font`) wired into export filenames + BDF `FONT` line; name derived from the source filename on import; **Edit → Properties** modal (editable name + live font info).
 
 ### [Q] Cell resize — **done** (2026-11-16; see Completed + DECISIONS #71)
-**Edit → Resize…** modal: per-edge row/column deltas (crop/extend at a chosen edge), live result readout, guidelines + slant baseline shift with it, clip warning on lossy crops, one undo step (new full-font history entry).
+**Edit → Resize…** modal: per-edge row/column deltas (crop/extend at a chosen edge), live result readout, guidelines + slant baseline shift with it, clip warning on lossy crops, one undo step (new full-font history entry). **Refined in [Q.1]** (DECISIONS #72): the clip warning lists the affected glyphs.
 
 ### [O] Polish (catch-all)
 **[O.1]–[O.8] are done** (Preview control cleanup, newline fix, project file, bound-guide off-by-one fix, clipboard PNG atlas, reference-glyph hint, docs reorg, screenshot + MIT license — see Completed + DECISIONS #62–#69). The rest of [O] is still open:

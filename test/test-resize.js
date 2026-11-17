@@ -109,3 +109,20 @@ test("resize: name, status and silences survive; cloneFont deep-copies", functio
   assertEqual(c.guidelines.length, 1, "guidelines independent");
   assert(c.silences["edge"][66], "silences independent");
 });
+
+test("resize: clippedCodes lists affected glyphs (ascending, empty when clean)", function () {
+  var r = BF.resizeFont(rzFont(), { dTop: 0, dBottom: 0, dLeft: 0, dRight: 1 });
+  assertEqual(r.clippedCodes.length, 0, "extend clips nothing");
+  r = BF.resizeFont(rzFont(), { dTop: 0, dBottom: 0, dLeft: 0, dRight: -1 });
+  assertEqual(JSON.stringify(r.clippedCodes), JSON.stringify([0x41]), "right crop clips 0x41 only");
+  r = BF.resizeFont(rzFont(), { dTop: -1, dBottom: -1, dLeft: -1, dRight: -1 });
+  assertEqual(JSON.stringify(r.clippedCodes), JSON.stringify([0x41, 0x42]), "both corner glyphs, ascending");
+});
+
+test("resize: a glyph losing several pixels is listed once", function () {
+  var f = rzFont();
+  BF.setPixel(f, 0x42, 1, 0, 1); // second top-row pixel on 0x42
+  var r = BF.resizeFont(f, { dTop: -1, dBottom: 0, dLeft: 0, dRight: 0 });
+  assertEqual(r.inkClipped, 2, "two pixels lost");
+  assertEqual(JSON.stringify(r.clippedCodes), JSON.stringify([0x42]), "0x42 once; 0x41 survives");
+});
