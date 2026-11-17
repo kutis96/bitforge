@@ -1289,15 +1289,15 @@
       el.rzResult.textContent = "\u2192 " + newW + "\u00d7" + newH;
     }
   }
-  // Warning list: printable char + hex per affected glyph (app convention),
-  // capped so a whole-row crop doesn't turn the modal into a wall of codes.
+  // Warning list: printable char + hex per affected glyph (app convention).
+  // The FULL list — some affected glyphs are expected to crop, others may
+  // not be, and the user has to be able to see all of them (DECISIONS #72).
   function clipCodesText(codes) {
-    var shown = codes.slice(0, 16), s = "", i, p;
-    for (i = 0; i < shown.length; i++) {
-      p = printable(shown[i]);
-      s += (i ? ", " : "") + hex2(shown[i]) + (p ? " \u00b7 " + p : "");
+    var s = "", i, p;
+    for (i = 0; i < codes.length; i++) {
+      p = printable(codes[i]);
+      s += (i ? ", " : "") + hex2(codes[i]) + (p ? " \u00b7 " + p : "");
     }
-    if (codes.length > 16) s += " \u2026 +" + (codes.length - 16) + " more";
     return s;
   }
   function openResizeModal() {
@@ -1318,7 +1318,8 @@
       if (peek.inkClipped > 0) {
         rzArmed = true;
         el.rzWarn.hidden = false;
-        el.rzWarn.textContent = peek.inkClipped + " px of ink will be clipped on: " + clipCodesText(peek.clippedCodes) + " — click Apply again to confirm";
+        var m = peek.clippedCodes.length;
+        el.rzWarn.textContent = peek.inkClipped + " px of ink will be clipped on " + m + (m === 1 ? " glyph: " : " glyphs: ") + clipCodesText(peek.clippedCodes) + " — click Apply again to confirm";
         return;
       }
     }

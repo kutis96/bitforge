@@ -37,7 +37,7 @@
 - [x] **[O.8] Screenshot + license** (2026-11-16): user-provided screenshot → `docs/screenshot.png`, README hero image; MIT `LICENSE` — test count unchanged (139; version pin moved to 0.15.8)
 - [x] **[P] Font name + Properties modal** (2026-11-16): `font.name` wired into export filenames + BDF header; imports derive the name; **Edit → Properties…** (name + live info) — 146 tests
 - [x] **[Q] Cell resize** (2026-11-16): **Edit → Resize…** — per-edge row/col deltas, guides + slant baseline shift with the content, clip warning, full-font undo — 156 tests
-- [x] **[Q.1] Clip warning lists glyphs** (2026-11-17): the lossy-crop confirm warning names the affected characters/codepoints (`clippedCodes` in core, capped list) — 158 tests
+- [x] **[Q.1] Clip warning lists glyphs** (2026-11-17): the lossy-crop confirm warning names the affected characters/codepoints (`clippedCodes` in core, full list + affected-glyph count) — 158 tests
 - [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -335,7 +335,7 @@ User request (greenlit with [P]): crop/extend the character size by one or more 
 ### [Q.1] Clip warning lists affected glyphs (`js/core.js` + `js/app.js` + `test/`, 2026-11-17)
 User request: the clip warning should list the characters/codepoints a lossy crop affects, not just a pixel count — so the user can check the affected glyphs instead of scrambling through the atlas. See DECISIONS #72.
 - **Core:** `BF.resizeFont` additionally returns **`clippedCodes`** — ascending, each code once (a glyph losing several pixels is listed once).
-- **UI:** the confirm warning now reads `N px of ink will be clipped on: 0x41 · A, 0x07, … — click Apply again to confirm`. Labels use the app's `hex · char` convention (printable char for `0x20`–`0x7E` only); the list is **capped at the first 16** with a `… +N more` tail. The post-apply toast keeps the short pixel count.
+- **UI:** the confirm warning now reads `N px of ink will be clipped on M glyphs: 0x41 · A, 0x07, 0x5C — click Apply again to confirm`. Labels use the app's `hex · char` convention (printable char for `0x20`–`0x7E` only); the **full** list is shown with the **count M** of affected glyphs (the original cap-at-16 was rejected by the user the same day — see DECISIONS #72). The post-apply toast keeps the short pixel count.
 - 2 new core tests (list content + ordering + empty; dedupe). **Total 158 tests.**
 - **Browser-verify (user):** a crop that clips ink lists the right glyphs in the warning.
 
