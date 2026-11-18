@@ -41,6 +41,12 @@ Rules:
 - Run `./test/run-tests.sh` before committing — the changelog data-sanity
   test is the safety net.
 
+## 0.20.2 (2026-11-18)
+
+- **Edit**: removed the collapsible guidelines bar (rolled back on request) —
+  the bar is always visible again, as before. The 0.20.1 toolbar
+  position/enclosure and the selection-actions fix stay.
+
 ## 0.20.1 (2026-11-18)
 
 - **Edit**: the selection actions now actually hide until a selection is

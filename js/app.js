@@ -122,8 +122,7 @@
     pvItalic: false,
     pvBaseline: 5,
     inverted: false,
-    qaShowSilenced: false, // QA tab: show silenced violations in the table
-    guidesCollapsed: false // Edit tab: guidelines bar folded to just its toggle (chunk T.1)
+    qaShowSilenced: false // QA tab: show silenced violations in the table
   };
   var settingsCache = null;
   function loadSettings() {
@@ -1041,13 +1040,6 @@
     var name = "bitforge-sel-" + r.w + "x" + r.h + ".png";
     copyCanvasToClipboard(selCanvas(r, COPY_SCALE), name, "Copied the selection to clipboard");
   }
-  // Hideable guidelines bar (chunk T.1): they're set once and rarely touched,
-  // so the bar can fold to just its "guides" toggle. State is a setting.
-  function setGuidesBar(collapsed) {
-    el.guides.classList.toggle("collapsed", collapsed);
-    el.guidesArrow.textContent = collapsed ? "\u25b8" : "\u25be";
-    settingsSet("guidesCollapsed", collapsed);
-  }
   // Paste the selection (exact pixels, same cell position) into another
   // codepoint — a copy, not a stamp; the target becomes the selection.
   function selCopyTo() {
@@ -1363,7 +1355,6 @@
     el.pvScale.value = String(state.scale);
     el.pvText.value = settingsGet("pvText");
     el.qaShowSilenced.checked = !!settingsGet("qaShowSilenced");
-    setGuidesBar(!!settingsGet("guidesCollapsed")); // after loadSettings() — init order matters
     syncRenderControls();
     redrawAll();
   }
@@ -1627,7 +1618,6 @@
       miUndo: $("mi-undo"), miRedo: $("mi-redo"), miProps: $("mi-props"), miClearGlyph: $("mi-clear-glyph"), miCopyGlyph: $("mi-copy-glyph"),
       miMirrorH: $("mi-mirror-h"), miMirrorV: $("mi-mirror-v"), miCopyTo: $("mi-copy-to"),
       toolPaint: $("tool-paint"), toolErase: $("tool-erase"), toolSelect: $("tool-select"),
-      guidesToggle: $("guides-toggle"), guidesArrow: $("guides-arrow"),
       selbar: $("selbar"), selinfo: $("selinfo"),
       selFill: $("sel-fill"), selClear: $("sel-clear"), selInvert: $("sel-invert"),
       selCopy: $("sel-copy"), selCopyTo: $("sel-copyto"), selX: $("sel-x"),
@@ -1640,7 +1630,7 @@
       btnClear: $("btn-clear"), btnUndo: $("btn-undo"), btnRedo: $("btn-redo"),
       stUnfinished: $("st-unfinished"), stWip: $("st-wip"), stDone: $("st-done"),
       editor: $("editor"), editLabel: $("edit-label"),
-      guides: $("guides"), glock: $("glock"), glist: $("glist"),
+      glock: $("glock"), glist: $("glist"),
       pvScale: $("pv-scale"), pvBaseline: $("pv-baseline"),
       pvInverted: $("pv-inverted"),
       atBold: $("at-bold"), atItalic: $("at-italic"), atBaseline: $("at-baseline"), atInverted: $("at-inverted"),
@@ -1801,8 +1791,7 @@
     window.addEventListener("mouseup", onEditorUp);
     el.editor.addEventListener("contextmenu", function (e) { e.preventDefault(); });
 
-    // guidelines: hideable bar (chunk T.1) + lock toggle + preset add buttons
-    el.guidesToggle.addEventListener("click", function () { setGuidesBar(!el.guides.classList.contains("collapsed")); });
+    // guidelines: lock toggle + preset add buttons
     el.glock.checked = state.glocked;
     el.glock.addEventListener("change", function () {
       state.glocked = this.checked;
@@ -1953,7 +1942,6 @@
       copyGlyph: copyGlyphToClipboard, glyphCanvas: glyphCanvas, applyResize: applyResize,
       mirrorAction: mirrorAction, copyToCodepointAction: copyToCodepointAction, parseCodeInput: parseCodeInput,
       setTool: setTool, setSel: setSel, clearSel: clearSel, selAction: selAction, selCopyTo: selCopyTo,
-      setGuidesBar: setGuidesBar,
       getLastToast: function () { return lastToast; },
       exportPng: exportPng, settingsGet: settingsGet, settingsSet: settingsSet,
       whatsNew: whatsNew, openChangelogModal: openChangelogModal, closeChangelogModal: closeChangelogModal,

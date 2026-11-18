@@ -630,7 +630,7 @@ test("dom: mousedown on a menu item must NOT close the menu (real-browser click 
 
 test("dom: About modal head + browser tab show the app version (DECISIONS #56)", function () {
   assert(/^\d+\.\d+\.\d+$/.test(BF.VERSION), "BF.VERSION is semver-ish: " + BF.VERSION);
-  assertEqual(BF.VERSION, "0.20.1", "pinned version — bump this test when you bump the app");
+  assertEqual(BF.VERSION, "0.20.2", "pinned version — bump this test when you bump the app");
   var els = globalThis.__stub.els;
   assertEqual(els["about-title"].textContent, "bitforge " + BF.VERSION, "modal head shows name + version");
   assertEqual(document.title, "bitforge " + BF.VERSION, "browser tab shows name + version");
@@ -1146,21 +1146,6 @@ test("dom: selection copy-to — exact paste, target selected, status survives",
   f.status[0x64] = 0;
   BF.clearGlyph(f, 0x44);
   app.selectGlyph(0x44);
-});
-
-test("dom: guides bar — collapsible, state persisted as a setting (chunk T.1)", function () {
-  var app = globalThis.__stub.app;
-  var els = globalThis.__stub.els;
-  assertEqual(app.settingsGet("guidesCollapsed"), false, "default: expanded");
-  assert(!els["guides"].classList.contains("collapsed"), "not collapsed at init");
-  app.setGuidesBar(true);
-  assert(els["guides"].classList.contains("collapsed"), "collapsed class set");
-  assertEqual(els["guides-arrow"].textContent, "\u25b8", "arrow points right (collapsed)");
-  assertEqual(app.settingsGet("guidesCollapsed"), true, "setting persisted");
-  app.setGuidesBar(false);
-  assert(!els["guides"].classList.contains("collapsed"), "expanded again");
-  assertEqual(els["guides-arrow"].textContent, "\u25be", "arrow points down (expanded)");
-  assertEqual(app.settingsGet("guidesCollapsed"), false, "setting restored");
 });
 
 test("dom: selection — Esc deselects when nothing else is open", function () {

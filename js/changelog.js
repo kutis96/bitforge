@@ -14,6 +14,9 @@
  * (date "" = pre-dated history, not shown in the UI)
  */
 var BF_CHANGELOG = [
+  { version: "0.20.2", date: "2026-11-18", changes: [
+    "Edit: removed the collapsible guidelines bar (rolled back on request) — the bar is always visible again, as before. The 0.20.1 toolbar position/enclosure and the selection-actions fix stay."
+  ] },
   { version: "0.20.1", date: "2026-11-18", changes: [
     "Edit: the selection actions now actually hide until a selection is active (a CSS bug left them always visible)."
     , "Edit: toolbar moved below the guidelines bar, with the same enclosure; the right side of the toolbar is the tool's context-sensitive area."
