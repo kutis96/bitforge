@@ -104,24 +104,8 @@
           <button id="btn-redo" type="button" title="Redo (Ctrl/&#8984;+Shift+Z)">&#8594; Redo</button>
           <button id="btn-clear" type="button" class="btn-danger" title="Clear the current glyph (undoable)">Clear glyph</button>
         </div>
-        <div class="tools" id="tools">
-          <span class="tgroup" title="Editing tools">
-            <button id="tool-paint" type="button" class="active" title="Paint (B) — click toggles, drag paints; right-drag or Shift-drag erases">paint</button>
-            <button id="tool-erase" type="button" title="Erase — click/drag erases (no key: E is the Edit tab)">erase</button>
-            <button id="tool-select" type="button" title="Select (S) — drag a marquee over the cell; drag inside the selection to move its contents">select</button>
-          </span>
-          <span class="spacer"></span>
-          <span id="selbar" class="selbar" hidden>
-            <span id="selinfo" class="selinfo" title="Selection size (w&times;h)"></span>
-            <button id="sel-fill" type="button" title="Fill the selection with ink (F)">fill</button>
-            <button id="sel-clear" type="button" title="Erase the selection (X)">clear</button>
-            <button id="sel-invert" type="button" title="Invert the selection (I)">invert</button>
-            <button id="sel-copy" type="button" title="Copy the selection as a PNG to the clipboard (16&times;, transparent background)">copy</button>
-            <button id="sel-copyto" type="button" title="Paste the selection (exact pixels) into another codepoint at the same position">copy to&hellip;</button>
-            <button id="sel-x" type="button" title="Deselect (Esc)" style="font-weight:bold">&times;</button>
-          </span>
-        </div>
         <div id="guides" class="guides">
+          <button id="guides-toggle" type="button" title="Show/hide the guidelines (they're set once and rarely touched — the state is remembered)">guides <span id="guides-arrow" aria-hidden="true">&#9662;</span></button>
           <label class="glock" title="Lock all guidelines (locked = cannot drag to move)"><input type="checkbox" id="glock" checked> lock</label>
           <span class="gadd" title="Add guidelines at preset positions (drag them once unlocked)">
             <button type="button" data-g="ascender">asc</button>
@@ -135,6 +119,23 @@
             <button type="button" data-g="vnew">+V</button>
           </span>
           <span id="glist" class="glist" title="Current guidelines (x to remove)"></span>
+        </div>
+        <div class="tools" id="tools">
+          <span class="tgroup" title="Editing tools">
+            <button id="tool-paint" type="button" class="active" title="Paint (B) — click toggles, drag paints; right-drag or Shift-drag erases">paint</button>
+            <button id="tool-erase" type="button" title="Erase — click/drag erases (no key: E is the Edit tab)">erase</button>
+            <button id="tool-select" type="button" title="Select (S) — drag a marquee over the cell; drag inside the selection to move its contents">select</button>
+          </span>
+          <span class="spacer"></span>
+          <span id="selbar" class="selbar" hidden title="Context-sensitive actions for the active tool (currently: the selection)">
+            <span id="selinfo" class="selinfo" title="Selection size (w&times;h)"></span>
+            <button id="sel-fill" type="button" title="Fill the selection with ink (F)">fill</button>
+            <button id="sel-clear" type="button" title="Erase the selection (X)">clear</button>
+            <button id="sel-invert" type="button" title="Invert the selection (I)">invert</button>
+            <button id="sel-copy" type="button" title="Copy the selection as a PNG to the clipboard (16&times;, transparent background)">copy</button>
+            <button id="sel-copyto" type="button" title="Paste the selection (exact pixels) into another codepoint at the same position">copy to&hellip;</button>
+            <button id="sel-x" type="button" title="Deselect (Esc)" style="font-weight:bold">&times;</button>
+          </span>
         </div>
         <div class="canvas-wrap"><canvas id="editor"></canvas></div>
       </div>

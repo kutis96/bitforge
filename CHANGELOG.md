@@ -41,6 +41,16 @@ Rules:
 - Run `./test/run-tests.sh` before committing — the changelog data-sanity
   test is the safety net.
 
+## 0.20.1 (2026-11-18)
+
+- **Edit**: the selection actions now actually hide until a selection is
+  active (a CSS bug left them always visible — the `display` rule overrode
+  the `hidden` attribute).
+- **Edit**: the toolbar sits below the guidelines bar, with the same
+  enclosure; its right side is the active tool's context-sensitive area.
+- **Edit**: the guidelines bar is collapsible — the `guides` toggle folds
+  it to a slim strip, and the state is remembered.
+
 ## 0.20.0 (2026-11-18)
 
 - **Edit**: new toolbar — `paint` (B) / `erase` / `select` (S) tools.

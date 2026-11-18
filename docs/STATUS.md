@@ -1,5 +1,7 @@
 # bitforge — Status
 
+> **HANDOVER (2026-11-18, context rollover):** we're at **[T.1] / 0.20.1**, 178/178 tests, clean tree (commit for [T.1] is the HEAD). Everything is committed and doc-complete; **the user has NOT yet browser-verified [T] or [T.1]** — the accumulated browser-verify lines in the Completed sections are the resume point (selection tools, toolbar position/enclosure, collapsible guides bar, and the still-open [S] items if any went unverified). Next real work is the open **[O] polish** catch-all below, or whatever the user picks. Ritual, conventions and gotchas: [AGENTS.md](../AGENTS.md) (root) + this file + DECISIONS.md. The `hidden`-vs-`display` CSS trap and the init-order trap are documented in DECISIONS #75 [T.1] — don't relearn them.
+
 ## Current state
 - [x] Requirements gathered and clarified with the user
 - [x] Design docs written
@@ -41,6 +43,7 @@
 - [x] **[R] Changelog + what's-new modal** (2026-11-17): `js/changelog.js` + `CHANGELOG.md` (backfilled), “What's new” modal on version bump (semver-aware, last-run version remembered), About → Changelog… — 162 tests
 - [x] **[S] Glyph-manipulation tools** (2026-11-18): Mirror left–right (H) / up–down (V) · Copy to codepoint… (C, target becomes the selection) · empty-printable QA check (info, silenceable, flags “marked done”) — 169 tests
 - [x] **[T] Editor toolbar + selection tools** (2026-11-18): paint/erase/select toolbar · rectangular marquee with fill/clear/invert/copy/copy-to + move-by-drag (cut, clipped) · Esc deselects — 177 tests
+- [x] **[T.1] Toolbar polish** (2026-11-18): selbar hidden-until-selection bug fixed (CSS `[hidden]` guard) · toolbar moved below + enclosed like the guidelines bar (context-area semantics) · collapsible guidelines bar (persisted) — 178 tests
 - [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -73,7 +76,8 @@ Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–
 | 0.17.1 | [Q.1] Clip warning lists affected glyphs |
 | 0.18.0 | [R] Changelog + what's-new modal |
 | 0.19.0 | [S] Glyph-manipulation tools (mirror, copy-to, empty-printable QA) |
-| **0.20.0** (current) | [T] Editor toolbar + selection tools |
+| 0.20.0 | [T] Editor toolbar + selection tools |
+| **0.20.1** (current) | [T.1] Toolbar polish (hidden selbar fix, toolbar enclosure/position, collapsible guides) |
 
 **Lettering note (2026-11-15, chunk M):** chunk letters drifted at some point (the I-wave landed after L); they now follow list position. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Git commit subjects still use the old letters.
 
@@ -370,6 +374,14 @@ User greenlight (2026-11-18, incl. the toolbar idea): the selection toolset as i
 - 8 new tests (4 core in `test/test-selectops.js`: normRect, fill/invert, move incl. overlap+clipping+no-op, rectCopy; 4 DOM: tool switching + bar + per-glyph clearing, fill/invert/clear + undo×3, copy-to incl. exact-paste + status-survival + target-selection + undo, Esc-deselect). The stub ctx gained no-op `save`/`restore`/`setLineDash`. **Total 177 tests.**
 - **Browser-verify (user):** draw a few pixels, `S`, drag a marquee (dashed overlay + `w×h` readout), fill/invert/clear, drag the selection to move its contents (source clears, clipped at the edge — toast reports it), copy to clipboard, copy to…, Esc, and the toolbar's active states.
 
+### [T.1] Toolbar polish (`index.html` + `css/style.css` + `js/app.js` + `test/`, 2026-11-18)
+User feedback on [T] (2026-11-18): the selection actions should only be visible when usable; reuse the toolbar's right side as a context area; move the toolbar below the guides bar with the same enclosure; make the guides bar hideable. See DECISIONS #75 [T.1].
+- **Bug fixed:** `.tools .selbar { display: inline-flex }` overrode the UA `hidden` rule, so the action group was **always visible** in real browsers (the headless suite asserts the `hidden` *property*, which was correct — CSS isn't testable there). Added the `[hidden] { display: none }` guard (same pattern as `.modal-backdrop`).
+- **Layout:** toolbar moved below the guidelines bar; both share the same enclosure (border + `--panel` background). The right side of the toolbar is the active tool's **context-sensitive area** (currently the selection group; the HTML title says so).
+- **Collapsible guidelines bar:** `guides ▾/▸` toggle button (first in the bar) folds the bar to a slim strip (`.guides.collapsed` hides lock/add/list, toggle stays). State = setting `guidesCollapsed` (settingsDefaults, default expanded) via `setGuidesBar(collapsed)` — applied at the **end of init** (after `loadSettings()`; calling it in the wiring section crashed init — init-order gotcha, see DECISIONS #75).
+- 1 new DOM test (toggle + setting + arrow). **Total 178 tests.**
+- **Browser-verify (user):** action group truly hidden without a selection; toolbar position/enclosure; guides bar collapse/expand across a reload (state remembered).
+
 ## Plan — remaining chunks (decisions locked in DECISIONS #32–75)
 
 **[N] QA checks are fully done** (N.1 + N.2 + N.3 — both deferred checks #46/#47 shipped with per-glyph silencing).
@@ -384,7 +396,10 @@ Font name (`font.name`, default `font`) wired into export filenames + BDF `FONT`
 Mirror left–right / up–down · Copy to codepoint… · empty-printable QA check. See the Completed entry below.
 
 ### [T] Editor toolbar + selection tools — **done** (2026-11-18; see Completed + DECISIONS #75)
-Paint/erase/select toolbar · rectangular marquee · fill/clear/invert/copy/copy-to · move-by-drag · Esc deselects. See the Completed entry below.
+Paint/erase/select toolbar · rectangular marquee · fill/clear/invert/copy/copy-to · move-by-drag · Esc deselects. **Refined in [T.1]**: selbar-hidden fix, toolbar below the guides bar (same enclosure), collapsible guidelines bar.
+
+### [O] Polish — the next chunk when the user picks it
+See the open [O] item below; likely candidates: editor hover crosshair, jump UX, slant-spill clipping, guideline visual polish.
 
 ### [O] Polish (catch-all)
 **[O.1]–[O.8] are done** (Preview control cleanup, newline fix, project file, bound-guide off-by-one fix, clipboard PNG atlas, reference-glyph hint, docs reorg, screenshot + MIT license — see Completed + DECISIONS #62–#69). The rest of [O] is still open:

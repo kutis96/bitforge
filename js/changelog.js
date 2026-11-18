@@ -14,6 +14,11 @@
  * (date "" = pre-dated history, not shown in the UI)
  */
 var BF_CHANGELOG = [
+  { version: "0.20.1", date: "2026-11-18", changes: [
+    "Edit: the selection actions now actually hide until a selection is active (a CSS bug left them always visible)."
+    , "Edit: toolbar moved below the guidelines bar, with the same enclosure; the right side of the toolbar is the tool's context-sensitive area."
+    , "Edit: the guidelines bar is collapsible — a 'guides' toggle folds it to a slim strip; the state is remembered."
+  ] },
   { version: "0.20.0", date: "2026-11-18", changes: [
     "Edit: new toolbar — paint (B) / erase / select (S) tools."
     , "Edit: rectangular selection (marquee) with fill (F), clear (X), invert (I), copy to clipboard, copy to another codepoint, and move-by-drag (cut, clipped at the cell edge)."
