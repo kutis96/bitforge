@@ -16,6 +16,7 @@
       fillRect: function () {}, strokeRect: function () {}, clearRect: function () {},
       beginPath: function () {}, moveTo: function () {}, lineTo: function () {},
       stroke: function () {}, fill: function () {}, drawImage: function () {},
+      save: function () {}, restore: function () {}, setLineDash: function () {},
       getImageData: function () { return { data: [] }; },
       fillText: function () {}
     };

@@ -40,6 +40,7 @@
 - [x] **[Q.1] Clip warning lists glyphs** (2026-11-17): the lossy-crop confirm warning names the affected characters/codepoints (`clippedCodes` in core, full list + affected-glyph count) — 158 tests
 - [x] **[R] Changelog + what's-new modal** (2026-11-17): `js/changelog.js` + `CHANGELOG.md` (backfilled), “What's new” modal on version bump (semver-aware, last-run version remembered), About → Changelog… — 162 tests
 - [x] **[S] Glyph-manipulation tools** (2026-11-18): Mirror left–right (H) / up–down (V) · Copy to codepoint… (C, target becomes the selection) · empty-printable QA check (info, silenceable, flags “marked done”) — 169 tests
+- [x] **[T] Editor toolbar + selection tools** (2026-11-18): paint/erase/select toolbar · rectangular marquee with fill/clear/invert/copy/copy-to + move-by-drag (cut, clipped) · Esc deselects — 177 tests
 - [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -71,7 +72,8 @@ Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–
 | 0.17.0 | [Q] Cell resize (Resize… modal) |
 | 0.17.1 | [Q.1] Clip warning lists affected glyphs |
 | 0.18.0 | [R] Changelog + what's-new modal |
-| **0.19.0** (current) | [S] Glyph-manipulation tools (mirror, copy-to, empty-printable QA) |
+| 0.19.0 | [S] Glyph-manipulation tools (mirror, copy-to, empty-printable QA) |
+| **0.20.0** (current) | [T] Editor toolbar + selection tools |
 
 **Lettering note (2026-11-15, chunk M):** chunk letters drifted at some point (the I-wave landed after L); they now follow list position. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Git commit subjects still use the old letters.
 
@@ -359,6 +361,15 @@ User greenlight (2026-11-18): the three small editing primitives — copy a glyp
 - 7 new tests (3 core in `test/test-glyphops.js`; 4 DOM: parseCodeInput, mirror + undo×2, copy-to incl. refusal paths + target-selection + status-survival, the empty check incl. done-detail + silence + space-exempt). The [R] changelog-filtering DOM test was made version-independent (computed from `BF_CHANGELOG` + `BF.cmpVersions`) so it survives bumps. **Total 169 tests.**
 - **Browser-verify (user):** mirror both axes on an asymmetric glyph (e.g. draw a `>` and mirror H → `<`); Copy to codepoint… (prompt, target selection, undo); QA tab — the empty-printable rows, the “marked done” detail, silencing one.
 
+### [T] Editor toolbar + selection tools (`js/core.js` + `js/app.js` + `index.html` + `css/style.css` + `test/`, 2026-11-18)
+User greenlight (2026-11-18, incl. the toolbar idea): the selection toolset as its own chunk, with a proper toolbar as its home. See DECISIONS #75.
+- **Core (new section [16]):** `BF.normRect` (any-corner-order → clamped `{x,y,w,h}`, a point yields 1×1 — click-vs-drag is the app's job) · `BF.rectFill(font, code, rect, 0|1)` · `BF.rectInvert` · `BF.rectMove(font, code, rect, dx, dy)` (cut: source cleared, content placed, off-cell clipped; overlap-safe via snapshot; → `{moved, clipped}`) · `BF.rectCopy(font, from, to, rect)` (exact pixels at the same position — a paste, not a stamp).
+- **Toolbar (Edit tab, above the guidelines bar):** tools group **paint** (B; the default) · **erase** (no key — E is the Edit tab) · **select** (S); contextual selection group (only while a selection is active): **fill** (F) · **clear** (X) · **invert** (I) · **copy** (clipboard PNG ×16, transparent — the Copy-glyph pipeline, now shared via `copyCanvasToClipboard`) · **copy to…** (prompt → `BF.rectCopy`, target becomes the selection) · **×** — plus a `w×h` readout.
+- **Interaction:** in select mode, drag = marquee (clamped to the cell), plain click = deselect, drag starting *inside* the selection = move (the marquee previews the landing spot; release commits one undo step; the selection follows its content). Right-drag/Shift-drag still erase in paint mode; the erase tool erases with the left button. **Esc deselects** — but only when no menu/modal is open (they keep priority; the handler checks them first). Switching glyph or away from the select tool clears the selection. Selection is UI-only (never persisted).
+- **UI details:** the marquee/selection renders as a dashed blue rect + 10% tint over the editor (drawn last, so it's always visible); the selection group reuses the status-button visual language (`.tools` CSS).
+- 8 new tests (4 core in `test/test-selectops.js`: normRect, fill/invert, move incl. overlap+clipping+no-op, rectCopy; 4 DOM: tool switching + bar + per-glyph clearing, fill/invert/clear + undo×3, copy-to incl. exact-paste + status-survival + target-selection + undo, Esc-deselect). The stub ctx gained no-op `save`/`restore`/`setLineDash`. **Total 177 tests.**
+- **Browser-verify (user):** draw a few pixels, `S`, drag a marquee (dashed overlay + `w×h` readout), fill/invert/clear, drag the selection to move its contents (source clears, clipped at the edge — toast reports it), copy to clipboard, copy to…, Esc, and the toolbar's active states.
+
 ## Plan — remaining chunks (decisions locked in DECISIONS #32–75)
 
 **[N] QA checks are fully done** (N.1 + N.2 + N.3 — both deferred checks #46/#47 shipped with per-glyph silencing).
@@ -372,8 +383,8 @@ Font name (`font.name`, default `font`) wired into export filenames + BDF `FONT`
 ### [S] Glyph-manipulation tools — **done** (2026-11-18; see Completed + DECISIONS #74)
 Mirror left–right / up–down · Copy to codepoint… · empty-printable QA check. See the Completed entry below.
 
-### [T] Selection tools — DECISIONS #75 (user greenlight in principle 2026-11-18; 3 semantic choices flagged for ratification)
-Select tool (rectangular marquee) + action row **Fill / Clear / Invert / Copy (clipboard PNG) / Copy to…** + move-by-drag (cut, clipped at cell edge). F/X/I shortcuts; selection state UI-only, never persisted.
+### [T] Editor toolbar + selection tools — **done** (2026-11-18; see Completed + DECISIONS #75)
+Paint/erase/select toolbar · rectangular marquee · fill/clear/invert/copy/copy-to · move-by-drag · Esc deselects. See the Completed entry below.
 
 ### [O] Polish (catch-all)
 **[O.1]–[O.8] are done** (Preview control cleanup, newline fix, project file, bound-guide off-by-one fix, clipboard PNG atlas, reference-glyph hint, docs reorg, screenshot + MIT license — see Completed + DECISIONS #62–#69). The rest of [O] is still open:

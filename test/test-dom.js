@@ -121,8 +121,8 @@ test("dom: shortcut card toggles; registry holds the full binding set", function
   assertEqual(els["keys-card"].hidden, false, "toggle shows it");
   app.toggleKeysCard();
   assertEqual(els["keys-card"].hidden, true, "toggle hides it");
-  // 8 nav + 9 file-ops + 5 tabs + 2 status + 3 mirror/copy-to + 4 shift + 3 undo/redo + 1 card = 35
-  assertEqual(app.shortcuts.list.length, 35, "35 shortcuts registered");
+  // 8 nav + 9 file-ops + 5 tabs + 2 status + 3 mirror/copy-to + 3 tools + 3 sel-actions + 4 shift + 3 undo/redo + 1 card = 40
+  assertEqual(app.shortcuts.list.length, 40, "40 shortcuts registered");
   var combos = {};
   for (var i = 0; i < app.shortcuts.list.length; i++) combos[app.shortcuts.list[i].combo] = true;
   assert(combos["Ctrl+ArrowLeft"] && combos["?"] && combos["Ctrl+z"] && combos["PageUp"], "expected combos present");
@@ -630,7 +630,7 @@ test("dom: mousedown on a menu item must NOT close the menu (real-browser click 
 
 test("dom: About modal head + browser tab show the app version (DECISIONS #56)", function () {
   assert(/^\d+\.\d+\.\d+$/.test(BF.VERSION), "BF.VERSION is semver-ish: " + BF.VERSION);
-  assertEqual(BF.VERSION, "0.19.0", "pinned version — bump this test when you bump the app");
+  assertEqual(BF.VERSION, "0.20.0", "pinned version — bump this test when you bump the app");
   var els = globalThis.__stub.els;
   assertEqual(els["about-title"].textContent, "bitforge " + BF.VERSION, "modal head shows name + version");
   assertEqual(document.title, "bitforge " + BF.VERSION, "browser tab shows name + version");
@@ -1055,4 +1055,107 @@ test("dom: QA — empty printable glyphs (info, silenceable, flags done)", funct
   // Cleanup.
   app.toggleSilence("empty", code);
   app.setStatus(code, 0);
+});
+
+// ---------- selection tools (DECISIONS #75) ----------
+
+test("dom: tools — select/paint switch, selection bar, per-glyph clearing", function () {
+  var app = globalThis.__stub.app;
+  var els = globalThis.__stub.els;
+  app.setTool("select");
+  assert(els["tool-select"].classList.contains("active"), "select tool active");
+  assert(els["selbar"].hidden, "no selection => bar hidden");
+  app.setSel({ x: 1, y: 2, w: 3, h: 2 });
+  assertEqual(els["selbar"].hidden, false, "selection => bar visible");
+  assertEqual(els["selinfo"].textContent, "3\u00d72", "size readout");
+  // Switching away from select clears the selection.
+  app.setTool("paint");
+  assertEqual(app.state.selRect, null, "selection cleared");
+  assert(els["selbar"].hidden, "bar hidden again");
+  // Back to select keeps the tool state coherent.
+  app.setTool("select");
+  assertEqual(app.state.tool, "select", "tool set");
+  app.setTool("paint");
+});
+
+test("dom: selection actions — fill/invert/clear mutate the rect, undo restores", function () {
+  var app = globalThis.__stub.app;
+  var f = app.state.font, c = 0x43; // 'C'
+  app.selectGlyph(c);
+  BF.clearGlyph(f, c);
+  var r = { x: 1, y: 1, w: 2, h: 2 };
+  BF.setPixel(f, c, 0, 0, 1); // outside the rect — must survive every action
+  app.setSel(r);
+
+  app.selAction("fill");
+  assertEqual(BF.getPixel(f, c, 1, 1), 1, "fill: ink in rect");
+  assertEqual(BF.getPixel(f, c, 2, 2), 1, "fill: whole rect");
+  assertEqual(BF.getPixel(f, c, 0, 0), 1, "fill: outside survives");
+  assertEqual(BF.getPixel(f, c, 3, 3), 0, "fill: outside rect untouched");
+
+  app.selAction("invert");
+  assertEqual(BF.getPixel(f, c, 1, 1), 0, "invert: rect cleared (was all ink)");
+  assertEqual(BF.getPixel(f, c, 0, 0), 1, "invert: outside survives");
+
+  app.selAction("clear");
+  assertEqual(BF.getPixel(f, c, 1, 1), 0, "clear: stays empty");
+
+  // Undo the three actions.
+  app.shortcuts.dispatch({ key: "z", ctrlKey: true, preventDefault: function () {} });
+  app.shortcuts.dispatch({ key: "z", ctrlKey: true, preventDefault: function () {} });
+  app.shortcuts.dispatch({ key: "z", ctrlKey: true, preventDefault: function () {} });
+  assertEqual(BF.getPixel(f, c, 1, 1), 0, "undo x3: blank again");
+  assertEqual(BF.getPixel(f, c, 0, 0), 1, "undo x3: outside ink intact");
+  BF.clearGlyph(f, c);
+  app.selectGlyph(c);
+});
+
+test("dom: selection copy-to — exact paste, target selected, status survives", function () {
+  var app = globalThis.__stub.app;
+  var f = app.state.font;
+  app.selectGlyph(0x44); // 'D' source
+  BF.clearGlyph(f, 0x44);
+  BF.setPixel(f, 0x44, 1, 2, 1);
+  BF.setPixel(f, 0x44, 3, 2, 1);
+  var r = { x: 1, y: 2, w: 3, h: 1 };
+  app.setSel(r);
+  // Target has pre-existing ink inside the rect (must be overwritten)
+  // and outside it (must survive).
+  BF.setPixel(f, 0x64, 2, 2, 1);
+  BF.setPixel(f, 0x64, 6, 6, 1);
+  f.status[0x64] = 2;
+
+  globalThis.prompt = function () { return "64"; };
+  app.selCopyTo();
+  delete globalThis.prompt;
+
+  assertEqual(BF.getPixel(f, 0x64, 1, 2), 1, "ink pasted");
+  assertEqual(BF.getPixel(f, 0x64, 3, 2), 1, "ink pasted (2)");
+  assertEqual(BF.getPixel(f, 0x64, 2, 2), 0, "transparent pasted over old ink");
+  assertEqual(BF.getPixel(f, 0x64, 6, 6), 1, "outside-rect target ink survives");
+  assertEqual(BF.getPixel(f, 0x44, 1, 2), 1, "source intact");
+  assertEqual(f.status[0x64], 2, "target status untouched");
+  assertEqual(app.state.selected, 0x64, "target becomes the selection");
+  assertEqual(app.state.selRect, null, "selection cleared after copy-to");
+  // Undo restores the target.
+  app.shortcuts.dispatch({ key: "z", ctrlKey: true, preventDefault: function () {} });
+  assertEqual(BF.getPixel(f, 0x64, 1, 2), 0, "undo: target ink removed");
+  assertEqual(BF.getPixel(f, 0x64, 2, 2), 1, "undo: old target ink restored");
+  // Cleanup.
+  BF.clearGlyph(f, 0x64);
+  f.status[0x64] = 0;
+  BF.clearGlyph(f, 0x44);
+  app.selectGlyph(0x44);
+});
+
+test("dom: selection — Esc deselects when nothing else is open", function () {
+  var app = globalThis.__stub.app;
+  var els = globalThis.__stub.els;
+  app.setTool("select");
+  app.setSel({ x: 0, y: 0, w: 2, h: 2 });
+  assertEqual(app.state.selRect !== null, true, "selection active");
+  globalThis.__stub.docDispatch("keydown", { key: "Escape" });
+  assertEqual(app.state.selRect, null, "Esc cleared the selection");
+  assert(els["selbar"].hidden, "bar hidden");
+  app.setTool("paint");
 });

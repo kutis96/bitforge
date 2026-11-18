@@ -14,6 +14,11 @@
  * (date "" = pre-dated history, not shown in the UI)
  */
 var BF_CHANGELOG = [
+  { version: "0.20.0", date: "2026-11-18", changes: [
+    "Edit: new toolbar — paint (B) / erase / select (S) tools."
+    , "Edit: rectangular selection (marquee) with fill (F), clear (X), invert (I), copy to clipboard, copy to another codepoint, and move-by-drag (cut, clipped at the cell edge)."
+    , "Edit: Esc deselects (when no menu/modal is open)."
+  ] },
   { version: "0.19.0", date: "2026-11-18", changes: [
     "Edit: Mirror left–right (H) and Mirror up–down (V) — flip the current glyph, undoable."
     , "Edit: Copy to codepoint… (C) — duplicate the current glyph's bitmap to another code (it becomes the selection)."

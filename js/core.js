@@ -26,7 +26,7 @@
    * (1-indexed) in the STATUS.md "Current state" list; PATCH = 0 for a single
    * chunk, the sub-index for a wave (chunk L.3 shipped 0.12.3). Bump in the
    * same commit as the chunk — a headless test pins the exact value. */
-  var VERSION = "0.19.0";
+  var VERSION = "0.20.0";
 
   /* ============================================================
    * [1] Font model
@@ -824,6 +824,95 @@
   }
 
   /* ============================================================
+   * [16] Selection rect ops (DECISIONS #75)
+   * ============================================================ */
+
+  // Normalize a drag rectangle (any corner order) into { x, y, w, h } in
+  // pixel coordinates, clamped to the cw×ch cell (a point or off-cell drag
+  // still yields at least a 1 px rect; the app's moved flag decides
+  // click-vs-drag). Returns null only if the result has no area.
+  function normRect(x0, y0, x1, y1, cw, ch) {
+    function inr(v, hi) { v = Math.round(v); return v < 0 ? 0 : (v > hi ? hi : v); }
+    var ax = inr(Math.min(x0, x1), cw - 1);
+    var ay = inr(Math.min(y0, y1), ch - 1);
+    var bx = inr(Math.max(x0, x1), cw - 1);
+    var by = inr(Math.max(y0, y1), ch - 1);
+    if (bx < ax || by < ay) return null;
+    return { x: ax, y: ay, w: bx - ax + 1, h: by - ay + 1 };
+  }
+
+  function checkRectArgs(font, code, rect) {
+    if (code < 0 || code >= NUM_GLYPHS) throw new Error("bad code " + code);
+    if (!rect || rect.w <= 0 || rect.h <= 0) throw new Error("empty rect");
+    if (rect.x < 0 || rect.y < 0 || rect.x + rect.w > font.width || rect.y + rect.h > font.height)
+      throw new Error("rect outside the cell");
+  }
+
+  // Set every pixel in the rect to value (0 = clear, 1 = fill).
+  function rectFill(font, code, rect, value) {
+    checkRectArgs(font, code, rect);
+    value = value ? 1 : 0;
+    var base = code * font.width * font.height;
+    for (var y = 0; y < rect.h; y++)
+      for (var x = 0; x < rect.w; x++)
+        font.data[base + (rect.y + y) * font.width + (rect.x + x)] = value;
+  }
+
+  // Toggle every pixel in the rect.
+  function rectInvert(font, code, rect) {
+    checkRectArgs(font, code, rect);
+    var base = code * font.width * font.height;
+    for (var y = 0; y < rect.h; y++)
+      for (var x = 0; x < rect.w; x++) {
+        var i = base + (rect.y + y) * font.width + (rect.x + x);
+        font.data[i] = font.data[i] ? 0 : 1;
+      }
+  }
+
+  // Move the rect's content by (dx, dy): a CUT — the source rect is cleared,
+  // the pixels land at their offset positions, anything falling outside the
+  // cell is clipped (lost). Overlapping source/target is safe (the source
+  // is read from a snapshot before anything is written). Returns
+  // { moved, clipped } — ink pixel counts.
+  function rectMove(font, code, rect, dx, dy) {
+    checkRectArgs(font, code, rect);
+    dx = Math.round(dx); dy = Math.round(dy);
+    if (dx === 0 && dy === 0) return { moved: 0, clipped: 0 };
+    var w = font.width, h = font.height, base = code * w * h, snap = [];
+    var moved = 0, clipped = 0, x, y, inRect, tx, ty;
+    for (y = 0; y < rect.h; y++)
+      for (x = 0; x < rect.w; x++)
+        snap.push(font.data[base + (rect.y + y) * w + (rect.x + x)]);
+    // Clear the source region.
+    for (y = 0; y < rect.h; y++)
+      for (x = 0; x < rect.w; x++)
+        font.data[base + (rect.y + y) * w + (rect.x + x)] = 0;
+    // Place the content at the new position (clipped at the cell edge).
+    for (y = 0; y < rect.h; y++)
+      for (x = 0; x < rect.w; x++) {
+        if (!snap[y * rect.w + x]) continue;
+        tx = rect.x + x + dx; ty = rect.y + y + dy;
+        if (tx < 0 || ty < 0 || tx >= w || ty >= h) { clipped++; continue; }
+        font.data[base + ty * w + tx] = 1;
+        moved++;
+      }
+    return { moved: moved, clipped: clipped };
+  }
+
+  // Copy the rect's exact pixels (ink AND transparent) from glyph `from` to
+  // glyph `to`, at the SAME cell position — a paste, not a stamp. `from` is
+  // untouched. (rects must fit both cells — they share the same cell size.)
+  function rectCopy(font, from, to, rect) {
+    checkRectArgs(font, from, rect);
+    if (to < 0 || to >= NUM_GLYPHS) throw new Error("bad target code " + to);
+    var w = font.width, baseF = from * w * font.height, baseT = to * w * font.height;
+    for (var y = 0; y < rect.h; y++)
+      for (var x = 0; x < rect.w; x++)
+        font.data[baseT + (rect.y + y) * w + (rect.x + x)] =
+          font.data[baseF + (rect.y + y) * w + (rect.x + x)];
+  }
+
+  /* ============================================================
    * API
    * ============================================================ */
   var api = {
@@ -871,6 +960,12 @@
     copyGlyphTo: copyGlyphTo,
     mirrorGlyph: mirrorGlyph,
     emptyPrintables: emptyPrintables,
+    // selection rect ops (DECISIONS #75)
+    normRect: normRect,
+    rectFill: rectFill,
+    rectInvert: rectInvert,
+    rectMove: rectMove,
+    rectCopy: rectCopy,
     // edge-ink QA
     edgeInk: edgeInk,
     // guideline-violation QA

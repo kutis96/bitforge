@@ -9,6 +9,7 @@ Pure vanilla JS: no build, no dependencies, no server. Open `index.html` in a br
 ## Features
 
 - **Bitmap editor** — click toggles a pixel, drag paints, right-drag erases; undo/redo; clear glyph; **mirror** left–right / up–down; **copy a glyph to another codepoint** (duplicate it, then shape the variant).
+- **Selection tools** — a paint/erase/select toolbar: drag a rectangular marquee, then **fill / clear / invert** it, **copy** it to the clipboard, **copy to** another codepoint, or drag it to **move** its contents (cut, clipped at the cell edge).
 - **Glyph selector** — the whole atlas as a 16×16 mini-glyph grid in the sidebar: click to select, **Shift-click** sets a *reference glyph*, drawn as a gray underlay behind the glyph being edited.
 - **Guidelines** — per-font shared horizontal/vertical guides (ascender, cap, x-height, baseline, descender, left/right width) with presets, drag-to-move (lockable), drawn *between* pixels.
 - **Preview** — a multi-line text sample with a small markup: `*bold*` (1 px double-strike), `_italic_` (slant with adjustable baseline), `\uXX` for unprintables, backslash escapes; scale 1–64; inverted (white-on-black) view.
@@ -16,7 +17,7 @@ Pure vanilla JS: no build, no dependencies, no server. Open `index.html` in a br
 - **Glyph status** — mark glyphs *unfinished / wip / done*; the selector and atlas tint them. Pump through a face with `D` (cycle status) and `Shift+D` (mark done, move to next).
 - **QA checks** — duplicate glyphs, edge-touching ink, guideline violations, empty printable glyphs; per-glyph *silencing* for expected cases (box drawing, …) and a stale-aware report.
 - **Import/export** — PNG atlas (file or clipboard), BDF, binary Verilog `$readmemb` ROM text, and a `.bitforge` project file carrying the work-in-progress state (guidelines, status, silences, settings).
-- **Keyboard-driven** — glyph navigation, file ops, status pumping; press `?` in the app for the shortcut reference (rendered from the live binding registry, so it can't drift).
+- **Keyboard-driven** — glyph navigation, file ops, status pumping, tools; press `?` in the app for the shortcut reference (rendered from the live binding registry, so it can't drift).
 
 ## Getting started
 

@@ -28,11 +28,14 @@
     redo: [],          // redo: [{ code, snap }]
     glocked: true,     // guidelines locked (can't drag) by default
     ref: null,         // reference glyph code for the editor underlay (session-only)
+    tool: "paint",     // editor tool: "paint" | "erase" | "select" (DECISIONS #75)
+    selRect: null,     // { x, y, w, h } selection on the current glyph (session-only)
     inverted: false,   // preview surfaces: white on black
     fontVersion: 0     // bumped on every font mutation; drives QA staleness
   };
   var editing = null;   // active editor stroke
   var guideDrag = null; // active guideline drag: { g, moved }
+  var selDrag = null;   // active selection gesture: { mode: "marquee"|"move", ax, ay, base?, preview, moved }
   var atlasGeo = { s: 1, pad: 0, colW: 8 }; // last drawAtlas geometry (click mapping)
   var el = {};
 
@@ -597,6 +600,16 @@
       else { var gx2 = g.off * s + 0.5; ctx.moveTo(gx2, 0); ctx.lineTo(gx2, c.height); }
       ctx.stroke();
     }
+    // selection (or the in-progress marquee) — over everything (DECISIONS #75)
+    var sr = (selDrag && selDrag.preview) ? selDrag.preview : state.selRect;
+    if (sr) {
+      ctx.save();
+      ctx.fillStyle = "rgba(34, 85, 204, 0.10)";
+      ctx.fillRect(sr.x * s, sr.y * s, sr.w * s, sr.h * s);
+      ctx.strokeStyle = "#2255cc"; ctx.lineWidth = 1; ctx.setLineDash([3, 2]);
+      ctx.strokeRect(sr.x * s + 0.5, sr.y * s + 0.5, sr.w * s - 1, sr.h * s - 1);
+      ctx.restore();
+    }
   }
 
   function drawSelector() {
@@ -814,19 +827,33 @@
       if (g) { guideDrag = { g: g, moved: false }; evt.preventDefault(); return; }
     }
     var p = editorPos(evt);
+    // Select tool: start a marquee, or a move when the pointer is inside the
+    // existing selection (DECISIONS #75).
+    if (state.tool === "select") {
+      evt.preventDefault();
+      var r = state.selRect;
+      if (r && p.x >= r.x && p.x < r.x + r.w && p.y >= r.y && p.y < r.y + r.h) {
+        selDrag = { mode: "move", ax: p.x, ay: p.y, base: { x: r.x, y: r.y, w: r.w, h: r.h }, preview: null, moved: false };
+      } else {
+        selDrag = { mode: "marquee", ax: p.x, ay: p.y, preview: null, moved: false };
+        setSel(null); // redrawing from scratch
+      }
+      return;
+    }
     var code = state.selected;
     var cur = BF.getPixel(state.font, code, p.x, p.y);
-    var paintValue = (evt.button === 2 || evt.shiftKey) ? 0 : (cur ? 0 : 1);
+    var paintValue = (state.tool === "erase" || evt.button === 2 || evt.shiftKey) ? 0 : (cur ? 0 : 1);
     editing = { code: code, paintValue: paintValue, snapshot: snapshotGlyph(code), changed: false };
     applyPaint(p.x, p.y, paintValue);
     evt.preventDefault();
   }
   function onEditorMove(evt) {
     if (guideDrag) { moveGuide(evt); evt.preventDefault(); return; }
-    if (!state.glocked) {
+    if (!state.glocked && state.tool !== "select") {
       var g = guidelineAt(evt);
       el.editor.style.cursor = g ? (g.o === "h" ? "row-resize" : "col-resize") : "default";
     }
+    if (selDrag) { selMovePreview(evt); return; }
     if (!editing) return;
     var p = editorPos(evt);
     applyPaint(p.x, p.y, editing.paintValue);
@@ -834,6 +861,7 @@
   }
   function onEditorUp() {
     if (guideDrag) { if (guideDrag.moved) saveLS(); guideDrag = null; return; }
+    if (selDrag) { selDragUp(); return; }
     if (!editing) return;
     if (editing.changed) {
       state.history.push({ code: editing.code, snap: editing.snapshot });
@@ -912,6 +940,128 @@
     toast("Copied " + hex2(from) + " \u2192 " + hex2(to));
   }
 
+  // ---------- editor tools + selection (DECISIONS #75) ----------
+  function setTool(t) {
+    if (t !== "paint" && t !== "erase" && t !== "select") return;
+    state.tool = t;
+    if (t !== "select") clearSel();
+    el.toolPaint.classList.toggle("active", t === "paint");
+    el.toolErase.classList.toggle("active", t === "erase");
+    el.toolSelect.classList.toggle("active", t === "select");
+    el.editor.style.cursor = t === "select" ? "crosshair" : "default";
+  }
+  function setSel(rect) {
+    state.selRect = rect;
+    if (rect) {
+      el.selinfo.textContent = rect.w + "\u00d7" + rect.h;
+      el.selbar.hidden = false;
+    } else {
+      el.selinfo.textContent = "";
+      el.selbar.hidden = true;
+    }
+    drawEditor();
+  }
+  function clearSel() {
+    if (!state.selRect && !selDrag) return;
+    state.selRect = null;
+    selDrag = null;
+    el.selbar.hidden = true;
+    el.selinfo.textContent = "";
+    drawEditor();
+  }
+  // Live preview while a marquee is drawn or a selection is being moved.
+  function selMovePreview(evt) {
+    evt.preventDefault();
+    var p = editorPos(evt);
+    var w = state.font.width, h = state.font.height;
+    if (selDrag.mode === "marquee") {
+      selDrag.preview = BF.normRect(selDrag.ax, selDrag.ay, p.x, p.y, w, h);
+      selDrag.moved = selDrag.moved || p.x !== selDrag.ax || p.y !== selDrag.ay;
+    } else {
+      var b = selDrag.base;
+      var nx = b.x + (p.x - selDrag.ax), ny = b.y + (p.y - selDrag.ay);
+      nx = nx < 0 ? 0 : (nx > w - b.w ? w - b.w : nx);
+      ny = ny < 0 ? 0 : (ny > h - b.h ? h - b.h : ny);
+      selDrag.preview = { x: nx, y: ny, w: b.w, h: b.h };
+      selDrag.moved = selDrag.moved || nx !== b.x || ny !== b.y;
+    }
+    drawEditor();
+  }
+  // Commit (or cancel) the active selection gesture on mouse-up.
+  function selDragUp() {
+    var d = selDrag; selDrag = null;
+    if (d.mode === "marquee") {
+      if (d.moved && d.preview) setSel(d.preview); else clearSel(); // plain click => deselect
+    } else if (d.moved && d.preview && (d.preview.x !== d.base.x || d.preview.y !== d.base.y)) {
+      // Move = cut: source cleared, content placed, off-cell clipped.
+      var code = state.selected;
+      var snap = snapshotGlyph(code);
+      var res = BF.rectMove(state.font, code, d.base, d.preview.x - d.base.x, d.preview.y - d.base.y);
+      state.history.push({ code: code, snap: snap });
+      if (state.history.length > 100) state.history.shift();
+      state.redo = [];
+      bumpFontVersion();
+      setSel(d.preview); // the selection follows its content
+      toast("Moved " + res.moved + " px" + (res.clipped ? " \u2014 " + res.clipped + " px clipped" : ""));
+    }
+    redrawAll();
+    saveLS();
+  }
+  // Fill / Clear / Invert the selection — one per-glyph undo step each.
+  function selAction(name) {
+    if (!state.selRect) { toast("Select a region first (S)", true); return; }
+    var code = state.selected;
+    var snap = snapshotGlyph(code);
+    if (name === "fill") BF.rectFill(state.font, code, state.selRect, 1);
+    else if (name === "clear") BF.rectFill(state.font, code, state.selRect, 0);
+    else BF.rectInvert(state.font, code, state.selRect);
+    state.history.push({ code: code, snap: snap });
+    if (state.history.length > 100) state.history.shift();
+    state.redo = [];
+    bumpFontVersion();
+    redrawAll();
+    saveLS();
+  }
+  // The selection as a standalone canvas (for the clipboard copy).
+  function selCanvas(rect, scale) {
+    var f = state.font, c = state.selected;
+    var cv = document.createElement("canvas");
+    cv.width = rect.w * scale; cv.height = rect.h * scale;
+    var ctx = cv.getContext("2d");
+    ctx.fillStyle = "#000";
+    for (var y = 0; y < rect.h; y++)
+      for (var x = 0; x < rect.w; x++)
+        if (BF.getPixel(f, c, rect.x + x, rect.y + y)) ctx.fillRect(x * scale, y * scale, scale, scale);
+    return cv;
+  }
+  function selCopy() {
+    if (!state.selRect) { toast("Select a region first (S)", true); return; }
+    var r = state.selRect;
+    var name = "bitforge-sel-" + r.w + "x" + r.h + ".png";
+    copyCanvasToClipboard(selCanvas(r, COPY_SCALE), name, "Copied the selection to clipboard");
+  }
+  // Paste the selection (exact pixels, same cell position) into another
+  // codepoint — a copy, not a stamp; the target becomes the selection.
+  function selCopyTo() {
+    if (!state.selRect) { toast("Select a region first (S)", true); return; }
+    var from = state.selected;
+    var v = prompt("Paste " + selLabel() + "'s selection to codepoint (one char or hex, e.g. 61 or a):");
+    if (v === null) return;
+    var to = parseCodeInput(v);
+    if (to === null) { toast("Copy to: one char, or hex (e.g. 61 or a)", true); return; }
+    if (to === from) { toast("That's the same codepoint (" + selLabel() + ")", true); return; }
+    var snap = snapshotGlyph(to);
+    BF.rectCopy(state.font, from, to, state.selRect);
+    state.history.push({ code: to, snap: snap });
+    if (state.history.length > 100) state.history.shift();
+    state.redo = [];
+    bumpFontVersion();
+    saveLS();
+    clearSel();
+    selectGlyph(to); // selection is per-glyph; the target becomes the selection
+    toast("Pasted selection " + hex2(from) + " \u2192 " + hex2(to));
+  }
+
   // Full-font restore (resize undo/redo, DECISIONS #71). The snapshot is
   // cloned so the history never aliases the live font.
   function restoreFull(snap) {
@@ -947,6 +1097,7 @@
   }
 
   function selectGlyph(code) {
+    clearSel(); // the selection is per-glyph (DECISIONS #75)
     state.selected = clamp(code, 0, 255);
     updateSelHeader();
     drawSelector();
@@ -1226,20 +1377,25 @@
   function copyGlyphToClipboard() {
     var code = state.selected;
     var name = "bitforge-glyph-" + hex2(code).replace("0x", "").toLowerCase() + ".png";
-    var c = glyphCanvas(code, COPY_SCALE);
-    c.toBlob(function (blob) {
-      if (!blob) { toast("Could not rasterize the glyph", true); return; }
+    copyCanvasToClipboard(glyphCanvas(code, COPY_SCALE), name, "Copied " + selLabel() + " to clipboard");
+  }
+  // Shared clipboard pipeline (glyph copy + selection copy, DECISIONS #75):
+  // canvas -> PNG blob -> navigator.clipboard when available, download
+  // fallback otherwise (e.g. file:// without a secure context).
+  function copyCanvasToClipboard(cv, name, okMsg) {
+    cv.toBlob(function (blob) {
+      if (!blob) { toast("Could not rasterize the image", true); return; }
       var clip = (typeof navigator !== "undefined") ? navigator.clipboard : null;
       if (clip && typeof clip.write === "function" && typeof ClipboardItem !== "undefined") {
         clip.write([new ClipboardItem({ "image/png": blob })]).then(function () {
-          toast("Copied " + selLabel() + " to clipboard");
+          toast(okMsg);
         }, function () {
           downloadBlob(blob, name);
-          toast("Clipboard write blocked \u2014 glyph downloaded as " + name, true);
+          toast("Clipboard write blocked \u2014 downloaded as " + name, true);
         });
       } else {
         downloadBlob(blob, name);
-        toast("Clipboard unavailable \u2014 glyph downloaded as " + name, true);
+        toast("Clipboard unavailable \u2014 downloaded as " + name, true);
       }
     }, "image/png");
   }
@@ -1461,6 +1617,10 @@
       miExportBdf: $("mi-export-bdf"), miExportVerilog: $("mi-export-verilog"), miExportProject: $("mi-export-project"),
       miUndo: $("mi-undo"), miRedo: $("mi-redo"), miProps: $("mi-props"), miClearGlyph: $("mi-clear-glyph"), miCopyGlyph: $("mi-copy-glyph"),
       miMirrorH: $("mi-mirror-h"), miMirrorV: $("mi-mirror-v"), miCopyTo: $("mi-copy-to"),
+      toolPaint: $("tool-paint"), toolErase: $("tool-erase"), toolSelect: $("tool-select"),
+      selbar: $("selbar"), selinfo: $("selinfo"),
+      selFill: $("sel-fill"), selClear: $("sel-clear"), selInvert: $("sel-invert"),
+      selCopy: $("sel-copy"), selCopyTo: $("sel-copyto"), selX: $("sel-x"),
       miCycleStatus: $("mi-cycle-status"), miDoneNext: $("mi-done-next"),
       propsModal: $("props-modal"), propsClose: $("props-close"), propsInfo: $("props-info"),
       propsName: $("props-name"), propsSave: $("props-save"), propsCancel: $("props-cancel"),
@@ -1522,7 +1682,18 @@
       if (!inside) closeMenus();
     });
     document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape") { closeMenus(); closeAboutModal(); closePropsModal(); closeResizeModal(); closeChangelogModal(); }
+      if (e.key === "Escape") {
+        closeMenus(); closeAboutModal(); closePropsModal(); closeResizeModal(); closeChangelogModal();
+        // Deselect too — but only when nothing else claimed the Escape
+        // (a menu/modal above would have closed itself and takes priority).
+        var busy = false, i;
+        for (i = 0; i < menuPairs.length; i++) if (menuPairs[i][0].classList.contains("open")) busy = true;
+        if (!busy) {
+          if (!el.aboutModal.hidden || !el.propsModal.hidden || !el.rzModal.hidden || !el.clModal.hidden) busy = true;
+          else if (!el.keysCard.hidden) busy = true;
+        }
+        if (!busy && state.selRect) clearSel();
+      }
     });
     function menuItem(id, fn) {
       el[id].addEventListener("click", function () { closeMenus(); fn(); });
@@ -1602,6 +1773,18 @@
     el.btnClear.addEventListener("click", clearGlyphAction);
     el.btnUndo.addEventListener("click", undo);
     el.btnRedo.addEventListener("click", redo);
+
+    // Editor tools + selection actions (DECISIONS #75).
+    el.toolPaint.addEventListener("click", function () { setTool("paint"); });
+    el.toolErase.addEventListener("click", function () { setTool("erase"); });
+    el.toolSelect.addEventListener("click", function () { setTool("select"); });
+    el.selFill.addEventListener("click", function () { selAction("fill"); });
+    el.selClear.addEventListener("click", function () { selAction("clear"); });
+    el.selInvert.addEventListener("click", function () { selAction("invert"); });
+    el.selCopy.addEventListener("click", selCopy);
+    el.selCopyTo.addEventListener("click", selCopyTo);
+    el.selX.addEventListener("click", clearSel);
+    setTool("paint"); // sync the toolbar with the default tool
 
     el.editor.addEventListener("mousedown", onEditorDown);
     el.editor.addEventListener("mousemove", onEditorMove);
@@ -1711,6 +1894,11 @@
     shortcuts.register({ combo: "h", description: "Mirror glyph left–right", handler: function () { mirrorAction("h"); } });
     shortcuts.register({ combo: "v", description: "Mirror glyph up–down", handler: function () { mirrorAction("v"); } });
     shortcuts.register({ combo: "c", description: "Copy glyph to codepoint…", handler: copyToCodepointAction });
+    shortcuts.register({ combo: "b", description: "Paint tool", handler: function () { setTool("paint"); } });
+    shortcuts.register({ combo: "s", description: "Select tool (marquee)", handler: function () { setTool("select"); } });
+    shortcuts.register({ combo: "f", description: "Fill the selection (selection active)", handler: function () { selAction("fill"); } });
+    shortcuts.register({ combo: "x", description: "Clear the selection (selection active)", handler: function () { selAction("clear"); } });
+    shortcuts.register({ combo: "i", description: "Invert the selection (selection active)", handler: function () { selAction("invert"); } });
     shortcuts.register({ combo: "Ctrl+ArrowLeft", description: "Shift glyph left", handler: function () { shiftGlyphAction(-1, 0); } });
     shortcuts.register({ combo: "Ctrl+ArrowRight", description: "Shift glyph right", handler: function () { shiftGlyphAction(1, 0); } });
     shortcuts.register({ combo: "Ctrl+ArrowUp", description: "Shift glyph up", handler: function () { shiftGlyphAction(0, -1); } });
@@ -1753,6 +1941,7 @@
       copyPngToClipboard: copyPngToClipboard, importPngFromClipboard: importPngFromClipboard,
       copyGlyph: copyGlyphToClipboard, glyphCanvas: glyphCanvas, applyResize: applyResize,
       mirrorAction: mirrorAction, copyToCodepointAction: copyToCodepointAction, parseCodeInput: parseCodeInput,
+      setTool: setTool, setSel: setSel, clearSel: clearSel, selAction: selAction, selCopyTo: selCopyTo,
       getLastToast: function () { return lastToast; },
       exportPng: exportPng, settingsGet: settingsGet, settingsSet: settingsSet,
       whatsNew: whatsNew, openChangelogModal: openChangelogModal, closeChangelogModal: closeChangelogModal,

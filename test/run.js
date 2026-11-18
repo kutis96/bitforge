@@ -16,6 +16,7 @@ load("test/test-shift.js");
 load("test/test-resize.js");
 load("test/test-changelog.js");
 load("test/test-glyphops.js");
+load("test/test-selectops.js");
 load("test/test-status.js");
 load("test/test-dupes.js");
 load("test/test-edge.js");

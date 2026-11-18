@@ -41,6 +41,16 @@ Rules:
 - Run `./test/run-tests.sh` before committing — the changelog data-sanity
   test is the safety net.
 
+## 0.20.0 (2026-11-18)
+
+- **Edit**: new toolbar — `paint` (B) / `erase` / `select` (S) tools.
+- **Edit**: rectangular selection (drag a marquee over the cell) with
+  `fill` (F), `clear` (X), `invert` (I), `copy` (clipboard PNG),
+  `copy to…` (paste the exact pixels into another codepoint at the same
+  position), and **move-by-drag** — drag from inside the selection to move
+  its contents (a cut: the source is cleared, off-cell ink is clipped).
+- **Edit**: `Esc` deselects (when no menu or modal is open).
+
 ## 0.19.0 (2026-11-18)
 
 - **Edit**: `Mirror left–right` (H) and `Mirror up–down` (V) — flip the
