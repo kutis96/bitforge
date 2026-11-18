@@ -378,6 +378,22 @@
         }
         return rows;
       }
+    },
+    {
+      // Empty-printable lint (DECISIONS #74): a printable code with zero ink
+      // is usually a pumping slip or an accidental Clear. Space (0x20) is the
+      // sanctioned empty. Silenceable per glyph — a font may intentionally
+      // leave codes empty. Detail flags the real mistake: marked *done*.
+      id: "empty", name: "empty printable glyphs", severity: "info", silenceable: true,
+      run: function (f) {
+        var codes = BF.emptyPrintables(f), rows = [], i, c;
+        for (i = 0; i < codes.length; i++) {
+          c = codes[i];
+          rows.push({ check: "empty printable glyphs", codes: codeLabel(c),
+            detail: "no ink" + (f.status[c] === 2 ? " \u2014 marked done" : ""), code: c });
+        }
+        return rows;
+      }
     }
   ];
   var qaLastVersion = null; // fontVersion the current table was computed at
@@ -862,6 +878,40 @@
     bumpFontVersion();
   }
 
+  // ---------- glyph manipulation (DECISIONS #74) ----------
+  function mirrorAction(axis) {
+    var code = state.selected;
+    state.history.push({ code: code, snap: snapshotGlyph(code) });
+    if (state.history.length > 100) state.history.shift();
+    BF.mirrorGlyph(state.font, code, axis);
+    state.redo = [];
+    redrawAll();
+    saveLS();
+    bumpFontVersion();
+    toast(selLabel() + " mirrored " + (axis === "h" ? "left–right" : "up–down"));
+  }
+
+  // Edit → Copy to codepoint… (DECISIONS #74): prompt for the target (same
+  // input grammar as the jump field), duplicate the bitmap there, select it
+  // (the usual follow-up is shaping the new variant). Target status/silences
+  // are untouched; one per-glyph undo step.
+  function copyToCodepointAction() {
+    var from = state.selected;
+    var v = prompt("Copy " + selLabel() + " to codepoint (one char or hex, e.g. 61 or a):");
+    if (v === null) return;
+    var to = parseCodeInput(v);
+    if (to === null) { toast("Copy to: one char, or hex (e.g. 61 or a)", true); return; }
+    if (to === from) { toast("That's the same codepoint (" + selLabel() + ")", true); return; }
+    state.history.push({ code: to, snap: snapshotGlyph(to) });
+    if (state.history.length > 100) state.history.shift();
+    BF.copyGlyphTo(state.font, from, to);
+    state.redo = [];
+    saveLS();
+    bumpFontVersion();
+    selectGlyph(to);
+    toast("Copied " + hex2(from) + " \u2192 " + hex2(to));
+  }
+
   // Full-font restore (resize undo/redo, DECISIONS #71). The snapshot is
   // cloned so the history never aliases the live font.
   function restoreFull(snap) {
@@ -904,14 +954,22 @@
     renderGlyphStatus();
   }
 
+  // Shared codepoint-input parser (jump field + "Copy to codepoint…"): one
+  // char, or 1–2 hex digits with/without 0x. Returns the code, or null.
+  function parseCodeInput(v) {
+    v = String(v).trim();
+    if (!v) return null;
+    if (v.length === 1) return v.charCodeAt(0);
+    if (/^0x[0-9a-f]{1,2}$/i.test(v)) return parseInt(v.slice(2), 16);
+    if (/^[0-9a-f]{1,2}$/i.test(v)) return parseInt(v, 16);
+    return null;
+  }
   function doJump() {
-    var v = el.jump.value.trim();
-    if (!v) return;
-    var code;
-    if (v.length === 1) code = v.charCodeAt(0);
-    else if (/^0x[0-9a-f]{1,2}$/i.test(v)) code = parseInt(v.slice(2), 16);
-    else if (/^[0-9a-f]{1,2}$/i.test(v)) code = parseInt(v, 16);
-    else { toast("Jump: one char, or hex (e.g. 41 / 0x41)", true); return; }
+    var code = parseCodeInput(el.jump.value);
+    if (code === null) {
+      if (el.jump.value.trim()) toast("Jump: one char, or hex (e.g. 41 / 0x41)", true);
+      return;
+    }
     el.jump.value = "";
     el.jump.blur();
     selectGlyph(code);
@@ -1402,6 +1460,7 @@
       miExportPngSolid: $("mi-export-png-solid"), miExportPngTransparent: $("mi-export-png-transparent"), miCopyPngClip: $("mi-copy-png-clip"),
       miExportBdf: $("mi-export-bdf"), miExportVerilog: $("mi-export-verilog"), miExportProject: $("mi-export-project"),
       miUndo: $("mi-undo"), miRedo: $("mi-redo"), miProps: $("mi-props"), miClearGlyph: $("mi-clear-glyph"), miCopyGlyph: $("mi-copy-glyph"),
+      miMirrorH: $("mi-mirror-h"), miMirrorV: $("mi-mirror-v"), miCopyTo: $("mi-copy-to"),
       miCycleStatus: $("mi-cycle-status"), miDoneNext: $("mi-done-next"),
       propsModal: $("props-modal"), propsClose: $("props-close"), propsInfo: $("props-info"),
       propsName: $("props-name"), propsSave: $("props-save"), propsCancel: $("props-cancel"),
@@ -1484,6 +1543,9 @@
     menuItem("miProps", openPropsModal);
     menuItem("miResize", openResizeModal);
     menuItem("miClearGlyph", clearGlyphAction);
+    menuItem("miMirrorH", function () { mirrorAction("h"); });
+    menuItem("miMirrorV", function () { mirrorAction("v"); });
+    menuItem("miCopyTo", copyToCodepointAction);
     menuItem("miCycleStatus", cycleStatusAction);
     menuItem("miDoneNext", doneNextAction);
     menuItem("miCopyGlyph", copyGlyphToClipboard);
@@ -1646,6 +1708,9 @@
     shortcuts.register({ combo: "Ctrl+q", description: "QA tab + run checks", handler: function () { setActiveTab("qa"); qaRefresh(); } });
     shortcuts.register({ combo: "d", description: "Cycle glyph status (unf \u2192 wip \u2192 done)", handler: cycleStatusAction });
     shortcuts.register({ combo: "Shift+d", description: "Mark done & move to next glyph", handler: doneNextAction });
+    shortcuts.register({ combo: "h", description: "Mirror glyph left–right", handler: function () { mirrorAction("h"); } });
+    shortcuts.register({ combo: "v", description: "Mirror glyph up–down", handler: function () { mirrorAction("v"); } });
+    shortcuts.register({ combo: "c", description: "Copy glyph to codepoint…", handler: copyToCodepointAction });
     shortcuts.register({ combo: "Ctrl+ArrowLeft", description: "Shift glyph left", handler: function () { shiftGlyphAction(-1, 0); } });
     shortcuts.register({ combo: "Ctrl+ArrowRight", description: "Shift glyph right", handler: function () { shiftGlyphAction(1, 0); } });
     shortcuts.register({ combo: "Ctrl+ArrowUp", description: "Shift glyph up", handler: function () { shiftGlyphAction(0, -1); } });
@@ -1687,6 +1752,7 @@
       importProjectText: importProjectText, projectExportText: projectExportText, exportProject: exportProject,
       copyPngToClipboard: copyPngToClipboard, importPngFromClipboard: importPngFromClipboard,
       copyGlyph: copyGlyphToClipboard, glyphCanvas: glyphCanvas, applyResize: applyResize,
+      mirrorAction: mirrorAction, copyToCodepointAction: copyToCodepointAction, parseCodeInput: parseCodeInput,
       getLastToast: function () { return lastToast; },
       exportPng: exportPng, settingsGet: settingsGet, settingsSet: settingsSet,
       whatsNew: whatsNew, openChangelogModal: openChangelogModal, closeChangelogModal: closeChangelogModal,

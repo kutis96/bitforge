@@ -121,8 +121,8 @@ test("dom: shortcut card toggles; registry holds the full binding set", function
   assertEqual(els["keys-card"].hidden, false, "toggle shows it");
   app.toggleKeysCard();
   assertEqual(els["keys-card"].hidden, true, "toggle hides it");
-  // 8 nav + 9 file-ops + 5 tabs + 2 status + 4 shift + 3 undo/redo + 1 card = 32
-  assertEqual(app.shortcuts.list.length, 32, "32 shortcuts registered");
+  // 8 nav + 9 file-ops + 5 tabs + 2 status + 3 mirror/copy-to + 4 shift + 3 undo/redo + 1 card = 35
+  assertEqual(app.shortcuts.list.length, 35, "35 shortcuts registered");
   var combos = {};
   for (var i = 0; i < app.shortcuts.list.length; i++) combos[app.shortcuts.list[i].combo] = true;
   assert(combos["Ctrl+ArrowLeft"] && combos["?"] && combos["Ctrl+z"] && combos["PageUp"], "expected combos present");
@@ -630,7 +630,7 @@ test("dom: mousedown on a menu item must NOT close the menu (real-browser click 
 
 test("dom: About modal head + browser tab show the app version (DECISIONS #56)", function () {
   assert(/^\d+\.\d+\.\d+$/.test(BF.VERSION), "BF.VERSION is semver-ish: " + BF.VERSION);
-  assertEqual(BF.VERSION, "0.18.0", "pinned version — bump this test when you bump the app");
+  assertEqual(BF.VERSION, "0.19.0", "pinned version — bump this test when you bump the app");
   var els = globalThis.__stub.els;
   assertEqual(els["about-title"].textContent, "bitforge " + BF.VERSION, "modal head shows name + version");
   assertEqual(document.title, "bitforge " + BF.VERSION, "browser tab shows name + version");
@@ -905,12 +905,18 @@ test("dom: changelog — version remembered, what's-new filtering, modal views",
   assertEqual(localStorage.getItem(app.changelogVersionKey), BF.VERSION, "last-run version stored");
   // Up to date now: nothing new.
   assertEqual(app.whatsNew().length, 0, "current version => nothing new");
-  // Coming from an older version: exactly the entries since then.
-  localStorage.setItem(app.changelogVersionKey, "0.16.0");
+  // Coming from an older version: exactly the entries since then. (Computed
+  // from BF_CHANGELOG + BF.cmpVersions so the test survives version bumps.)
+  var since = "0.16.0";
+  var expectedNewer = [];
+  for (var ci = 0; ci < BF_CHANGELOG.length; ci++)
+    if (BF.cmpVersions(BF_CHANGELOG[ci].version, since) > 0) expectedNewer.push(BF_CHANGELOG[ci].version);
+  assert(expectedNewer.length >= 2, "fixture sanity: at least two versions newer than " + since);
+  localStorage.setItem(app.changelogVersionKey, since);
   var seen = app.whatsNew();
-  assertEqual(seen.length, 3, "0.17.0, 0.17.1, 0.18.0 (update on version bumps)");
-  assertEqual(seen[0].version, "0.18.0", "newest first");
-  assertEqual(seen[2].version, "0.17.0", "oldest of the new");
+  assertEqual(seen.length, expectedNewer.length, "entries newer than " + since);
+  assertEqual(seen[0].version, expectedNewer[0], "newest first");
+  assertEqual(seen[seen.length - 1].version, expectedNewer[expectedNewer.length - 1], "oldest of the new");
   // Downgrade / future version: nothing new.
   localStorage.setItem(app.changelogVersionKey, "9.9.9");
   assertEqual(app.whatsNew().length, 0, "downgrade => nothing new");
@@ -929,8 +935,124 @@ test("dom: changelog — version remembered, what's-new filtering, modal views",
   assertEqual(els["cl-modal"].hidden, true, "closed");
   // What's-new mode renders the subset.
   app.openChangelogModal(seen, true);
-  assertEqual(els["cl-list"].children.length, 3, "subset rendered");
+  assertEqual(els["cl-list"].children.length, seen.length, "subset rendered");
   app.closeChangelogModal();
   // Leave the stub in a clean state for any later tests.
   localStorage.setItem(app.changelogVersionKey, BF.VERSION);
+});
+
+// ---------- glyph manipulation (DECISIONS #74) ----------
+
+test("dom: parseCodeInput — char, hex, 0x-hex, garbage", function () {
+  var app = globalThis.__stub.app;
+  assertEqual(app.parseCodeInput("a"), 0x61, "one char");
+  assertEqual(app.parseCodeInput("41"), 0x41, "bare hex");
+  assertEqual(app.parseCodeInput("0x41"), 0x41, "0x hex");
+  assertEqual(app.parseCodeInput(" 41 "), 0x41, "trimmed");
+  assertEqual(app.parseCodeInput("zz"), null, "garbage");
+  assertEqual(app.parseCodeInput(""), null, "empty");
+  assertEqual(app.parseCodeInput("123"), null, "3 hex digits");
+});
+
+test("dom: mirror — H/V flip the selected glyph, Ctrl+Z restores", function () {
+  var app = globalThis.__stub.app;
+  var f = app.state.font, w = f.width, h = f.height;
+  app.selectGlyph(0x41);
+  var before = [];
+  for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) before.push(BF.getPixel(f, 0x41, x, y));
+  BF.clearGlyph(f, 0x41);
+  BF.setPixel(f, 0x41, 0, 0, 1);
+  app.mirrorAction("h");
+  assertEqual(BF.getPixel(f, 0x41, 0, 0), 0, "h: left pixel gone");
+  assertEqual(BF.getPixel(f, 0x41, w - 1, 0), 1, "h: ink at right edge");
+  app.mirrorAction("v");
+  assertEqual(BF.getPixel(f, 0x41, w - 1, 0), 0, "v: top row cleared");
+  assertEqual(BF.getPixel(f, 0x41, w - 1, h - 1), 1, "v: ink at bottom-right");
+  var t = app.getLastToast();
+  assert(t.indexOf("up–down") !== -1, "toast names the axis: " + t);
+  // Two undos step back through both mirrors to the single (0,0) ink.
+  app.shortcuts.dispatch({ key: "z", ctrlKey: true, preventDefault: function () {} });
+  assertEqual(BF.getPixel(f, 0x41, w - 1, h - 1), 0, "undo v: bottom-right cleared");
+  assertEqual(BF.getPixel(f, 0x41, w - 1, 0), 1, "undo v: back at right edge top");
+  app.shortcuts.dispatch({ key: "z", ctrlKey: true, preventDefault: function () {} });
+  var ok = BF.getPixel(f, 0x41, 0, 0) === 1 && BF.getPixel(f, 0x41, w - 1, 0) === 0;
+  assert(ok, "undo h: back to the single (0,0) ink");
+  // Leave 0x41 as it was for later tests.
+  for (var i = 0; i < before.length; i++) BF.setPixel(f, 0x41, i % w, (i / w) | 0, before[i]);
+});
+
+test("dom: copy-to-codepoint — duplicates, selects target, refuses bad input", function () {
+  var app = globalThis.__stub.app;
+  var f = app.state.font;
+  app.selectGlyph(0x42);
+  BF.clearGlyph(f, 0x42);
+  BF.setPixel(f, 0x42, 0, 5, 1);
+  var before62 = [];
+  for (var y = 0; y < f.height; y++) for (var x = 0; x < f.width; x++) before62.push(BF.getPixel(f, 0x62, x, y));
+  f.status[0x62] = 2; // target status must survive the copy
+
+  globalThis.prompt = function () { return "62"; };
+  app.copyToCodepointAction();
+  assertEqual(app.state.selected, 0x62, "target becomes the selection");
+  assertEqual(BF.getPixel(f, 0x62, 0, 5), 1, "target got the ink");
+  assertEqual(f.status[0x62], 2, "target status untouched");
+  var t = app.getLastToast();
+  assert(t.indexOf("0x42") !== -1 && t.indexOf("0x62") !== -1, "toast names both codes: " + t);
+
+  // Same codepoint as the selection is refused.
+  globalThis.prompt = function () { return "62"; };
+  app.copyToCodepointAction();
+  assert(app.getLastToast().indexOf("same codepoint") !== -1, "same-code refused: " + app.getLastToast());
+
+  // Garbage input is refused and changes nothing.
+  BF.setPixel(f, 0x62, 1, 6, 1);
+  globalThis.prompt = function () { return "nope"; };
+  app.copyToCodepointAction();
+  assert(app.getLastToast().indexOf("one char, or hex") !== -1, "garbage refused: " + app.getLastToast());
+  assertEqual(BF.getPixel(f, 0x62, 1, 6), 1, "garbage input left the target alone");
+
+  // Cancel (null) does nothing.
+  globalThis.prompt = function () { return null; };
+  app.copyToCodepointAction();
+  assertEqual(BF.getPixel(f, 0x62, 1, 6), 1, "cancel left the font alone");
+  delete globalThis.prompt;
+
+  // Cleanup: restore 0x62 (ink + status) and blank the source again.
+  for (var i = 0; i < before62.length; i++) BF.setPixel(f, 0x62, i % f.width, (i / f.width) | 0, before62[i]);
+  f.status[0x62] = 0;
+  BF.clearGlyph(f, 0x42);
+  app.selectGlyph(0x42);
+});
+
+test("dom: QA — empty printable glyphs (info, silenceable, flags done)", function () {
+  var app = globalThis.__stub.app;
+  var f = app.state.font, code = 0x7b; // '{' — cleared for the test
+  BF.clearGlyph(f, code);
+  function emptyRow(rows) {
+    for (var i = 0; i < rows.length; i++)
+      if (rows[i].checkId === "empty" && rows[i].code === code) return rows[i];
+    return null;
+  }
+  var row = emptyRow(app.qaRows());
+  assert(row, "row for the empty glyph");
+  assertEqual(row.severity, "info", "info severity");
+  assert(row.silenceable, "silenceable");
+  assert(row.detail.indexOf("no ink") === 0, "detail: " + row.detail);
+  // Marking it done upgrades the detail — that's the real mistake.
+  app.setStatus(code, 2);
+  row = emptyRow(app.qaRows());
+  assert(row.detail.indexOf("marked done") !== -1, "done detail: " + row.detail);
+  // Silence it: the row is flagged silenced (mechanism shared with edge/guides).
+  app.toggleSilence("empty", code);
+  row = emptyRow(app.qaRows());
+  assert(row.silenced, "silenced flag set");
+  // Space is never listed even though it is empty.
+  var spaceRow = null;
+  var rows = app.qaRows();
+  for (var i = 0; i < rows.length; i++)
+    if (rows[i].checkId === "empty" && rows[i].code === 0x20) spaceRow = rows[i];
+  assert(!spaceRow, "space never listed");
+  // Cleanup.
+  app.toggleSilence("empty", code);
+  app.setStatus(code, 0);
 });

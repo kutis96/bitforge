@@ -41,6 +41,16 @@ Rules:
 - Run `./test/run-tests.sh` before committing — the changelog data-sanity
   test is the safety net.
 
+## 0.19.0 (2026-11-18)
+
+- **Edit**: `Mirror left–right` (H) and `Mirror up–down` (V) — flip the
+current glyph, undoable.
+- **Edit**: `Copy to codepoint…` (C) — duplicate the current glyph's bitmap to
+another codepoint (the target becomes the selection for immediate shaping).
+- **QA**: new *empty printable glyphs* check (info, silenceable) — flags
+printable codes with no ink (space excepted), and says so extra-loudly if
+the glyph is marked **done**.
+
 ## 0.18.0 (2026-11-17)
 
 - Changelog: in-app changelog (About → Changelog…) and a “What’s new” modal

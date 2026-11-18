@@ -26,7 +26,7 @@
    * (1-indexed) in the STATUS.md "Current state" list; PATCH = 0 for a single
    * chunk, the sub-index for a wave (chunk L.3 shipped 0.12.3). Bump in the
    * same commit as the chunk — a headless test pins the exact value. */
-  var VERSION = "0.18.0";
+  var VERSION = "0.19.0";
 
   /* ============================================================
    * [1] Font model
@@ -777,6 +777,53 @@
   }
 
   /* ============================================================
+   * [15] Glyph manipulation (DECISIONS #74)
+   * ============================================================ */
+
+  // Copy the whole bitmap of glyph `from` over glyph `to`.
+  // No-op when from === to (copying onto itself). Status/silences are
+  // untouched — workflow metadata is user-managed (see DECISIONS #74).
+  function copyGlyphTo(font, from, to) {
+    if (from < 0 || from >= NUM_GLYPHS) throw new Error("copyGlyphTo: bad source code " + from);
+    if (to < 0 || to >= NUM_GLYPHS) throw new Error("copyGlyphTo: bad target code " + to);
+    if (from === to) return;
+    var n = font.width * font.height;
+    var fromBase = from * n, toBase = to * n;
+    for (var i = 0; i < n; i++) font.data[toBase + i] = font.data[fromBase + i];
+  }
+
+  // Mirror glyph `code` in place. axis "h" = left<->right (flip about a
+  // vertical axis); axis "v" = up<->down (flip about a horizontal axis).
+  function mirrorGlyph(font, code, axis) {
+    if (code < 0 || code >= NUM_GLYPHS) throw new Error("mirrorGlyph: bad code " + code);
+    if (axis !== "h" && axis !== "v") throw new Error("mirrorGlyph: bad axis " + axis);
+    var w = font.width, h = font.height, base = code * w * h, x, y, a, b, t;
+    if (axis === "h") {
+      for (y = 0; y < h; y++)
+        for (x = 0; x < (w >> 1); x++) {
+          a = base + y * w + x; b = base + y * w + (w - 1 - x);
+          t = font.data[a]; font.data[a] = font.data[b]; font.data[b] = t;
+        }
+    } else {
+      for (x = 0; x < w; x++)
+        for (y = 0; y < (h >> 1); y++) {
+          a = base + y * w + x; b = base + (h - 1 - y) * w + x;
+          t = font.data[a]; font.data[a] = font.data[b]; font.data[b] = t;
+        }
+    }
+  }
+
+  // Printable codes (0x21..0x7E) that contain no ink at all — ascending.
+  // Space (0x20) is the sanctioned empty and is never listed. Feeds the
+  // "empty printable glyphs" QA check.
+  function emptyPrintables(font) {
+    var out = [];
+    for (var code = 0x21; code <= 0x7e; code++)
+      if (inkCount(font, code) === 0) out.push(code);
+    return out;
+  }
+
+  /* ============================================================
    * API
    * ============================================================ */
   var api = {
@@ -820,6 +867,10 @@
     // changelog (DECISIONS #73)
     cmpVersions: cmpVersions,
     changelogSince: changelogSince,
+    // glyph manipulation (DECISIONS #74)
+    copyGlyphTo: copyGlyphTo,
+    mirrorGlyph: mirrorGlyph,
+    emptyPrintables: emptyPrintables,
     // edge-ink QA
     edgeInk: edgeInk,
     // guideline-violation QA

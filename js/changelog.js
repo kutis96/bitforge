@@ -14,6 +14,11 @@
  * (date "" = pre-dated history, not shown in the UI)
  */
 var BF_CHANGELOG = [
+  { version: "0.19.0", date: "2026-11-18", changes: [
+    "Edit: Mirror left–right (H) and Mirror up–down (V) — flip the current glyph, undoable."
+    , "Edit: Copy to codepoint… (C) — duplicate the current glyph's bitmap to another code (it becomes the selection)."
+    , "QA: new 'empty printable glyphs' check (info, silenceable) — flags printable codes with no ink, and notes it if they're marked done."
+  ] },
   { version: "0.18.0", date: "2026-11-17", changes: [
     "Changelog: in-app changelog (About → Changelog…) and a “What’s new” modal when you run a newer version than before — shows only the changes since your last run (semver-aware), with a “Full changelog…” option; the last-run version is remembered in localStorage."
   ] },

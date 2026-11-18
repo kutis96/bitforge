@@ -39,6 +39,7 @@
 - [x] **[Q] Cell resize** (2026-11-16): **Edit → Resize…** — per-edge row/col deltas, guides + slant baseline shift with the content, clip warning, full-font undo — 156 tests
 - [x] **[Q.1] Clip warning lists glyphs** (2026-11-17): the lossy-crop confirm warning names the affected characters/codepoints (`clippedCodes` in core, full list + affected-glyph count) — 158 tests
 - [x] **[R] Changelog + what's-new modal** (2026-11-17): `js/changelog.js` + `CHANGELOG.md` (backfilled), “What's new” modal on version bump (semver-aware, last-run version remembered), About → Changelog… — 162 tests
+- [x] **[S] Glyph-manipulation tools** (2026-11-18): Mirror left–right (H) / up–down (V) · Copy to codepoint… (C, target becomes the selection) · empty-printable QA check (info, silenceable, flags “marked done”) — 169 tests
 - [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -69,7 +70,8 @@ Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–
 | 0.16.0 | [P] Font name + Properties modal |
 | 0.17.0 | [Q] Cell resize (Resize… modal) |
 | 0.17.1 | [Q.1] Clip warning lists affected glyphs |
-| **0.18.0** (current) | [R] Changelog + what's-new modal |
+| 0.18.0 | [R] Changelog + what's-new modal |
+| **0.19.0** (current) | [S] Glyph-manipulation tools (mirror, copy-to, empty-printable QA) |
 
 **Lettering note (2026-11-15, chunk M):** chunk letters drifted at some point (the I-wave landed after L); they now follow list position. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Git commit subjects still use the old letters.
 
@@ -350,7 +352,14 @@ User request: a changelog (machine-readable for the app, readable for the repo) 
 - **Fixed before user verification (same 0.18.0):** the first commit forgot the `<script src="js/changelog.js">` tag in `index.html` — the headless suite can't catch that (run.js loads the file itself; the stub doesn't parse index.html), so it only showed as a browser `ReferenceError` on user verification. Gotcha recorded in AGENTS.md (new .js file ⇒ script tag + run.js load, both).
 - **Browser-verify (user):** the modal on first run / after a bump (clear the localStorage key, or run an old build then this one); the switch to the full list; About → Changelog…; scroll behaviour.
 
-## Plan — remaining chunks (decisions locked in DECISIONS #32–73)
+### [S] Glyph-manipulation tools (`js/core.js` + `js/app.js` + `index.html` + `test/`, 2026-11-18)
+User greenlight (2026-11-18): the three small editing primitives — copy a glyph to another codepoint, mirror the current glyph, and a QA check for accidentally-empty printable glyphs. See DECISIONS #74.
+- **Core (new section [15]):** `BF.copyGlyphTo(font, from, to)` (whole-bitmap copy; no-op when equal; throws on bad codes; status/silences untouched) · `BF.mirrorGlyph(font, code, axis)` (in-place swap, axis `"h"` = left↔right, `"v"` = up↔down; works for odd and even dims) · `BF.emptyPrintables(font)` (ascending `0x21`–`0x7E` with zero ink; space exempt).
+- **App:** Edit menu gains **Mirror left–right** (H) · **Mirror up–down** (V) · **Copy to codepoint…** (C) between Clear glyph and the status group. `parseCodeInput()` extracted from the jump field (one char, or 1–2 hex digits with/without `0x`) and shared with the copy-to prompt. Copy-to **selects the target afterwards** (shaping the new variant is the usual next step); refuses same-codepoint, garbage, and cancel with distinct toasts. Both mirror and copy-to are one per-glyph undo step each. New QA check `empty` (info, silenceable per glyph; detail gains “— marked done” when the status is done — the real mistake). Shortcuts H/V/C registered (count 32→35).
+- 7 new tests (3 core in `test/test-glyphops.js`; 4 DOM: parseCodeInput, mirror + undo×2, copy-to incl. refusal paths + target-selection + status-survival, the empty check incl. done-detail + silence + space-exempt). The [R] changelog-filtering DOM test was made version-independent (computed from `BF_CHANGELOG` + `BF.cmpVersions`) so it survives bumps. **Total 169 tests.**
+- **Browser-verify (user):** mirror both axes on an asymmetric glyph (e.g. draw a `>` and mirror H → `<`); Copy to codepoint… (prompt, target selection, undo); QA tab — the empty-printable rows, the “marked done” detail, silencing one.
+
+## Plan — remaining chunks (decisions locked in DECISIONS #32–75)
 
 **[N] QA checks are fully done** (N.1 + N.2 + N.3 — both deferred checks #46/#47 shipped with per-glyph silencing).
 
@@ -359,6 +368,12 @@ Font name (`font.name`, default `font`) wired into export filenames + BDF `FONT`
 
 ### [Q] Cell resize — **done** (2026-11-16; see Completed + DECISIONS #71)
 **Edit → Resize…** modal: per-edge row/column deltas (crop/extend at a chosen edge), live result readout, guidelines + slant baseline shift with it, clip warning on lossy crops, one undo step (new full-font history entry). **Refined in [Q.1]** (DECISIONS #72): the clip warning lists the affected glyphs.
+
+### [S] Glyph-manipulation tools — **done** (2026-11-18; see Completed + DECISIONS #74)
+Mirror left–right / up–down · Copy to codepoint… · empty-printable QA check. See the Completed entry below.
+
+### [T] Selection tools — DECISIONS #75 (user greenlight in principle 2026-11-18; 3 semantic choices flagged for ratification)
+Select tool (rectangular marquee) + action row **Fill / Clear / Invert / Copy (clipboard PNG) / Copy to…** + move-by-drag (cut, clipped at cell edge). F/X/I shortcuts; selection state UI-only, never persisted.
 
 ### [O] Polish (catch-all)
 **[O.1]–[O.8] are done** (Preview control cleanup, newline fix, project file, bound-guide off-by-one fix, clipboard PNG atlas, reference-glyph hint, docs reorg, screenshot + MIT license — see Completed + DECISIONS #62–#69). The rest of [O] is still open:
