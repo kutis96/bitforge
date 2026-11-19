@@ -121,8 +121,8 @@ test("dom: shortcut card toggles; registry holds the full binding set", function
   assertEqual(els["keys-card"].hidden, false, "toggle shows it");
   app.toggleKeysCard();
   assertEqual(els["keys-card"].hidden, true, "toggle hides it");
-  // 8 nav + 9 file-ops + 5 tabs + 2 status + 3 mirror/copy-to + 3 tools + 3 sel-actions + 4 shift + 3 undo/redo + 1 card = 40
-  assertEqual(app.shortcuts.list.length, 40, "40 shortcuts registered");
+  // 8 nav + 9 file-ops + 5 tabs + 2 status + 3 mirror/copy-to + 3 tools + 3 sel-actions + 4 shift + 3 undo/redo + 1 card + 1 drag-entry = 41
+  assertEqual(app.shortcuts.list.length, 41, "41 shortcuts registered (incl. the Ctrl/Alt-drag card entry)");
   var combos = {};
   for (var i = 0; i < app.shortcuts.list.length; i++) combos[app.shortcuts.list[i].combo] = true;
   assert(combos["Ctrl+ArrowLeft"] && combos["?"] && combos["Ctrl+z"] && combos["PageUp"], "expected combos present");
@@ -630,7 +630,7 @@ test("dom: mousedown on a menu item must NOT close the menu (real-browser click 
 
 test("dom: About modal head + browser tab show the app version (DECISIONS #56)", function () {
   assert(/^\d+\.\d+\.\d+$/.test(BF.VERSION), "BF.VERSION is semver-ish: " + BF.VERSION);
-  assertEqual(BF.VERSION, "0.20.2", "pinned version — bump this test when you bump the app");
+  assertEqual(BF.VERSION, "0.21.0", "pinned version — bump this test when you bump the app");
   var els = globalThis.__stub.els;
   assertEqual(els["about-title"].textContent, "bitforge " + BF.VERSION, "modal head shows name + version");
   assertEqual(document.title, "bitforge " + BF.VERSION, "browser tab shows name + version");
@@ -1158,4 +1158,75 @@ test("dom: selection — Esc deselects when nothing else is open", function () {
   assertEqual(app.state.selRect, null, "Esc cleared the selection");
   assert(els["selbar"].hidden, "bar hidden");
   app.setTool("paint");
+});
+
+test("dom: paste mode — toggle persists, labels the button, validates input", function () {
+  var app = globalThis.__stub.app;
+  var els = globalThis.__stub.els;
+  assertEqual(app.pasteMode(), "merge", "default is merge");
+  assertEqual(els["sel-pastemode"].textContent, "paste: merge", "button label");
+  app.setPasteMode("replace");
+  assertEqual(app.pasteMode(), "replace", "set to replace");
+  assertEqual(els["sel-pastemode"].textContent, "paste: replace", "button label follows");
+  app.setPasteMode("banana");
+  assertEqual(app.pasteMode(), "merge", "bogus input coerces to merge");
+  assertEqual(els["sel-pastemode"].textContent, "paste: merge", "label follows coercion");
+});
+
+test("dom: selection drag — plain drag cuts, Ctrl/Alt drag copies; paste mode honored", function () {
+  var app = globalThis.__stub.app;
+  var f = app.state.font, code = app.state.selected;
+  var r = { x: 0, y: 0, w: 2, h: 2 };
+  var S = 22; // editorScale(8x16) = clamp(floor(360/16), 6, 40); stub rect is at 0,0
+  function evt(cx, cy, extra) {
+    var o = { clientX: cx * S + 5, clientY: cy * S + 5, preventDefault: function () {} };
+    if (extra) for (var k in extra) o[k] = extra[k];
+    return o;
+  }
+  // Selection: 2x2 at (0,0) with a TRANSPARENT hole at (1,1); destination ink
+  // under the hole's landing spot (4,1) after dx=3.
+  function fresh() {
+    BF.clearGlyph(f, code);
+    BF.setPixel(f, code, 0, 0, 1); BF.setPixel(f, code, 1, 0, 1); BF.setPixel(f, code, 0, 1, 1);
+    BF.setPixel(f, code, 4, 1, 1);
+  }
+  function drag(mod) {
+    app.setSel(r);
+    app.onEditorDown(evt(0, 0, mod));
+    app.onEditorMove(evt(3, 0));
+    app.onEditorUp();
+  }
+  app.setTool("select");
+
+  // Plain drag = cut. replace: the hole erases destination ink at (4,1).
+  app.setPasteMode("replace");
+  fresh(); drag();
+  assertEqual(BF.getPixel(f, code, 0, 0), 0, "cut: source cleared");
+  assertEqual(BF.getPixel(f, code, 3, 0), 1, "cut: ink landed");
+  assertEqual(BF.getPixel(f, code, 4, 1), 0, "cut replace: hole erased destination ink");
+  assertEqual(app.state.selRect.x, 3, "selection follows the drop");
+
+  // Plain drag = cut. merge: destination ink at (4,1) is kept.
+  app.setPasteMode("merge");
+  fresh(); drag();
+  assertEqual(BF.getPixel(f, code, 0, 0), 0, "cut merge: source cleared");
+  assertEqual(BF.getPixel(f, code, 4, 1), 1, "cut merge: destination ink kept");
+
+  // Ctrl+drag = copy (source kept); replace still erases under the hole.
+  app.setPasteMode("replace");
+  fresh(); drag({ ctrlKey: true });
+  assertEqual(BF.getPixel(f, code, 0, 0), 1, "copy: source kept (1)");
+  assertEqual(BF.getPixel(f, code, 0, 1), 1, "copy: source kept (2)");
+  assertEqual(BF.getPixel(f, code, 3, 0), 1, "copy: ink landed");
+  assertEqual(BF.getPixel(f, code, 4, 1), 0, "copy replace: hole erased destination ink");
+
+  // Alt (Option)+drag also copies.
+  fresh(); drag({ altKey: true });
+  assertEqual(BF.getPixel(f, code, 0, 0), 1, "alt-drag: source kept");
+  assertEqual(BF.getPixel(f, code, 3, 0), 1, "alt-drag: copy landed");
+
+  // Tidy up for later tests.
+  app.setPasteMode("merge");
+  app.setTool("paint");
+  BF.clearGlyph(f, code);
 });

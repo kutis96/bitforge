@@ -1,6 +1,6 @@
 # bitforge — Status
 
-> **HANDOVER (2026-11-18, context rollover):** we're at **[T.2] / 0.20.2**, 177/177 tests, clean tree (HEAD = the [T.2] commit). Everything is committed and doc-complete; **the user has NOT yet browser-verified [T]/[T.1]/[T.2]** — the accumulated browser-verify lines in the Completed sections are the resume point (selection tools, selbar hidden-until-selection, toolbar position/enclosure; the collapsible guides bar was rolled back in [T.2] per user retraction). Next real work is the open **[O] polish** catch-all below, or whatever the user picks. Ritual, conventions and gotchas: [AGENTS.md](../AGENTS.md) (root) + this file + DECISIONS.md. The `hidden`-vs-`display` CSS trap and the init-order trap are documented in DECISIONS #75 [T.1] — don't relearn them.
+> **HANDOVER (2026-11-19, context rollover):** we're at **[U] / 0.21.0**, 180/180 tests, clean tree (HEAD = the [U] commit). Everything is committed and doc-complete; **the user has NOT yet browser-verified [T]/[T.1]/[U]** — ([T.2] was a pure rollback the user confirmed works) the standing browser-verify backlog is in the Completed sections (selection tools, selbar hidden-until-selection, toolbar position/enclosure, paste-mode toggle + Ctrl/Alt-drag copy). Next real work is the open **[O] polish** catch-all below, or whatever the user picks. Ritual, conventions and gotchas: [AGENTS.md](../AGENTS.md) (root) + this file + DECISIONS.md. The `hidden`-vs-`display` CSS trap and the init-order trap are documented in DECISIONS #75 [T.1] — don't relearn them.
 
 ## Current state
 - [x] Requirements gathered and clarified with the user
@@ -45,6 +45,7 @@
 - [x] **[T] Editor toolbar + selection tools** (2026-11-18): paint/erase/select toolbar · rectangular marquee with fill/clear/invert/copy/copy-to + move-by-drag (cut, clipped) · Esc deselects — 177 tests
 - [x] **[T.1] Toolbar polish** (2026-11-18): selbar hidden-until-selection bug fixed (CSS `[hidden]` guard) · toolbar moved below + enclosed like the guidelines bar (context-area semantics) · collapsible guidelines bar (persisted) — 178 tests
 - [x] **[T.2] Rollback: collapsible guides bar** (2026-11-18): the [T.1] collapse feature removed per user retraction (bar always visible again); the selbar fix + toolbar position/enclosure stay — 177 tests
+- [x] **[U] Move/copy paste modes** (2026-11-19): `paste: merge ⇄ replace` toggle in the selection bar (setting, default merge) · **Ctrl/Alt+drag = copy** the selection (source kept) — 180 tests
 - [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -79,7 +80,8 @@ Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–
 | 0.19.0 | [S] Glyph-manipulation tools (mirror, copy-to, empty-printable QA) |
 | 0.20.0 | [T] Editor toolbar + selection tools |
 | 0.20.1 | [T.1] Toolbar polish (hidden selbar fix, toolbar enclosure/position, collapsible guides) |
-| **0.20.2** (current) | [T.2] Rollback: collapsible guides bar removed (user retraction) |
+| 0.20.2 | [T.2] Rollback: collapsible guides bar removed (user retraction) |
+| **0.21.0** (current) | [U] Move/copy paste modes (merge/replace toggle + Ctrl/Alt-drag copy) |
 
 **Lettering note (2026-11-15, chunk M):** chunk letters drifted at some point (the I-wave landed after L); they now follow list position. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Git commit subjects still use the old letters.
 
@@ -387,7 +389,16 @@ User feedback on [T] (2026-11-18): the selection actions should only be visible 
 ### [T.2] Rollback: collapsible guidelines bar (`index.html` + `css/style.css` + `js/app.js` + `test/` + docs, 2026-11-18)
 User retraction (2026-11-18): the collapse feature isn't wanted after all — the bar costs little space and should stay in plain sight. **Reverted:** the `guides ▾/▸` toggle, the `.guides.collapsed` CSS, `setGuidesBar`, the `guidesCollapsed` setting, its seam + DOM test (178 → 177 tests). **Kept from [T.1]:** the selbar-hidden-until-selection fix, the toolbar below the guides bar, and the shared enclosure. The 0.20.1 changelog entry stays as history; 0.20.2 records the removal (the documented "fixes get their own entry" rule). A stray `guidesCollapsed` key may linger in users' settings blob — it's ignored by `loadSettings` (defaults-driven), so no cleanup needed. See DECISIONS #75 [T.2].
 
-## Plan — remaining chunks (decisions locked in DECISIONS #32–75)
+### [U] Move/copy paste modes (`js/core.js` + `js/app.js` + `index.html` + `test/` + docs, 2026-11-19)
+User request (2026-11-19, greenlit same day): the move-drag's transparency-honoring blend felt counter-intuitive — add a switch to overwrite instead, and let Ctrl+move *copy* the selection (source kept) with the same blend choice. Shipped as the 2×2 {cut, copy} × {merge, replace}:
+- **Core:** `placeRect(font, code, rect, dx, dy, mode, cut)` (section [16]) — snapshot → optional source clear → place, clipped. `BF.rectMove` gains an optional mode (default `"merge"` — 4-arg calls are behavior-identical to before); new `BF.rectMoveCopy` = same with the source intact. Bad modes throw.
+- **UI:** `paste: merge ⇄ replace` button in the selection bar (context area; label = current mode, click = toggle). Setting `pasteMode` (settingsDefaults, default `merge` = pre-[U] behavior; validated at the point of use via `pasteMode()`). Label synced at the **end of init** after `loadSettings()` (init-order gotcha, DECISIONS #75).
+- **Drag:** `onEditorDown` records `copy: !!(evt.ctrlKey || evt.altKey)` at drag **start**; `selDragUp` picks `rectMove` vs `rectMoveCopy` and passes the mode; toast says *Moved/Copied N px* (+ *source kept* for copies).
+- **Reference card:** one descriptive entry ("Ctrl/Alt + drag selection") via the registry — the registry-count pin went 40 → 41 (test-dom).
+- **Tests:** 1 new core test (modes × cut/copy, overlap, no-op, bad-mode) + 2 new DOM tests (toggle persistence/labeling; full drag cut-vs-copy through the `onEditorDown/Move/Up` seam with Ctrl and Alt). **Total 180 tests.**
+- **Browser-verify (user):** toggle label flips and survives reload; plain-drag cut vs Ctrl/Alt-drag copy in merge and replace (watch what happens to existing ink under a transparent part of the selection); card shows the drag entry.
+
+## Plan — remaining chunks (decisions locked in DECISIONS #32–76)
 
 **[N] QA checks are fully done** (N.1 + N.2 + N.3 — both deferred checks #46/#47 shipped with per-glyph silencing).
 

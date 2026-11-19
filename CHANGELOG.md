@@ -41,6 +41,17 @@ Rules:
 - Run `./test/run-tests.sh` before committing — the changelog data-sanity
   test is the safety net.
 
+## 0.21.0 (2026-11-19)
+
+- **Edit**: the selection bar gained a **paste-mode toggle** — `paste: merge`
+  (default: the selection's ink is stamped on top, existing ink is kept) or
+  `paste: replace` (the destination becomes exactly the selection — its
+  transparent parts erase what was there). Applies to move-drag and copy-drag;
+  the choice is remembered.
+- **Edit**: hold **Ctrl or Alt (Option)** while dragging a selection to
+  **copy** it to a new spot — the original is kept (a plain drag still
+  moves/cuts it). Both honor the paste mode.
+
 ## 0.20.2 (2026-11-18)
 
 - **Edit**: removed the collapsible guidelines bar (rolled back on request) —

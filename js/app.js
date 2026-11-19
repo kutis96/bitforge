@@ -122,7 +122,8 @@
     pvItalic: false,
     pvBaseline: 5,
     inverted: false,
-    qaShowSilenced: false // QA tab: show silenced violations in the table
+    qaShowSilenced: false, // QA tab: show silenced violations in the table
+    pasteMode: "merge"     // "merge" | "replace" — blend for dragged selections (DECISIONS #76)
   };
   var settingsCache = null;
   function loadSettings() {
@@ -833,7 +834,8 @@
       evt.preventDefault();
       var r = state.selRect;
       if (r && p.x >= r.x && p.x < r.x + r.w && p.y >= r.y && p.y < r.y + r.h) {
-        selDrag = { mode: "move", ax: p.x, ay: p.y, base: { x: r.x, y: r.y, w: r.w, h: r.h }, preview: null, moved: false };
+        // Ctrl/Alt at drag START decides copy-vs-cut (initiate = what happens).
+        selDrag = { mode: "move", copy: !!(evt.ctrlKey || evt.altKey), ax: p.x, ay: p.y, base: { x: r.x, y: r.y, w: r.w, h: r.h }, preview: null, moved: false };
       } else {
         selDrag = { mode: "marquee", ax: p.x, ay: p.y, preview: null, moved: false };
         setSel(null); // redrawing from scratch
@@ -993,20 +995,37 @@
     if (d.mode === "marquee") {
       if (d.moved && d.preview) setSel(d.preview); else clearSel(); // plain click => deselect
     } else if (d.moved && d.preview && (d.preview.x !== d.base.x || d.preview.y !== d.base.y)) {
-      // Move = cut: source cleared, content placed, off-cell clipped.
+      // Plain drag = cut; Ctrl/Alt drag = copy (source kept) — DECISIONS #76.
+      // Blend per the paste mode; off-cell ink is clipped either way.
       var code = state.selected;
       var snap = snapshotGlyph(code);
-      var res = BF.rectMove(state.font, code, d.base, d.preview.x - d.base.x, d.preview.y - d.base.y);
+      var mode = pasteMode();
+      var res = d.copy
+        ? BF.rectMoveCopy(state.font, code, d.base, d.preview.x - d.base.x, d.preview.y - d.base.y, mode)
+        : BF.rectMove(state.font, code, d.base, d.preview.x - d.base.x, d.preview.y - d.base.y, mode);
       state.history.push({ code: code, snap: snap });
       if (state.history.length > 100) state.history.shift();
       state.redo = [];
       bumpFontVersion();
-      setSel(d.preview); // the selection follows its content
-      toast("Moved " + res.moved + " px" + (res.clipped ? " \u2014 " + res.clipped + " px clipped" : ""));
+      setSel(d.preview); // the selection follows its landing spot
+      toast((d.copy ? "Copied " : "Moved ") + res.moved + " px"
+        + (res.clipped ? " \u2014 " + res.clipped + " px clipped" : "")
+        + (d.copy ? " \u2014 source kept" : ""));
     }
     redrawAll();
     saveLS();
   }
+  // Paste mode for dragged selections (DECISIONS #76): "merge" (default) keeps
+  // existing destination ink; "replace" makes the destination exactly the
+  // selection's content (transparent parts erase). A setting, so it survives
+  // reloads; the setting value is validated at the point of use.
+  function pasteMode() { return settingsGet("pasteMode") === "replace" ? "replace" : "merge"; }
+  function setPasteMode(m) {
+    settingsSet("pasteMode", m === "replace" ? "replace" : "merge");
+    syncPasteModeBtn();
+  }
+  function syncPasteModeBtn() { el.selPasteMode.textContent = "paste: " + pasteMode(); }
+
   // Fill / Clear / Invert the selection — one per-glyph undo step each.
   function selAction(name) {
     if (!state.selRect) { toast("Select a region first (S)", true); return; }
@@ -1619,6 +1638,7 @@
       miMirrorH: $("mi-mirror-h"), miMirrorV: $("mi-mirror-v"), miCopyTo: $("mi-copy-to"),
       toolPaint: $("tool-paint"), toolErase: $("tool-erase"), toolSelect: $("tool-select"),
       selbar: $("selbar"), selinfo: $("selinfo"),
+      selPasteMode: $("sel-pastemode"),
       selFill: $("sel-fill"), selClear: $("sel-clear"), selInvert: $("sel-invert"),
       selCopy: $("sel-copy"), selCopyTo: $("sel-copyto"), selX: $("sel-x"),
       miCycleStatus: $("mi-cycle-status"), miDoneNext: $("mi-done-next"),
@@ -1784,6 +1804,9 @@
     el.selCopy.addEventListener("click", selCopy);
     el.selCopyTo.addEventListener("click", selCopyTo);
     el.selX.addEventListener("click", clearSel);
+    el.selPasteMode.addEventListener("click", function () {
+      setPasteMode(pasteMode() === "merge" ? "replace" : "merge");
+    });
     setTool("paint"); // sync the toolbar with the default tool
 
     el.editor.addEventListener("mousedown", onEditorDown);
@@ -1899,6 +1922,7 @@
     shortcuts.register({ combo: "f", description: "Fill the selection (selection active)", handler: function () { selAction("fill"); } });
     shortcuts.register({ combo: "x", description: "Clear the selection (selection active)", handler: function () { selAction("clear"); } });
     shortcuts.register({ combo: "i", description: "Invert the selection (selection active)", handler: function () { selAction("invert"); } });
+    shortcuts.register({ combo: "Ctrl/Alt + drag selection", description: "Copy the selection to a new spot (source kept) — plain drag moves it (cut)" });
     shortcuts.register({ combo: "Ctrl+ArrowLeft", description: "Shift glyph left", handler: function () { shiftGlyphAction(-1, 0); } });
     shortcuts.register({ combo: "Ctrl+ArrowRight", description: "Shift glyph right", handler: function () { shiftGlyphAction(1, 0); } });
     shortcuts.register({ combo: "Ctrl+ArrowUp", description: "Shift glyph up", handler: function () { shiftGlyphAction(0, -1); } });
@@ -1920,6 +1944,7 @@
     el.pvScale.value = String(state.scale);
     el.pvText.value = settingsGet("pvText");
     el.qaShowSilenced.checked = !!settingsGet("qaShowSilenced");
+    syncPasteModeBtn(); // paste-mode button label (after loadSettings — init order!)
     setFont(font); // setFont -> syncRenderControls (state.font must exist first)
 
     // Changelog (DECISIONS #73): remember this run's version, and if the
@@ -1942,6 +1967,8 @@
       copyGlyph: copyGlyphToClipboard, glyphCanvas: glyphCanvas, applyResize: applyResize,
       mirrorAction: mirrorAction, copyToCodepointAction: copyToCodepointAction, parseCodeInput: parseCodeInput,
       setTool: setTool, setSel: setSel, clearSel: clearSel, selAction: selAction, selCopyTo: selCopyTo,
+      pasteMode: pasteMode, setPasteMode: setPasteMode,
+      onEditorDown: onEditorDown, onEditorMove: onEditorMove, onEditorUp: onEditorUp,
       getLastToast: function () { return lastToast; },
       exportPng: exportPng, settingsGet: settingsGet, settingsSet: settingsSet,
       whatsNew: whatsNew, openChangelogModal: openChangelogModal, closeChangelogModal: closeChangelogModal,

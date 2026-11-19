@@ -121,3 +121,75 @@ test("core: rectCopy — exact paste (incl. transparent) at same position, sourc
   assertEqual(BF.getPixel(f, from, 1, 2), 1, "source intact");
   assertEqual(BF.getPixel(f, from, 2, 2), 0, "source intact (2)");
 });
+
+test("core: paste modes — merge (default) vs replace; rectMoveCopy keeps source", function () {
+  var f = BF.makeFont(8, 16);
+  var c = 0x41;
+  var r = { x: 0, y: 0, w: 2, h: 2 };
+  // Selection: 2x2 block at (0,0) with a TRANSPARENT hole at (1,1).
+  // Destination ink sits under the hole's landing spot (4,1) after dx=3 —
+  // merge must keep it, replace must erase it.
+  function fresh() {
+    BF.clearGlyph(f, c);
+    BF.setPixel(f, c, 0, 0, 1); BF.setPixel(f, c, 1, 0, 1); BF.setPixel(f, c, 0, 1, 1);
+    BF.setPixel(f, c, 4, 1, 1);
+  }
+
+  // merge (the default, 4-arg call): ink stamped, destination ink kept, source cut.
+  fresh();
+  var res = BF.rectMove(f, c, r, 3, 0);
+  assertEqual(res.moved, 3, "merge cut: 3 ink px landed");
+  assertEqual(res.clipped, 0, "merge cut: nothing clipped");
+  assertEqual(BF.getPixel(f, c, 0, 0), 0, "merge cut: source cleared (1)");
+  assertEqual(BF.getPixel(f, c, 1, 0), 0, "merge cut: source cleared (2)");
+  assertEqual(BF.getPixel(f, c, 3, 0), 1, "merge cut: ink landed");
+  assertEqual(BF.getPixel(f, c, 4, 0), 1, "merge cut: ink landed (2)");
+  assertEqual(BF.getPixel(f, c, 4, 1), 1, "merge cut: destination ink kept under the hole");
+
+  // replace cut: destination becomes exactly the selection (hole erases ink).
+  fresh();
+  BF.rectMove(f, c, r, 3, 0, "replace");
+  assertEqual(BF.getPixel(f, c, 3, 0), 1, "replace cut: ink landed");
+  assertEqual(BF.getPixel(f, c, 3, 1), 1, "replace cut: ink landed (2)");
+  assertEqual(BF.getPixel(f, c, 4, 1), 0, "replace cut: hole erased destination ink");
+  assertEqual(BF.getPixel(f, c, 0, 0), 0, "replace cut: source cleared");
+
+  // rectMoveCopy (merge): source kept, destination |= selection.
+  fresh();
+  BF.rectMoveCopy(f, c, r, 3, 0);
+  assertEqual(BF.getPixel(f, c, 0, 0), 1, "copy merge: source kept (1)");
+  assertEqual(BF.getPixel(f, c, 1, 0), 1, "copy merge: source kept (2)");
+  assertEqual(BF.getPixel(f, c, 0, 1), 1, "copy merge: source kept (3)");
+  assertEqual(BF.getPixel(f, c, 4, 0), 1, "copy merge: ink landed");
+  assertEqual(BF.getPixel(f, c, 4, 1), 1, "copy merge: destination ink kept");
+
+  // rectMoveCopy (replace): source kept, destination := selection.
+  fresh();
+  BF.rectMoveCopy(f, c, r, 3, 0, "replace");
+  assertEqual(BF.getPixel(f, c, 0, 0), 1, "copy replace: source kept (1)");
+  assertEqual(BF.getPixel(f, c, 0, 1), 1, "copy replace: source kept (2)");
+  assertEqual(BF.getPixel(f, c, 4, 1), 0, "copy replace: hole erased destination ink");
+  assertEqual(BF.getPixel(f, c, 4, 0), 1, "copy replace: ink landed");
+
+  // Overlap-safe replace move: shift a 2-px row one right — clean, no smear.
+  BF.clearGlyph(f, c);
+  BF.setPixel(f, c, 0, 0, 1); BF.setPixel(f, c, 1, 0, 1);
+  BF.rectMove(f, c, { x: 0, y: 0, w: 2, h: 1 }, 1, 0, "replace");
+  assertEqual(BF.getPixel(f, c, 0, 0), 0, "overlap replace: old left cleared");
+  assertEqual(BF.getPixel(f, c, 1, 0), 1, "overlap replace: mid in place");
+  assertEqual(BF.getPixel(f, c, 2, 0), 1, "overlap replace: right landed");
+
+  // Zero offset: no-op in both forms, both modes.
+  fresh();
+  assertEqual(BF.rectMoveCopy(f, c, r, 0, 0, "replace").moved, 0, "no-op copy: moved 0");
+  assertEqual(BF.getPixel(f, c, 4, 1), 1, "no-op copy leaves destination ink");
+  assertEqual(BF.rectMove(f, c, r, 0, 0, "replace").moved, 0, "no-op move: moved 0");
+
+  // Bad mode throws (both entry points).
+  var threw = false;
+  try { BF.rectMove(f, c, r, 1, 0, "banana"); } catch (e) { threw = true; }
+  assert(threw, "rectMove: bad mode throws");
+  threw = false;
+  try { BF.rectMoveCopy(f, c, r, 1, 0, "banana"); } catch (e) { threw = true; }
+  assert(threw, "rectMoveCopy: bad mode throws");
+});

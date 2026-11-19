@@ -14,6 +14,10 @@
  * (date "" = pre-dated history, not shown in the UI)
  */
 var BF_CHANGELOG = [
+  { version: "0.21.0", date: "2026-11-19", changes: [
+    "**Edit**: the selection bar gained a **paste-mode toggle** — `paste: merge` (default: the selection's ink is stamped on top, existing ink is kept) or `paste: replace` (the destination becomes exactly the selection — its transparent parts erase what was there). Applies to move-drag and copy-drag; the choice is remembered.",
+    "**Edit**: hold **Ctrl or Alt (Option)** while dragging a selection to **copy** it to a new spot — the original is kept (a plain drag still moves/cuts it). Both honor the paste mode."
+  ] },
   { version: "0.20.2", date: "2026-11-18", changes: [
     "Edit: removed the collapsible guidelines bar (rolled back on request) — the bar is always visible again, as before. The 0.20.1 toolbar position/enclosure and the selection-actions fix stay."
   ] },

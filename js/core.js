@@ -26,7 +26,7 @@
    * (1-indexed) in the STATUS.md "Current state" list; PATCH = 0 for a single
    * chunk, the sub-index for a wave (chunk L.3 shipped 0.12.3). Bump in the
    * same commit as the chunk — a headless test pins the exact value. */
-  var VERSION = "0.20.2";
+  var VERSION = "0.21.0";
 
   /* ============================================================
    * [1] Font model
@@ -869,34 +869,53 @@
       }
   }
 
-  // Move the rect's content by (dx, dy): a CUT — the source rect is cleared,
-  // the pixels land at their offset positions, anything falling outside the
-  // cell is clipped (lost). Overlapping source/target is safe (the source
-  // is read from a snapshot before anything is written). Returns
-  // { moved, clipped } — ink pixel counts.
-  function rectMove(font, code, rect, dx, dy) {
+  // Place a rect's snapshot by (dx, dy), clipped at the cell edge.
+  //   mode  "merge"   — the selection's INK is stamped on top; existing
+  //                     destination ink is kept (transparent parts of the
+  //                     selection erase nothing).
+  //         "replace" — the destination becomes exactly the selection's
+  //                     content: ink lands, transparent parts erase whatever
+  //                     was there.
+  //   cut   true — the source rect is cleared (a move);
+  //         false — the source is left as-is (a copy).
+  // Overlapping source/target is safe (the source is read from a snapshot
+  // before anything is written). Returns { moved, clipped } — ink counts.
+  function placeRect(font, code, rect, dx, dy, mode, cut) {
     checkRectArgs(font, code, rect);
+    if (mode !== "merge" && mode !== "replace") throw new Error("bad paste mode " + mode);
     dx = Math.round(dx); dy = Math.round(dy);
     if (dx === 0 && dy === 0) return { moved: 0, clipped: 0 };
     var w = font.width, h = font.height, base = code * w * h, snap = [];
-    var moved = 0, clipped = 0, x, y, inRect, tx, ty;
+    var moved = 0, clipped = 0, x, y, tx, ty, v;
     for (y = 0; y < rect.h; y++)
       for (x = 0; x < rect.w; x++)
         snap.push(font.data[base + (rect.y + y) * w + (rect.x + x)]);
-    // Clear the source region.
-    for (y = 0; y < rect.h; y++)
-      for (x = 0; x < rect.w; x++)
-        font.data[base + (rect.y + y) * w + (rect.x + x)] = 0;
-    // Place the content at the new position (clipped at the cell edge).
+    if (cut)
+      for (y = 0; y < rect.h; y++)
+        for (x = 0; x < rect.w; x++)
+          font.data[base + (rect.y + y) * w + (rect.x + x)] = 0;
     for (y = 0; y < rect.h; y++)
       for (x = 0; x < rect.w; x++) {
-        if (!snap[y * rect.w + x]) continue;
+        v = snap[y * rect.w + x];
+        if (mode === "merge" && !v) continue; // merge keeps destination ink
         tx = rect.x + x + dx; ty = rect.y + y + dy;
-        if (tx < 0 || ty < 0 || tx >= w || ty >= h) { clipped++; continue; }
-        font.data[base + ty * w + tx] = 1;
-        moved++;
+        if (tx < 0 || ty < 0 || tx >= w || ty >= h) { if (v) clipped++; continue; }
+        font.data[base + ty * w + tx] = v;
+        if (v) moved++;
       }
     return { moved: moved, clipped: clipped };
+  }
+
+  // Move the rect's content by (dx, dy) — a CUT: the source rect is cleared,
+  // the pixels land at their offset positions, off-cell ink is clipped (lost).
+  // mode (optional): "merge" (default) or "replace" (DECISIONS #76).
+  function rectMove(font, code, rect, dx, dy, mode) {
+    return placeRect(font, code, rect, dx, dy, mode || "merge", true);
+  }
+
+  // Like rectMove but a COPY: the source rect is left as-is.
+  function rectMoveCopy(font, code, rect, dx, dy, mode) {
+    return placeRect(font, code, rect, dx, dy, mode || "merge", false);
   }
 
   // Copy the rect's exact pixels (ink AND transparent) from glyph `from` to
@@ -965,6 +984,7 @@
     rectFill: rectFill,
     rectInvert: rectInvert,
     rectMove: rectMove,
+    rectMoveCopy: rectMoveCopy,
     rectCopy: rectCopy,
     // edge-ink QA
     edgeInk: edgeInk,
