@@ -1,6 +1,6 @@
 # bitforge — Status
 
-> **HANDOVER (2026-11-19, context rollover):** we're at **[U] / 0.21.0**, 180/180 tests, clean tree (HEAD = the [U] commit). Everything is committed and doc-complete; **the user has NOT yet browser-verified [T]/[T.1]/[U]** — ([T.2] was a pure rollback the user confirmed works) the standing browser-verify backlog is in the Completed sections (selection tools, selbar hidden-until-selection, toolbar position/enclosure, paste-mode toggle + Ctrl/Alt-drag copy). Next real work is the open **[O] polish** catch-all below, or whatever the user picks. Ritual, conventions and gotchas: [AGENTS.md](../AGENTS.md) (root) + this file + DECISIONS.md. The `hidden`-vs-`display` CSS trap and the init-order trap are documented in DECISIONS #75 [T.1] — don't relearn them.
+> **HANDOVER (2026-11-22, context rollover):** we're at **[V] / 0.22.0**, 184/184 tests, clean tree (HEAD = the [V] commit). Everything is committed and doc-complete. **Browser-verify backlog:** [T]/[T.1] (standing), [U] ✅ confirmed by user, and now [V] (sample picker empty state + — once samples land — the picker list, load-confirm flow, first-run preload). The user is about to create sample `.bitforge` files; adding one = the procedure in the `js/samples.js` header (embed → suite validates it → version bump + both changelogs → commit). Next real work: the **[V.1] first real samples** (waiting on the user's files) or the open **[O] polish** catch-all. Ritual, conventions and gotchas: [AGENTS.md](AGENTS.md) (root) + this file + DECISIONS.md. The `hidden`-vs-`display` CSS trap and the init-order trap are documented in DECISIONS #75 [T.1] — don't relearn them.
 
 ## Current state
 - [x] Requirements gathered and clarified with the user
@@ -46,6 +46,8 @@
 - [x] **[T.1] Toolbar polish** (2026-11-18): selbar hidden-until-selection bug fixed (CSS `[hidden]` guard) · toolbar moved below + enclosed like the guidelines bar (context-area semantics) · collapsible guidelines bar (persisted) — 178 tests
 - [x] **[T.2] Rollback: collapsible guides bar** (2026-11-18): the [T.1] collapse feature removed per user retraction (bar always visible again); the selbar fix + toolbar position/enclosure stay — 177 tests
 - [x] **[U] Move/copy paste modes** (2026-11-19): `paste: merge ⇄ replace` toggle in the selection bar (setting, default merge) · **Ctrl/Alt+drag = copy** the selection (source kept) — 180 tests
+- [x] **[V] Sample fonts: infrastructure** (2026-11-22): `js/samples.js` registry (embedded `.bitforge` strings) · File → **Load sample…** picker (empty state included) · first-run preloads the default sample (saved font always wins) · suite validates every shipped entry — 184 tests
+- [ ] **[V.1] First real samples** — waiting on the user's `.bitforge` files; adding = embed into `js/samples.js` (procedure in its header) + version bump
 - [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -81,7 +83,8 @@ Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–
 | 0.20.0 | [T] Editor toolbar + selection tools |
 | 0.20.1 | [T.1] Toolbar polish (hidden selbar fix, toolbar enclosure/position, collapsible guides) |
 | 0.20.2 | [T.2] Rollback: collapsible guides bar removed (user retraction) |
-| **0.21.0** (current) | [U] Move/copy paste modes (merge/replace toggle + Ctrl/Alt-drag copy) |
+| 0.21.0 | [U] Move/copy paste modes (merge/replace toggle + Ctrl/Alt-drag copy) |
+| **0.22.0** (current) | [V] Sample fonts: embedded registry + Load sample… picker + first-run preload |
 
 **Lettering note (2026-11-15, chunk M):** chunk letters drifted at some point (the I-wave landed after L); they now follow list position. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Git commit subjects still use the old letters.
 
@@ -396,9 +399,17 @@ User request (2026-11-19, greenlit same day): the move-drag's transparency-honor
 - **Drag:** `onEditorDown` records `copy: !!(evt.ctrlKey || evt.altKey)` at drag **start**; `selDragUp` picks `rectMove` vs `rectMoveCopy` and passes the mode; toast says *Moved/Copied N px* (+ *source kept* for copies).
 - **Reference card:** one descriptive entry ("Ctrl/Alt + drag selection") via the registry — the registry-count pin went 40 → 41 (test-dom).
 - **Tests:** 1 new core test (modes × cut/copy, overlap, no-op, bad-mode) + 2 new DOM tests (toggle persistence/labeling; full drag cut-vs-copy through the `onEditorDown/Move/Up` seam with Ctrl and Alt). **Total 180 tests.**
-- **Browser-verify (user):** toggle label flips and survives reload; plain-drag cut vs Ctrl/Alt-drag copy in merge and replace (watch what happens to existing ink under a transparent part of the selection); card shows the drag entry.
+- **Browser-verify (user):** toggle label flips and survives reload; plain-drag cut vs Ctrl/Alt-drag copy in merge and replace (watch what happens to existing ink under a transparent part of the selection); card shows the drag entry. ✅ (user confirmed, 2026-11-19)
 
-## Plan — remaining chunks (decisions locked in DECISIONS #32–76)
+### [V] Sample fonts: infrastructure (`js/samples.js` + `js/app.js` + `index.html` + `css/style.css` + `test/` + docs, 2026-11-22)
+User request (2026-11-22): "let users load up some demo font, or have one pre-loaded if nothing has been created before… Create the infrastructure needed for this, I'll go create some .bitforge files we could use as samples." Shipped:
+- **Registry:** new `js/samples.js` (two registrations: `<script src>` before app.js + `load(...)` in test/run.js). `BF_SAMPLES = []` — entries `{ id, name, description, default?, json }`, `json` = a `.bitforge` project file string. **Embedded, not fetched** — `fetch()` of local files is blocked under `file://`, and a `samples/` folder would need a build/copy step. Header documents the add-a-sample procedure.
+- **UI:** File → **Load sample…** (menu-only, no shortcut) → picker modal (standard close paths; Escape busy-check updated). Empty registry ⇒ empty-state paragraph (never a dead item). Entry click ⇒ confirm ⇒ `setFont` + `applyImportedSettings` (the project-import path) ⇒ toast. `validateSample()` guards both entry points; an invalid bundled sample toasts the error and is skipped (a build bug, not a user error).
+- **First-run preload:** init now uses `loadInitialFont()` = **saved font > default sample (`default: true` else first entry) > blank 8×16**. Supersedes the old "start blank" decision for first-run only — `New` still starts blank. Empty registry ⇒ identical pre-[V] behavior.
+- **Tests (184 total, +4):** registry shape + every shipped entry validates (this is the build-time sample validator); picker empty state; entry render + `loadSample` replace/cancel/invalid paths (drives the real `projectExportText` round-trip); first-run preload matrix (sample, saved-wins, invalid fallback, no-samples no-toast).
+- **Browser-verify (user):** File → Load sample… opens, shows the empty state, ×/Escape/backdrop close it. (Once [V.1] lands: picker lists the samples; loading one confirms + replaces; first-run preload on a clean profile.)
+
+## Plan — remaining chunks (decisions locked in DECISIONS #32–77)
 
 **[N] QA checks are fully done** (N.1 + N.2 + N.3 — both deferred checks #46/#47 shipped with per-glyph silencing).
 

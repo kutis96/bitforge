@@ -34,6 +34,7 @@ Rules that bite:
 - The **shortcut registry count** is asserted in `test/test-dom.js` — every new `shortcuts.register(...)` call must update it.
 - DOM tests share one app instance — clean up font/status mutations you make, or later tests fail (see the cross-test state-bleed note in TESTING.md).
 - Stub seams (`__stub.app`, `__stub.dispatch`, `__stub.setClipboard`, …) are documented in TESTING.md. The headless stub does **not** parse `index.html`, so static HTML text/attributes can't be asserted headlessly.
+- **Bundled samples** live in `js/samples.js` (`BF_SAMPLES`); the suite validates every entry, so a bad sample fails the build. Adding one: follow the HOW-TO-ADD header in that file (DECISIONS #77).
 
 ## The per-chunk ritual (follow it, in order)
 

@@ -27,7 +27,9 @@ load("test/test-project.js");
 // DOM smoke test: install the stub, load app.js (registers init as the
 // DOMContentLoaded handler), then run the test which invokes init under the stub.
 load("test/stub-dom.js");
+load("js/samples.js"); // BF_SAMPLES registry (must precede app.js, as in index.html)
 load("js/app.js");
 load("test/test-dom.js");
+load("test/test-samples.js");
 
 __runAll();

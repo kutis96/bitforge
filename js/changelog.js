@@ -14,6 +14,11 @@
  * (date "" = pre-dated history, not shown in the UI)
  */
 var BF_CHANGELOG = [
+  { version: "0.22.0", date: "2026-11-22", changes: [
+    "Bundled sample fonts: File → Load sample… lists the samples shipped with this build; loading one replaces the current font (guidelines, glyph statuses and its settings come along).",
+    "First run on a clean machine now preloads the default sample font instead of starting blank (a saved font always wins; builds without samples start blank as before).",
+    "Sample infrastructure: js/samples.js registry — sample .bitforge files are embedded there, keeping the app file://-safe with no build step."
+  ] },
   { version: "0.21.0", date: "2026-11-19", changes: [
     "**Edit**: the selection bar gained a **paste-mode toggle** — `paste: merge` (default: the selection's ink is stamped on top, existing ink is kept) or `paste: replace` (the destination becomes exactly the selection — its transparent parts erase what was there). Applies to move-drag and copy-drag; the choice is remembered.",
     "**Edit**: hold **Ctrl or Alt (Option)** while dragging a selection to **copy** it to a new spot — the original is kept (a plain drag still moves/cuts it). Both honor the paste mode."

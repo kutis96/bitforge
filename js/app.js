@@ -1378,6 +1378,85 @@
     redrawAll();
   }
 
+  // ---------- bundled samples (DECISIONS #77) ----------
+  // js/samples.js (loaded before app.js) defines BF_SAMPLES; an empty array
+  // means this build ships no samples — the picker shows the empty state and
+  // first run starts blank, exactly the pre-[V] behavior.
+  function sampleList() {
+    return (typeof BF_SAMPLES !== "undefined" && Array.isArray(BF_SAMPLES)) ? BF_SAMPLES : [];
+  }
+  // First-run preload target: an entry flagged `default`, else the first one.
+  function defaultSample() {
+    var L = sampleList();
+    for (var i = 0; i < L.length; i++) if (L[i] && L[i].default === true) return L[i];
+    return L.length ? L[0] : null;
+  }
+  // Validate one bundled entry -> { ok, font, settings, name } | { ok: false, error }.
+  function validateSample(s) {
+    if (!s || typeof s !== "object") return { ok: false, error: "not an object" };
+    if (typeof s.json !== "string") return { ok: false, error: "missing json string" };
+    var o;
+    try { o = JSON.parse(s.json); }
+    catch (e) { return { ok: false, error: "json does not parse" }; }
+    var p = BF.objFromProject(o, knownCheckIds());
+    if (!p.ok) return { ok: false, error: p.error };
+    var name = (typeof s.name === "string" && s.name) ? s.name : (s.id || "sample");
+    return { ok: true, font: p.font, settings: p.settings, name: name };
+  }
+  function renderSampleModal() {
+    var L = sampleList();
+    el.sampleEmpty.hidden = L.length > 0;
+    el.sampleList.textContent = "";
+    for (var i = 0; i < L.length; i++)
+      (function (idx, s) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "sample-item";
+        if (typeof s.description === "string") b.title = s.description;
+        var n = document.createElement("span");
+        n.className = "s-name";
+        n.textContent = (s.name || s.id || "sample " + (idx + 1)) + (s.default === true ? "  (default)" : "");
+        b.appendChild(n);
+        if (typeof s.description === "string" && s.description) {
+          var d = document.createElement("span");
+          d.className = "s-desc";
+          d.textContent = s.description;
+          b.appendChild(d);
+        }
+        b.addEventListener("click", function () { closeSampleModal(); loadSample(idx); });
+        el.sampleList.appendChild(b);
+      })(i, L[i]);
+  }
+  function openSampleModal() { renderSampleModal(); el.sampleModal.hidden = false; }
+  function closeSampleModal() { el.sampleModal.hidden = true; }
+  function loadSample(idx) {
+    var s = sampleList()[idx];
+    if (!s) { toast("Unknown sample", true); return; }
+    var v = validateSample(s);
+    if (!v.ok) { toast("Bundled sample " + (s.id || idx) + " is invalid: " + v.error, true); return; }
+    if (!confirm("Load sample " + v.name + "? It replaces the current font; the sample's settings are applied too.")) return;
+    setFont(v.font);
+    if (v.settings) applyImportedSettings(v.settings);
+    toast("Loaded sample " + v.name);
+  }
+  // First-run preload: a saved font always wins; else the default sample;
+  // else a blank 8x16 (the pre-[V] behavior).
+  function loadInitialFont() {
+    var saved = loadLS();
+    if (saved) return saved;
+    var s = defaultSample();
+    if (s) {
+      var v = validateSample(s);
+      if (v.ok) {
+        if (v.settings) applyImportedSettings(v.settings);
+        toast("Loaded bundled sample " + v.name + " (first run)");
+        return v.font;
+      }
+      toast("Bundled sample " + (s.id || "?") + " is invalid: " + v.error + " — starting blank", true);
+    }
+    return BF.makeFont(8, 16);
+  }
+
   // Copy glyph to clipboard (DECISIONS #44): PNG at 16 display px per glyph
   // pixel, black ink on transparent background; download fallback when the
   // clipboard API is unavailable (e.g. file:// without a secure context).
@@ -1631,7 +1710,7 @@
       aboutFontInfo: $("about-font-info"), miAboutBitforge: $("mi-about-bitforge"), miChangelog: $("mi-changelog"),
       clModal: $("cl-modal"), clClose: $("cl-close"), clTitle: $("cl-title"), clList: $("cl-list"), clFull: $("cl-full"), clOk: $("cl-ok"),
       aboutTitle: $("about-title"), aboutModal: $("about-modal"), aboutClose: $("about-close"),
-      miNew: $("mi-new"), miOpenPng: $("mi-open-png"), miOpenBdf: $("mi-open-bdf"), miOpenProject: $("mi-open-project"), miImportPngClip: $("mi-import-png-clip"),
+      miNew: $("mi-new"), miOpenPng: $("mi-open-png"), miOpenBdf: $("mi-open-bdf"), miOpenProject: $("mi-open-project"), miLoadSample: $("mi-load-sample"), miImportPngClip: $("mi-import-png-clip"),
       miExportPngSolid: $("mi-export-png-solid"), miExportPngTransparent: $("mi-export-png-transparent"), miCopyPngClip: $("mi-copy-png-clip"),
       miExportBdf: $("mi-export-bdf"), miExportVerilog: $("mi-export-verilog"), miExportProject: $("mi-export-project"),
       miUndo: $("mi-undo"), miRedo: $("mi-redo"), miProps: $("mi-props"), miClearGlyph: $("mi-clear-glyph"), miCopyGlyph: $("mi-copy-glyph"),
@@ -1643,6 +1722,7 @@
       selCopy: $("sel-copy"), selCopyTo: $("sel-copyto"), selX: $("sel-x"),
       miCycleStatus: $("mi-cycle-status"), miDoneNext: $("mi-done-next"),
       propsModal: $("props-modal"), propsClose: $("props-close"), propsInfo: $("props-info"),
+      sampleModal: $("sample-modal"), sampleClose: $("sample-close"), sampleList: $("sample-list"), sampleEmpty: $("sample-empty"),
       propsName: $("props-name"), propsSave: $("props-save"), propsCancel: $("props-cancel"),
       miResize: $("mi-resize"), rzModal: $("rz-modal"), rzClose: $("rz-close"), rzResult: $("rz-result"),
       rzWarn: $("rz-warn"), rzTop: $("rz-top"), rzBottom: $("rz-bottom"), rzLeft: $("rz-left"),
@@ -1703,13 +1783,13 @@
     });
     document.addEventListener("keydown", function (e) {
       if (e.key === "Escape") {
-        closeMenus(); closeAboutModal(); closePropsModal(); closeResizeModal(); closeChangelogModal();
+        closeMenus(); closeAboutModal(); closePropsModal(); closeResizeModal(); closeChangelogModal(); closeSampleModal();
         // Deselect too — but only when nothing else claimed the Escape
         // (a menu/modal above would have closed itself and takes priority).
         var busy = false, i;
         for (i = 0; i < menuPairs.length; i++) if (menuPairs[i][0].classList.contains("open")) busy = true;
         if (!busy) {
-          if (!el.aboutModal.hidden || !el.propsModal.hidden || !el.rzModal.hidden || !el.clModal.hidden) busy = true;
+          if (!el.aboutModal.hidden || !el.propsModal.hidden || !el.rzModal.hidden || !el.clModal.hidden || !el.sampleModal.hidden) busy = true;
           else if (!el.keysCard.hidden) busy = true;
         }
         if (!busy && state.selRect) clearSel();
@@ -1722,6 +1802,7 @@
     menuItem("miOpenPng", onOpenClick);
     menuItem("miOpenBdf", onOpenBdfClick);
     menuItem("miOpenProject", onOpenProjectClick);
+    menuItem("miLoadSample", openSampleModal);
     menuItem("miImportPngClip", importPngFromClipboard);
     menuItem("miExportPngSolid", function () { exportPng("solid"); });
     menuItem("miExportPngTransparent", function () { exportPng("transparent"); });
@@ -1774,6 +1855,12 @@
     el.rzApply.addEventListener("click", applyResizeAction);
     el.rzModal.addEventListener("mousedown", function (e) {
       if (e.target === el.rzModal) closeResizeModal();
+    });
+
+    // Sample picker modal (DECISIONS #77): same close paths as the others.
+    el.sampleClose.addEventListener("click", closeSampleModal);
+    el.sampleModal.addEventListener("mousedown", function (e) {
+      if (e.target === el.sampleModal) closeSampleModal();
     });
     var rzInputs = ["rzTop", "rzBottom", "rzLeft", "rzRight"];
     for (var rzi = 0; rzi < rzInputs.length; rzi++)
@@ -1935,7 +2022,8 @@
     renderKeysCard();
 
     settingsCache = loadSettings();
-    var font = loadLS() || BF.makeFont(8, 16);
+    // DECISIONS #77: saved font > default bundled sample (first run) > blank.
+    var font = loadInitialFont();
     state.scale = clamp(settingsGet("pvScale") | 0, 1, 64);
     state.bold = !!settingsGet("pvBold");
     state.italic = !!settingsGet("pvItalic");
@@ -1972,7 +2060,10 @@
       getLastToast: function () { return lastToast; },
       exportPng: exportPng, settingsGet: settingsGet, settingsSet: settingsSet,
       whatsNew: whatsNew, openChangelogModal: openChangelogModal, closeChangelogModal: closeChangelogModal,
-      changelogVersionKey: VERSION_KEY };
+      changelogVersionKey: VERSION_KEY,
+      sampleList: sampleList, defaultSample: defaultSample, validateSample: validateSample,
+      openSampleModal: openSampleModal, closeSampleModal: closeSampleModal, loadSample: loadSample,
+      loadInitialFont: loadInitialFont };
 
   if (typeof document !== "undefined") {
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

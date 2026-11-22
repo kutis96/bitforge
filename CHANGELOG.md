@@ -41,6 +41,18 @@ Rules:
 - Run `./test/run-tests.sh` before committing — the changelog data-sanity
   test is the safety net.
 
+## 0.22.0 (2026-11-22)
+
+- **File**: new **Load sample…** — lists the sample fonts bundled with this
+  build; loading one replaces the current font (its guidelines, glyph
+  statuses and settings come along).
+- **First run** on a clean machine now preloads the default sample font
+  instead of starting blank (a saved font always wins; a build without
+  samples starts blank, as before).
+- Sample infrastructure: a `js/samples.js` registry — sample `.bitforge`
+  files are embedded there, keeping the app `file://`-safe with no build
+  step.
+
 ## 0.21.0 (2026-11-19)
 
 - **Edit**: the selection bar gained a **paste-mode toggle** — `paste: merge`
