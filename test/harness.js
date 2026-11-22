@@ -29,21 +29,37 @@
     if (!threw) throw new Error((msg ? msg + ": " : "") + "expected to throw, did not");
   }
 
+  // Runs tests in order. A test may be synchronous OR return a Promise (async
+  // test): if it returns a thenable we await it before moving on, so async tests
+  // still run serially, in registration order, and the process only exits once
+  // every one has settled. Sync tests return undefined and behave as before.
   function __runAll() {
-    for (var i = 0; i < tests.length; i++) {
-      var t = tests[i];
-      try {
-        t.fn();
-        passed++;
-        print("  ok   " + t.name);
-      } catch (e) {
+    var i = 0;
+    function finish() {
+      print("");
+      print("TOTAL " + (passed + failed) + "   passed " + passed + "   failed " + failed);
+      if (typeof quit === "function") quit(failed ? 1 : 0);
+    }
+    function next() {
+      if (i >= tests.length) { finish(); return; }
+      var t = tests[i++];
+      var r;
+      try { r = t.fn(); } catch (e) {
         failed++;
         print("FAIL   " + t.name + "  ::  " + ((e && e.message) ? e.message : e));
+        next();
+        return;
+      }
+      if (r && typeof r.then === "function") {
+        r.then(function () { passed++; print("  ok   " + t.name); next(); },
+               function (e) { failed++; print("FAIL   " + t.name + "  ::  " + ((e && e.message) ? e.message : e)); next(); });
+      } else {
+        passed++;
+        print("  ok   " + t.name);
+        next();
       }
     }
-    print("");
-    print("TOTAL " + (passed + failed) + "   passed " + passed + "   failed " + failed);
-    if (typeof quit === "function") quit(failed ? 1 : 0);
+    next();
   }
 
   root.test = test;

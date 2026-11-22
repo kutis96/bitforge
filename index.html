@@ -20,7 +20,7 @@
           <button type="button" id="mi-open-png" title="Import a PNG atlas (16x16)">Open PNG&#8230;<span class="mi-key">Alt+O</span></button>
           <button type="button" id="mi-open-bdf" title="Import a BDF font (first face)">Open BDF&#8230;<span class="mi-key">Alt+Shift+O</span></button>
           <button type="button" id="mi-open-project" title="Import a .bitforge project file (font + guidelines + status + silences + settings)">Open project&#8230;<span class="mi-key">Alt+P</span></button>
-          <button type="button" id="mi-load-sample" title="Load one of the bundled sample fonts (replaces the current font)">Load sample&hellip;</button>
+          <button type="button" id="mi-load-sample" hidden title="Load a sample font from the server's samples/ folder (replaces the current font)">Load sample&hellip;</button>
           <button type="button" id="mi-import-png-clip" title="Import the first PNG image on the system clipboard (replaces the current font)">Import PNG from clipboard</button>
           <hr>
           <button type="button" id="mi-export-png-solid" title="Export a PNG atlas with a white background">Export PNG (solid bg)<span class="mi-key">Ctrl+S</span></button>
@@ -249,8 +249,8 @@
     <div class="modal" role="dialog" aria-modal="true" aria-label="Load sample font">
       <div class="modal-head"><b>Load sample&hellip;</b><button id="sample-close" type="button" title="Close">&times;</button></div>
       <div class="modal-body">
-        <p class="muted">Bundled sample fonts. Loading one replaces the current font (its guidelines, glyph statuses and settings come with it).</p>
-        <p id="sample-empty" class="muted" hidden>No samples are bundled in this build yet. To add one: export any font via File &rarr; Export project&hellip; and hand the .bitforge file over &mdash; it gets embedded into <code>js/samples.js</code>.</p>
+        <p class="muted">Sample fonts served from the <code>samples/</code> folder. Loading one replaces the current font (its guidelines, glyph statuses and settings come with it).</p>
+        <p id="sample-empty" class="muted" hidden>No samples are available here. Samples are served from the <code>samples/</code> folder (listed in <code>samples/manifest.json</code>) and only load when the page is served over http/https &mdash; open it from a web server to see them.</p>
         <div id="sample-list" class="sample-list"></div>
       </div>
     </div>
@@ -260,7 +260,6 @@
 
   <script src="js/core.js"></script>
   <script src="js/changelog.js"></script>
-  <script src="js/samples.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

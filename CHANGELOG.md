@@ -41,6 +41,18 @@ Rules:
 - Run `./test/run-tests.sh` before committing — the changelog data-sanity
   test is the safety net.
 
+## 0.22.1 (2026-11-22)
+
+- **Samples are now server files**: they live in the `samples/` folder and are
+  listed in `samples/manifest.json` (instead of being embedded in the code).
+  Add, rename, or reorder samples by editing that folder — **no code change,
+  no build step.** First real sample shipped: **Small & Cozy** (8×16).
+- **File → Load sample…** now only appears when the page is served over
+  http/https. Opened straight from a `file://` URL it's hidden and the app
+  starts blank, exactly as before.
+- **First-run preload** of the default sample now only happens on a served page
+  (a saved font still always wins).
+
 ## 0.22.0 (2026-11-22)
 
 - **File**: new **Load sample…** — lists the sample fonts bundled with this

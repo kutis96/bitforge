@@ -14,6 +14,11 @@
  * (date "" = pre-dated history, not shown in the UI)
  */
 var BF_CHANGELOG = [
+  { version: "0.22.1", date: "2026-11-22", changes: [
+    "Sample fonts are now served from the server's samples/ folder (listed in samples/manifest.json) instead of being embedded — add, rename or reorder samples by editing that folder, no code change or build step. Shipped with a first real sample: Small & Cozy.",
+    "File > Load sample… now only appears when the page is served over http/https; opened straight from a file it's hidden and the app starts blank, as before.",
+    "First-run preload of the default sample now only happens on a served page (a saved font still always wins)."
+  ] },
   { version: "0.22.0", date: "2026-11-22", changes: [
     "Bundled sample fonts: File → Load sample… lists the samples shipped with this build; loading one replaces the current font (guidelines, glyph statuses and its settings come along).",
     "First run on a clean machine now preloads the default sample font instead of starting blank (a saved font always wins; builds without samples start blank as before).",

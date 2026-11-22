@@ -1378,83 +1378,157 @@
     redrawAll();
   }
 
-  // ---------- bundled samples (DECISIONS #77) ----------
-  // js/samples.js (loaded before app.js) defines BF_SAMPLES; an empty array
-  // means this build ships no samples — the picker shows the empty state and
-  // first run starts blank, exactly the pre-[V] behavior.
-  function sampleList() {
-    return (typeof BF_SAMPLES !== "undefined" && Array.isArray(BF_SAMPLES)) ? BF_SAMPLES : [];
+  // ---------- sample fonts (DECISIONS #78, supersedes #77's embedded registry) ----------
+  // Samples are FILES on the server, not embedded: samples/manifest.json lists
+  // them, each pointing at a samples/*.bitforge file (the same shape File > Export
+  // project… produces). You add/rename/reorder samples by editing that folder —
+  // no code change, no build step.
+  //
+  // We only ever try to load them when the page is SERVED over http(s): browsers
+  // block fetch() of local files, so under file:// (and in the headless stub) the
+  // "Load sample…" menu item is hidden and a first run starts blank — exactly the
+  // pre-[V] behavior. This is the graceful degrade the user asked for.
+  var fetchedSamples = [];     // validated: { id, name, description, default, font, settings }
+  var samplesState = "idle";   // "idle" | "loading" | "ready" | "unavailable"
+
+  function isServed() {
+    var p = "";
+    try { p = (typeof location !== "undefined" && location && location.protocol) ? location.protocol : ""; } catch (e) { p = ""; }
+    return (p === "http:" || p === "https:") && typeof fetch === "function";
   }
-  // First-run preload target: an entry flagged `default`, else the first one.
-  function defaultSample() {
-    var L = sampleList();
-    for (var i = 0; i < L.length; i++) if (L[i] && L[i].default === true) return L[i];
-    return L.length ? L[0] : null;
-  }
-  // Validate one bundled entry -> { ok, font, settings, name } | { ok: false, error }.
-  function validateSample(s) {
-    if (!s || typeof s !== "object") return { ok: false, error: "not an object" };
-    if (typeof s.json !== "string") return { ok: false, error: "missing json string" };
+  // Validate one fetched sample's text -> { ok, font, settings, name } | { ok: false, error }.
+  function validateSampleText(entry, text) {
+    if (typeof text !== "string") return { ok: false, error: "sample file missing" };
     var o;
-    try { o = JSON.parse(s.json); }
-    catch (e) { return { ok: false, error: "json does not parse" }; }
+    try { o = JSON.parse(text); }
+    catch (e) { return { ok: false, error: "sample does not parse as JSON" }; }
     var p = BF.objFromProject(o, knownCheckIds());
     if (!p.ok) return { ok: false, error: p.error };
-    var name = (typeof s.name === "string" && s.name) ? s.name : (s.id || "sample");
+    var name = (entry && typeof entry.name === "string" && entry.name) ? entry.name : (entry && entry.id) || "sample";
     return { ok: true, font: p.font, settings: p.settings, name: name };
   }
-  function renderSampleModal() {
-    var L = sampleList();
-    el.sampleEmpty.hidden = L.length > 0;
-    el.sampleList.textContent = "";
-    for (var i = 0; i < L.length; i++)
-      (function (idx, s) {
-        var b = document.createElement("button");
-        b.type = "button";
-        b.className = "sample-item";
-        if (typeof s.description === "string") b.title = s.description;
-        var n = document.createElement("span");
-        n.className = "s-name";
-        n.textContent = (s.name || s.id || "sample " + (idx + 1)) + (s.default === true ? "  (default)" : "");
-        b.appendChild(n);
-        if (typeof s.description === "string" && s.description) {
-          var d = document.createElement("span");
-          d.className = "s-desc";
-          d.textContent = s.description;
-          b.appendChild(d);
-        }
-        b.addEventListener("click", function () { closeSampleModal(); loadSample(idx); });
-        el.sampleList.appendChild(b);
-      })(i, L[i]);
+  // PURE: given the manifest array and a sync textFor(file) -> text (throws/returns
+  // nothing when a file is missing), build the validated sample list. Bad entries
+  // are skipped (with a console note), never fatal — one broken sample must not
+  // take the good ones down. This is the part the headless suite drives directly.
+  function buildSamples(manifest, textFor) {
+    if (!Array.isArray(manifest)) throw new Error("manifest is not an array");
+    var out = [];
+    for (var i = 0; i < manifest.length; i++) {
+      var entry = manifest[i];
+      if (!entry || typeof entry !== "object" || typeof entry.file !== "string") { warnSampleSkip(entry, "manifest entry has no file"); continue; }
+      var text;
+      try { text = textFor(entry.file); } catch (e) { warnSampleSkip(entry, (e && e.message) || e); continue; }
+      var v = validateSampleText(entry, text);
+      if (!v.ok) { warnSampleSkip(entry, v.error); continue; }
+      out.push({ id: entry.id, name: v.name, description: entry.description, default: entry.default === true, font: v.font, settings: v.settings });
+    }
+    return out;
   }
-  function openSampleModal() { renderSampleModal(); el.sampleModal.hidden = false; }
+  function warnSampleSkip(entry, msg) {
+    if (typeof console !== "undefined" && console.warn) console.warn("bitforge: skipping sample " + ((entry && entry.id) || "?") + ": " + msg);
+  }
+  function sampleList() { return fetchedSamples; }
+  function samplesStateNow() { return samplesState; }
+  function defaultSample() {
+    for (var i = 0; i < fetchedSamples.length; i++) if (fetchedSamples[i] && fetchedSamples[i].default === true) return fetchedSamples[i];
+    return fetchedSamples.length ? fetchedSamples[0] : null;
+  }
+  // Async transport wrapper over the pure buildSamples: fetch the manifest, then
+  // every referenced file (in parallel), then build synchronously. Degrades to
+  // "unavailable" (and hides the menu item) when not served or when the manifest
+  // can't be read; a partial manifest keeps its good entries.
+  function fetchSamples() {
+    if (samplesState === "ready" || samplesState === "loading") return Promise.resolve(fetchedSamples);
+    if (!isServed()) { samplesState = "unavailable"; updateSampleMenu(); return Promise.resolve([]); }
+    samplesState = "loading"; updateSampleMenu();
+    return fetch("samples/manifest.json", { cache: "no-store" })
+      .then(function (r) { if (!r.ok) throw new Error("manifest HTTP " + r.status); return r.json(); })
+      .then(function (manifest) {
+        if (!Array.isArray(manifest)) throw new Error("manifest is not an array");
+        var files = [];
+        for (var i = 0; i < manifest.length; i++) { var f = manifest[i] && manifest[i].file; if (typeof f === "string" && files.indexOf(f) === -1) files.push(f); }
+        return Promise.all(files.map(function (f) {
+          return fetch("samples/" + f, { cache: "no-store" })
+            .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); })
+            .then(function (text) { return { file: f, text: text }; })
+            .catch(function (e) { return { file: f, error: (e && e.message) || String(e) }; });
+        }))
+          .then(function (results) {
+            var byFile = {};
+            for (var j = 0; j < results.length; j++) byFile[results[j].file] = results[j];
+            var L = buildSamples(manifest, function (file) {
+              var r = byFile[file];
+              if (!r) throw new Error("file not fetched");
+              if (r.error) throw new Error(r.error);
+              return r.text;
+            });
+            fetchedSamples = L;
+            samplesState = L.length ? "ready" : "unavailable";
+            return L;
+          });
+      })
+      .catch(function (err) { warnSampleSkip(null, (err && err.message) || err); fetchedSamples = []; samplesState = "unavailable"; return []; })
+      .then(function () { updateSampleMenu(); return fetchedSamples; });
+  }
+  // Show/hide File > Load sample… : visible only when we actually have samples.
+  function updateSampleMenu() {
+    if (el.miLoadSample) el.miLoadSample.hidden = !(samplesState === "ready" && fetchedSamples.length > 0);
+  }
+  function renderSampleModal() {
+    el.sampleList.textContent = "";
+    if (samplesState === "ready" && fetchedSamples.length) {
+      el.sampleEmpty.hidden = true;
+      for (var i = 0; i < fetchedSamples.length; i++)
+        (function (idx, s) {
+          var b = document.createElement("button");
+          b.type = "button";
+          b.className = "sample-item";
+          if (typeof s.description === "string") b.title = s.description;
+          var n = document.createElement("span");
+          n.className = "s-name";
+          n.textContent = s.name + (s.default === true ? "  (default)" : "");
+          b.appendChild(n);
+          if (typeof s.description === "string" && s.description) {
+            var d = document.createElement("span");
+            d.className = "s-desc";
+            d.textContent = s.description;
+            b.appendChild(d);
+          }
+          b.addEventListener("click", function () { closeSampleModal(); loadSample(idx); });
+          el.sampleList.appendChild(b);
+        })(i, fetchedSamples[i]);
+    } else {
+      el.sampleEmpty.hidden = false;
+      el.sampleList.textContent = "";
+    }
+  }
+  function openSampleModal() { renderSampleModal(); el.sampleModal.hidden = false; if (samplesState !== "ready") fetchSamples().then(renderSampleModal); }
   function closeSampleModal() { el.sampleModal.hidden = true; }
   function loadSample(idx) {
-    var s = sampleList()[idx];
+    var s = fetchedSamples[idx];
     if (!s) { toast("Unknown sample", true); return; }
-    var v = validateSample(s);
-    if (!v.ok) { toast("Bundled sample " + (s.id || idx) + " is invalid: " + v.error, true); return; }
-    if (!confirm("Load sample " + v.name + "? It replaces the current font; the sample's settings are applied too.")) return;
-    setFont(v.font);
-    if (v.settings) applyImportedSettings(v.settings);
-    toast("Loaded sample " + v.name);
+    if (!confirm("Load sample " + s.name + "? It replaces the current font; the sample's settings are applied too.")) return;
+    setFont(s.font);
+    if (s.settings) applyImportedSettings(s.settings);
+    toast("Loaded sample " + s.name);
   }
-  // First-run preload: a saved font always wins; else the default sample;
-  // else a blank 8x16 (the pre-[V] behavior).
-  function loadInitialFont() {
-    var saved = loadLS();
-    if (saved) return saved;
-    var s = defaultSample();
-    if (s) {
-      var v = validateSample(s);
-      if (v.ok) {
-        if (v.settings) applyImportedSettings(v.settings);
-        toast("Loaded bundled sample " + v.name + " (first run)");
-        return v.font;
-      }
-      toast("Bundled sample " + (s.id || "?") + " is invalid: " + v.error + " — starting blank", true);
-    }
-    return BF.makeFont(8, 16);
+  // First-run preload (DECISIONS #78): only when SERVED and there's no saved font.
+  // A saved font always wins; the identity guard below means this can't clobber a
+  // font the user already opened/loaded. Under file:// it's a no-op (blank start).
+  // Note: called only from init when there was NO saved font, so it does not
+  // re-check localStorage (setFont() has already persisted the blank by then).
+  function firstRunSamplePreload() {
+    if (!isServed()) return Promise.resolve();
+    var ref = state.font; // identity guard: never clobber a font the user changed
+    return fetchSamples().then(function () {
+      if (state.font !== ref) return; // the user opened/loaded a different font
+      var s = defaultSample();
+      if (!s) return;
+      if (s.settings) applyImportedSettings(s.settings);
+      setFont(s.font);
+      toast("Loaded sample " + s.name + " (first run)");
+    });
   }
 
   // Copy glyph to clipboard (DECISIONS #44): PNG at 16 display px per glyph
@@ -2022,8 +2096,10 @@
     renderKeysCard();
 
     settingsCache = loadSettings();
-    // DECISIONS #77: saved font > default bundled sample (first run) > blank.
-    var font = loadInitialFont();
+    // DECISIONS #78: saved font > blank. A served first run (no saved font) then
+    // preloads the default sample asynchronously (below); file:// starts blank.
+    var savedFont = loadLS();
+    var font = savedFont || BF.makeFont(8, 16);
     state.scale = clamp(settingsGet("pvScale") | 0, 1, 64);
     state.bold = !!settingsGet("pvBold");
     state.italic = !!settingsGet("pvItalic");
@@ -2041,6 +2117,10 @@
     var newEntries = whatsNew();
     try { localStorage.setItem(VERSION_KEY, BF.VERSION); } catch (e) { /* ignore */ }
     if (newEntries.length) openChangelogModal(newEntries, true);
+
+    // DECISIONS #78: first-run default sample (served only; a saved font already
+    // won, and the identity guard inside prevents clobbering a later user load).
+    if (!savedFont) firstRunSamplePreload();
   }
 
   // Test seam: only under the jsc DOM stub (harmless in the browser). Lets the
@@ -2061,9 +2141,12 @@
       exportPng: exportPng, settingsGet: settingsGet, settingsSet: settingsSet,
       whatsNew: whatsNew, openChangelogModal: openChangelogModal, closeChangelogModal: closeChangelogModal,
       changelogVersionKey: VERSION_KEY,
-      sampleList: sampleList, defaultSample: defaultSample, validateSample: validateSample,
-      openSampleModal: openSampleModal, closeSampleModal: closeSampleModal, loadSample: loadSample,
-      loadInitialFont: loadInitialFont };
+      sampleList: sampleList, defaultSample: defaultSample, samplesState: samplesStateNow,
+      validateSampleText: validateSampleText, buildSamples: buildSamples, isServed: isServed,
+      fetchSamples: fetchSamples, firstRunSamplePreload: firstRunSamplePreload,
+      setSamples: function (list, st) { fetchedSamples = list || []; samplesState = st || (list && list.length ? "ready" : "unavailable"); updateSampleMenu(); },
+      applyImportedSettings: applyImportedSettings,
+      openSampleModal: openSampleModal, closeSampleModal: closeSampleModal, loadSample: loadSample };
 
   if (typeof document !== "undefined") {
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

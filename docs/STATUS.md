@@ -1,6 +1,6 @@
 # bitforge — Status
 
-> **HANDOVER (2026-11-22, context rollover):** we're at **[V] / 0.22.0**, 184/184 tests, clean tree (HEAD = the [V] commit). Everything is committed and doc-complete. **Browser-verify backlog:** [T]/[T.1] (standing), [U] ✅ confirmed by user, and now [V] (sample picker empty state + — once samples land — the picker list, load-confirm flow, first-run preload). The user is about to create sample `.bitforge` files; adding one = the procedure in the `js/samples.js` header (embed → suite validates it → version bump + both changelogs → commit). Next real work: the **[V.1] first real samples** (waiting on the user's files) or the open **[O] polish** catch-all. Ritual, conventions and gotchas: [AGENTS.md](AGENTS.md) (root) + this file + DECISIONS.md. The `hidden`-vs-`display` CSS trap and the init-order trap are documented in DECISIONS #75 [T.1] — don't relearn them.
+> **HANDOVER (2026-11-22, context rollover):** we're at **[V.1] / 0.22.1**, 185/185 tests, clean tree (HEAD = the [V.1] commit). Samples are now **files on the server** (`bitforge/samples/*.bitforge` + `samples/manifest.json`), fetched at runtime — **File → Load sample… is hidden under `file://`**, and first-run preload is gated on "served". The user's **Small & Cozy** font is the first (default) sample. **Browser-verify for the user:** served page → Load sample… visible, lists *Small & Cozy (default)*, load-confirm replaces the font; clean profile → Small & Cozy preloaded; `file://` → item hidden, blank start (graceful degrade). Adding a sample = drop `.bitforge` into `samples/` + one `manifest.json` entry (AGENTS.md). Next real work: the open **[O] polish** catch-all (editor hover crosshair, jump UX, slant-spill clipping, guideline visuals) or whatever the user greenlights. Ritual, conventions and gotchas: [AGENTS.md](AGENTS.md) (root) + this file + DECISIONS.md. The `hidden`-vs-`display` CSS trap and the init-order trap are documented in DECISIONS #75 [T.1] — don't relearn them.
 
 ## Current state
 - [x] Requirements gathered and clarified with the user
@@ -46,8 +46,8 @@
 - [x] **[T.1] Toolbar polish** (2026-11-18): selbar hidden-until-selection bug fixed (CSS `[hidden]` guard) · toolbar moved below + enclosed like the guidelines bar (context-area semantics) · collapsible guidelines bar (persisted) — 178 tests
 - [x] **[T.2] Rollback: collapsible guides bar** (2026-11-18): the [T.1] collapse feature removed per user retraction (bar always visible again); the selbar fix + toolbar position/enclosure stay — 177 tests
 - [x] **[U] Move/copy paste modes** (2026-11-19): `paste: merge ⇄ replace` toggle in the selection bar (setting, default merge) · **Ctrl/Alt+drag = copy** the selection (source kept) — 180 tests
-- [x] **[V] Sample fonts: infrastructure** (2026-11-22): `js/samples.js` registry (embedded `.bitforge` strings) · File → **Load sample…** picker (empty state included) · first-run preloads the default sample (saved font always wins) · suite validates every shipped entry — 184 tests
-- [ ] **[V.1] First real samples** — waiting on the user's `.bitforge` files; adding = embed into `js/samples.js` (procedure in its header) + version bump
+- [x] **[V] Sample fonts: infrastructure** (2026-11-22): `js/samples.js` registry (embedded `.bitforge` strings) · File → **Load sample…** picker (empty state included) · first-run preloads the default sample (saved font always wins) · suite validates every shipped entry — 184 tests *(superseded in part by [V.1])*
+- [x] **[V.1] Server-served sample fonts** (2026-11-22): `samples/` folder + `manifest.json` replace the embedded registry (deleted) · **Load sample… hidden unless served over http(s)** · first-run default-sample preload gated on served (identity-guarded) · **Small & Cozy** = first sample · harness now awaits async tests (fake `fetch`/`location`) — 185 tests
 - [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -84,7 +84,8 @@ Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–
 | 0.20.1 | [T.1] Toolbar polish (hidden selbar fix, toolbar enclosure/position, collapsible guides) |
 | 0.20.2 | [T.2] Rollback: collapsible guides bar removed (user retraction) |
 | 0.21.0 | [U] Move/copy paste modes (merge/replace toggle + Ctrl/Alt-drag copy) |
-| **0.22.0** (current) | [V] Sample fonts: embedded registry + Load sample… picker + first-run preload |
+| 0.22.0 | [V] Sample fonts: embedded registry + Load sample… picker + first-run preload (superseded in part by 0.22.1) |
+| **0.22.1** (current) | [V.1] Server-served sample fonts (samples/ + manifest.json) |
 
 **Lettering note (2026-11-15, chunk M):** chunk letters drifted at some point (the I-wave landed after L); they now follow list position. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Git commit subjects still use the old letters.
 
@@ -409,7 +410,16 @@ User request (2026-11-22): "let users load up some demo font, or have one pre-lo
 - **Tests (184 total, +4):** registry shape + every shipped entry validates (this is the build-time sample validator); picker empty state; entry render + `loadSample` replace/cancel/invalid paths (drives the real `projectExportText` round-trip); first-run preload matrix (sample, saved-wins, invalid fallback, no-samples no-toast).
 - **Browser-verify (user):** File → Load sample… opens, shows the empty state, ×/Escape/backdrop close it. (Once [V.1] lands: picker lists the samples; loading one confirms + replaces; first-run preload on a clean profile.)
 
-## Plan — remaining chunks (decisions locked in DECISIONS #32–77)
+### [V.1] Server-served sample fonts (`samples/` + `js/app.js` + `index.html` + `test/` + docs, 2026-11-22)
+User revision of [V] (2026-11-22): the user now hosts the page on a server and wants to **customize the loadable sample fonts over time** — embedding them in JS "might not be ideal"; **hide Load sample… when not running on a server**; locally testable via a served page. The user attached **`small-and-cozy.bitforge`** (299 KB) as the first sample. Shipped (supersedes [V]'s embedded registry; DECISIONS #78):
+- **Samples = server files:** `bitforge/samples/small-and-cozy.bitforge` (user's file, validated: bitforge v1, 8×16, name "small-and-cozy") + `samples/manifest.json` (`[{ id, name, description, file, default:true }]`). Adding a sample = drop file + one manifest entry (no code, no rebuild) — procedure in AGENTS.md. `js/samples.js` **deleted** (both registrations removed) — the folder is the single source of truth; the embedded offline fallback was dropped deliberately (flagged to the user).
+- **Runtime fetch + graceful degrade:** `isServed()` (protocol http:/https:). **Not served ⇒ `#mi-load-sample` hidden** (plain `hidden` attr; browser-verify it's actually gone) and first run starts blank (pre-[V] behavior). Served ⇒ `fetchSamples()` pulls `manifest.json` then each entry's file, `validateSampleText()` guards both (one bad entry is skipped with a console note — it can't kill the picker), `buildSamples(manifest, textFor)` is a pure testable seam. Partial manifest failures still show the good samples.
+- **First-run preload:** retained from [V] but **gated on `isServed()`** — served clean profile ⇒ the `default` sample loads ("(first run)" toast); identity-guarded so a font the user changed before the fetch settles is never clobbered. `init()` captures `savedFont` up front (`setFont` → `saveLS` would otherwise fool a later `loadLS()` re-check).
+- **Test harness upgrade (shared file, backward-compatible):** `test/harness.js` now **awaits a Promise returned by a test** (serial, in order, exit code preserved; sync tests unaffected) — this is what lets 3 new tests drive the real fetch→validate→render→`loadSample` pipeline headlessly via a fake `globalThis.fetch`/`location` (`bfFakeFetch` routes, every test restores env in both settle paths).
+- **Tests (185 total):** −4 old embedded-registry tests, +5 new (file:// not-served; `buildSamples` pure; served happy-path async incl. cancel no-op; served partial/broken entry; first-run preload). **Browser-verify (user, requested this turn):** served page → Load sample… visible, lists *Small & Cozy (default)*, load confirms + replaces + toasts; clean profile → preloaded; `file://` → hidden + blank.
+- **Docs:** DECISIONS #78 (#77 marked superseded-in-part); DESIGN persistence section; AGENTS.md samples procedure + async-harness note; changelog 0.22.1 in both files.
+
+## Plan — remaining chunks (decisions locked in DECISIONS #32–78)
 
 **[N] QA checks are fully done** (N.1 + N.2 + N.3 — both deferred checks #46/#47 shipped with per-glyph silencing).
 

@@ -34,7 +34,8 @@ Rules that bite:
 - The **shortcut registry count** is asserted in `test/test-dom.js` — every new `shortcuts.register(...)` call must update it.
 - DOM tests share one app instance — clean up font/status mutations you make, or later tests fail (see the cross-test state-bleed note in TESTING.md).
 - Stub seams (`__stub.app`, `__stub.dispatch`, `__stub.setClipboard`, …) are documented in TESTING.md. The headless stub does **not** parse `index.html`, so static HTML text/attributes can't be asserted headlessly.
-- **Bundled samples** live in `js/samples.js` (`BF_SAMPLES`); the suite validates every entry, so a bad sample fails the build. Adding one: follow the HOW-TO-ADD header in that file (DECISIONS #77).
+- **Sample fonts** are **server files**, not code (DECISIONS #78): drop a `.bitforge` into `samples/` and add a row to `samples/manifest.json` (`{ id, name, description, file, default? }`). No code change, no build step, nothing to register. The served path is exercised headlessly with a fake `globalThis.fetch`/`location` (see `test/test-samples.js`); a bad sample is skipped at runtime, not a build failure.
+- **The harness awaits async tests** (since [V.1]): a `test(...)` whose function returns a **Promise** is awaited before the next runs (serial, in order, exit code preserved). Use this for `fetch`-style flows; sync tests are unaffected.
 
 ## The per-chunk ritual (follow it, in order)
 

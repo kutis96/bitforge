@@ -1,0 +1,9 @@
+[
+  {
+    "id": "small-and-cozy",
+    "name": "Small & Cozy",
+    "description": "A compact, cozy 8\u00d716 terminal face — spacecat's hand-drawn sample.",
+    "file": "small-and-cozy.bitforge",
+    "default": true
+  }
+]
