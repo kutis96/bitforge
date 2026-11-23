@@ -13,7 +13,10 @@
   function makeCtx() {
     return {
       fillStyle: "", strokeStyle: "", lineWidth: 1,
-      fillRect: function () {}, strokeRect: function () {}, clearRect: function () {},
+      // fillStyle of every fillRect, in call order (DECISIONS #79 tests assert
+      // the theme-aware glyph ink drawn on the editor/selector canvases).
+      rects: [],
+      fillRect: function (x, y, w, h) { this.rects.push(this.fillStyle); }, strokeRect: function () {}, clearRect: function () {},
       beginPath: function () {}, moveTo: function () {}, lineTo: function () {},
       stroke: function () {}, fill: function () {}, drawImage: function () {},
       save: function () {}, restore: function () {}, setLineDash: function () {},

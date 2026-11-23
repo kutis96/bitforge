@@ -46,7 +46,7 @@ test("theme: choosing dark persists the setting, retags <html>, moves the menu c
     assertEqual(app.themeColors().ink, "#e6e6e6", "dark canvas palette: light ink");
     app.chooseTheme("light");
     assertEqual(document.documentElement.getAttribute("data-theme"), "light", "back to light");
-    assertEqual(app.themeColors().bg, "#ffffff", "light canvas palette: white bg");
+    assertEqual(app.themeColors().bg, "#fff", "light canvas palette: white bg (pre-[W] literal)");
     // Invalid choice is a no-op.
     app.chooseTheme("neon");
     assertEqual(app.settingsGet("theme"), "light", "bogus choice ignored");
@@ -96,5 +96,36 @@ test("theme: a .bitforge import carrying theme=dark is applied (DECISIONS #79)",
     if (savedFont == null) globalThis.localStorage.removeItem("bitforge.font.v1");
     else globalThis.localStorage.setItem("bitforge.font.v1", savedFont);
     app.applyTheme(); // restores the previous theme; redraws on change
+  }
+});
+
+test("theme: selector mini-glyph ink follows the theme (DECISIONS #79)", function () {
+  // Regression: the selector called drawGlyphTo() with no color, inheriting
+  // its #111 default — black mini-glyphs, unreadable on the dark background.
+  var app = globalThis.__stub.app, els = globalThis.__stub.els;
+  var savedSetting = bfThemeSave();
+  try {
+    BF.setPixel(app.state.font, 65, 0, 0, 1); // one ink pixel for the selector to draw
+
+    app.chooseTheme("dark");
+    app.redrawAll(); // deterministic redraw in the dark state (whatever it was before)
+    var selCtx = els["selector"]._ctx;
+    var n0 = selCtx.rects.length;
+    app.redrawAll();
+    var darkFresh = selCtx.rects.slice(n0);
+    assert(darkFresh.indexOf("#e6e6e6") >= 0, "dark: selector mini-glyphs drawn in light ink");
+    assert(darkFresh.indexOf("#111") < 0, "dark: no black glyph ink left on the selector");
+
+    app.chooseTheme("light");
+    app.redrawAll();
+    var n1 = selCtx.rects.length;
+    app.redrawAll();
+    var lightFresh = selCtx.rects.slice(n1);
+    assert(lightFresh.indexOf("#111") >= 0, "light: selector mini-glyphs drawn in black ink");
+    assert(lightFresh.indexOf("#e6e6e6") < 0, "light: no dark-ink on the selector");
+  } finally {
+    BF.setPixel(app.state.font, 65, 0, 0, 0);
+    bfThemeRestore(savedSetting);
+    app.applyTheme();
   }
 });

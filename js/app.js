@@ -627,11 +627,13 @@
     }
   }
   // Canvas palette for the themed editing surfaces (editor + selector).
+  // Light values are the pre-[W] literals (#fff/#e2e2e2/#111/#b5b5b5/#888),
+  // so the light look is pixel-identical to before dark mode existed.
   function themeColors() {
     var dark = (state.theme === "dark");
     return dark
       ? { bg: "#1d1d1d", grid: "#333333", ink: "#e6e6e6", refUnder: "#5f5f5f", selStroke: "#e6e6e6", selRef: "#8a8a8a" }
-      : { bg: "#ffffff", grid: "#e2e2e2", ink: "#111111", refUnder: "#b5b5b5", selStroke: "#111111", selRef: "#888888" };
+      : { bg: "#fff", grid: "#e2e2e2", ink: "#111", refUnder: "#b5b5b5", selStroke: "#111", selRef: "#888" };
   }
 
   // Glyph status tints (DECISIONS #39): WIP = light peach, unfinished = light
@@ -693,7 +695,9 @@
       if (tint) { ctx.fillStyle = tint; ctx.fillRect(col * cell, row * cell, cell, cell); }
       var ox = col * cell + ((cell - f.width * ms) >> 1);
       var oy = row * cell + ((cell - f.height * ms) >> 1);
-      drawGlyphTo(ctx, code, ox, oy, ms, {});
+      // Themed ink (DECISIONS #79): drawGlyphTo's #111 default would leave
+      // the mini-glyphs black and unreadable on the dark selector background.
+      drawGlyphTo(ctx, code, ox, oy, ms, { color: tc.ink });
     }
     var sc = state.selected;
     ctx.strokeStyle = tc.selStroke; ctx.lineWidth = 2;
@@ -2220,7 +2224,7 @@
       getLastToast: function () { return lastToast; },
       exportPng: exportPng, settingsGet: settingsGet, settingsSet: settingsSet,
       resolveTheme: resolveTheme, chooseTheme: chooseTheme, applyTheme: applyTheme,
-      watchSystemTheme: watchSystemTheme,
+      watchSystemTheme: watchSystemTheme, redrawAll: redrawAll,
       syncThemeMenu: syncThemeMenu, themeColors: themeColors,
       whatsNew: whatsNew, openChangelogModal: openChangelogModal, closeChangelogModal: closeChangelogModal,
       changelogVersionKey: VERSION_KEY,
