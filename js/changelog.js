@@ -14,6 +14,10 @@
  * (date "" = pre-dated history, not shown in the UI)
  */
 var BF_CHANGELOG = [
+  { version: "0.24.0", date: "2026-11-23", changes: [
+    "The app now remembers your last selected glyph — reopen it (or open a project/sample that carries it) and you'll land back on that glyph instead of 0x00.",
+    "The shipped Small & Cozy sample now opens at \u201cB\u201d (0x42) instead of 0x00."
+  ] },
   { version: "0.23.0", date: "2026-11-23", changes: [
     "Dark mode: Edit → Theme: Light / Dark / Auto. Auto (the default) follows your system / browser color preference and updates live when it changes; Light and Dark pin the look regardless of the system. The choice is remembered (and travels inside .bitforge project files).",
     "In Dark, the app chrome, menus and modals go dark, and the editor + glyph selector follow the theme (light ink on dark).",

@@ -1,6 +1,6 @@
 # bitforge — Status
 
-> **HANDOVER (2026-11-23, context rollover):** we're at **[W] / 0.23.0**, 191/191 tests, clean tree (HEAD = the [W] fix commit). Dark mode is in: **Edit → Theme: Light / Dark / Auto** (auto = default, follows the system/browser preference live; explicit choice pins the look). The choice is a **setting** ⇒ persisted + rides `.bitforge` files. Chrome + **editor/selector canvases** follow the theme (selector mini-glyph ink fixed to follow too — regression-tested); **Preview/Atlas render surfaces stay under the Inverted checkbox; exports/clipboard are hardcoded black ink + white/transparent** (audited, theme-proof). **Browser-verify for the user:** Edit → Theme: Dark flips the app + editor + selector incl. the mini-glyphs (checkmark moves, survives reload); Auto follows system preference live (DevTools emulation works); Preview/Atlas + exports unchanged in either theme; toasts/modals/menus/QA tab readable in dark. Next real work: the open **[O] polish** catch-all or whatever the user greenlights. Ritual, conventions and gotchas: [AGENTS.md](AGENTS.md) (root) + this file + DECISIONS.md. The `hidden`-vs-`display` CSS trap and the init-order trap are documented in DECISIONS #75 [T.1] — don't relearn them.
+> **HANDOVER (2026-11-23, mid-turn):** the user greenlit three new ideas (easiest→hardest): **[X] persist the last selected glyph** (settings + `.bitforge` + sample starts at 0x42) → 0.24.0; **[Y] menu-bar rearrangement** → **Project / Font / Glyph / App** (File→Project, Edit split into Font+Glyph, About→App, "Load sample…"→"Open sample…", font stats move under Font) → 0.25.0; **[Z] dogfooding mode** (use the font being edited as bitforge's own UI font, with safe fallback) → **PLAN ONLY this turn** (DESIGN.md "Dogfooding (planned)" + DECISIONS #82), no code. Base state before all of this: [W] dark mode done, 191/191, HEAD = 9e58495. Ritual, conventions and gotchas: [AGENTS.md](AGENTS.md) (root) + this file + DECISIONS.md. The `hidden`-vs-`display` CSS trap and the init-order trap are documented in DECISIONS #75 [T.1] — don't relearn them.
 
 ## Current state
 - [x] Requirements gathered and clarified with the user
@@ -432,7 +432,35 @@ User request (2026-11-23): "Can we add a darkmode as well? This should be both s
 - **Export audit (user request, 2026-11-23):** `atlasCanvas()` (PNG file + clipboard), `glyphCanvas()` (glyph copy), `selCanvas()` (selection copy) all hardcode `#000` ink + `#fff`/transparent bg — verified theme-proof; nothing to change.
 - **Docs:** DECISIONS #79; DESIGN persistence bullet; AGENTS.md theme + test-file registration notes; changelog 0.23.0 in both files.
 
-## Plan — remaining chunks (decisions locked in DECISIONS #32–78)
+### [X] Persist the last selected glyph (`js/app.js` + `samples/` + `test/` + docs, 2026-11-23)
+User request (2026-11-23): "make the last selected glyph persist — when I open the app again, it doesn't start at 0x00, but at the last glyph I chose. Persist it in the .bitforge file too, and update the sample file to start at glyph 'B' (0x42)." Shipped (DECISIONS #80, version 0.24.0):
+- **`selCode` (number, default 0)** joins the settings API (DECISIONS #40): `selectGlyph()` persists it (every selection path funnels through it), `init()` restores it right after `loadSettings()` (before `setFont` — init-order rule honored), `applyImportedSettings` re-selects it **only when the imported object carries the key** (older files keep the current selection).
+- **Sample:** `samples/small-and-cozy.bitforge` settings gained `"selCode": 66` (0x42 "B").
+- **Tests (196 total, +5):** new `test/test-selcode.js` — select ⇒ persisted (setting + localStorage blob) · import-with-key ⇒ restored (+ 999 ⇒ clamped to 255) · import-without-key ⇒ selection untouched (path taken via a guaranteed-differing pvScale) · `projectExportText` carries it · defaults table guarded via new seam `settingsDefaults()`. New: `run-tests.sh` gained a **python3 shipped-sample file check** (jsc has no file reads; asserts the real sample is a valid bitforge project with selCode 66).
+- **Docs:** DECISIONS #80; STATUS plan entry; changelog 0.24.0 in both files; version pin 0.24.0.
+
+## Plan — this round (user greenlit 2026-11-23, easiest → hardest)
+
+### [X] Persist the last selected glyph — **done** (2026-11-23; see Completed + DECISIONS #80) → 0.24.0
+User: "make the last selected glyph persist — when I open the app again, it doesn't start at 0x00, but at the last glyph I chose. Persist it in the .bitforge file too, and update the sample file to start at glyph 'B' (0x42)."
+- `selCode` joins the **settings API** (DECISIONS #40) ⇒ localStorage + rides `.bitforge` (export already ships the whole settings cache; import applies it via `applyImportedSettings`).
+- `selectGlyph()` persists it; init() restores it; `applyImportedSettings` restores it when the file carries one (old files without the key keep the current selection).
+- `samples/small-and-cozy.bitforge` gains `"selCode": 66` (0x42, "B").
+- Analysis: cheapest possible shape — no new blob field, no UI. Risk: none meaningful; the only subtlety is the init-order rule (never touch settings before `loadSettings()`).
+
+### [Y] Menu-bar rearrangement → **0.25.0**
+User: arrange all existing items sensibly without lumping confusing things together; their sketch was Project / Font / Glyph / App and they explicitly allowed a better distribution/naming. We keep their naming — it is good.
+- **Project** (ex-File, all file I/O): New font · Open PNG… / BDF… / project… / sample… ("Load sample…" renamed to **Open sample…**) · Import PNG from clipboard ─ Export PNG (solid/transparent) · Copy PNG to clipboard · Export BDF · Export project… · Export Verilog ROM. Shortcuts unchanged.
+- **Font** (font-level): the font-stats info block (moved out of About) · Properties… · Resize…
+- **Glyph** (the selected glyph): Undo/Redo · Clear glyph · Mirror L–R / U–D · Copy to codepoint… · Cycle status · Mark done & next · Copy glyph to clipboard
+- **App**: Theme: Light/Dark/Auto · Changelog… · About bitforge…
+- Implementation note: item ids (`mi-*`) stay the same — only the containers move — so `menuItem()` wiring is untouched; the `el` map gains `menuFont`/`menuGlyph`, renames `menuFile→menuProject`, `menuAbout→menuApp`; `menuEls`/`menuPairs` lists update. CSS is class-based (no menu-id selectors). test-dom.js references to `menu-file`/`menu-edit`/`menu-about`/`about-font-info` update to the new ids (that test is the guard that the wiring follows the DOM).
+
+### [Z] Dogfooding mode — PLAN ONLY (no code this turn) → reserved 0.26.0
+User: "use the font being edited as the font of bitforge's own UI, live or on demand; plan first; think about synergies (export in a format usable by other webpages / general apps); the switch must stay usable if the font has blanks (icon, or always the previous font); blanks (save for space?) never enter the dogfooding format so they fall back."
+- Plan written in [DESIGN.md](DESIGN.md) "Dogfooding (planned)" + DECISIONS #82: generate a real minimal TTF from the 256-glyph atlas (new pure module `js/ttf.js`), inject an `@font-face` data-URI, toggle from the App menu; the toggle/menu chrome stays on a fixed system stack so it is always clickable; blank glyphs (except 0x20) are excluded from the TTF's cmap ⇒ browser falls back per-codepoint.
+- Synergy: **Export TTF** becomes a first-class Project menu item (usable in any web page / app); complements the existing BDF export (X11-world). QA's `empty` check doubles as a dogfooding-safety report.
+- Deliberately NOT this turn: it is the only chunk here with a real algorithm (hand-rolled TTF binary + browser font-caching behavior) and deserves its own greenlit chunk.
 
 **[N] QA checks are fully done** (N.1 + N.2 + N.3 — both deferred checks #46/#47 shipped with per-glyph silencing).
 

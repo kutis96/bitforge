@@ -14,6 +14,21 @@ if [ -z "$JSC" ] || [ ! -x "$JSC" ]; then
   exit 2
 fi
 
+# Shipped-sample file check (DECISIONS #80): file-level assertions that can't run
+# under jsc (it has no file reads). python3 is already this project's server dep.
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "error: python3 not found (needed for the shipped-sample file check)" >&2
+  exit 2
+fi
+python3 - <<'PY'
+import json
+o = json.load(open("samples/small-and-cozy.bitforge"))
+assert o["app"] == "bitforge" and o["kind"] == "font-project", "sample: not a bitforge project"
+assert (o.get("settings") or {}).get("selCode") == 66, "sample: selCode must be 66 (0x42 'B')"
+print("  ok   sample: shipped .bitforge is valid and opens at 0x42 (DECISIONS #80)")
+PY
+[ $? -eq 0 ] || exit 1
+
 # Watchdog: fail fast if the test run hangs (e.g. an infinite loop in app.js).
 # NOTE: the watchdog's output goes to /dev/null on purpose — when we kill the
 # watchdog below, its `sleep` child is orphaned but keeps running; without this

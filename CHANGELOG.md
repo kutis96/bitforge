@@ -41,6 +41,14 @@ Rules:
 - Run `./test/run-tests.sh` before committing — the changelog data-sanity
   test is the safety net.
 
+## 0.24.0 (2026-11-23)
+
+- **Remembers your last selected glyph** — reopen the app (or open a
+  project/sample that carries it) and you land back on that glyph instead of
+  0x00. The value travels inside `.bitforge` project files; files without it
+  keep the selection you currently have.
+- The shipped **Small & Cozy** sample now opens at “B” (0x42) instead of 0x00.
+
 ## 0.23.0 (2026-11-23)
 
 - **Dark mode** — Edit → **Theme: Light / Dark / Auto**. Auto (the default)

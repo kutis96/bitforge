@@ -33113,6 +33113,7 @@
     "pvBaseline": 4,
     "inverted": false,
     "qaShowSilenced": false,
-    "pasteMode": "merge"
+    "pasteMode": "merge",
+    "selCode": 66
   }
 }

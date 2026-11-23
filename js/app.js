@@ -125,7 +125,8 @@
     inverted: false,
     qaShowSilenced: false, // QA tab: show silenced violations in the table
     pasteMode: "merge",    // "merge" | "replace" — blend for dragged selections (DECISIONS #76)
-    theme: "auto"          // "light" | "dark" | "auto" — auto follows the system (DECISIONS #79)
+    theme: "auto",         // "light" | "dark" | "auto" — auto follows the system (DECISIONS #79)
+    selCode: 0             // last selected glyph (0–255) — restored on load & import (DECISIONS #80)
   };
   var settingsCache = null;
   function loadSettings() {
@@ -1190,6 +1191,7 @@
   function selectGlyph(code) {
     clearSel(); // the selection is per-glyph (DECISIONS #75)
     state.selected = clamp(code, 0, 255);
+    settingsSet("selCode", state.selected); // DECISIONS #80: remember where the user left off
     updateSelHeader();
     drawSelector();
     drawEditor();
@@ -1449,6 +1451,9 @@
     syncRenderControls();
     redrawAll();
     applyTheme(); // the import may have carried a different `theme` (DECISIONS #79)
+    // DECISIONS #80: an imported selCode re-selects the remembered glyph; a file
+    // without the key (older projects) leaves the current selection untouched.
+    if (o.hasOwnProperty("selCode")) selectGlyph(settingsGet("selCode") | 0);
   }
 
   // ---------- sample fonts (DECISIONS #78, supersedes #77's embedded registry) ----------
@@ -2179,6 +2184,8 @@
     // preloads the default sample asynchronously (below); file:// starts blank.
     var savedFont = loadLS();
     var font = savedFont || BF.makeFont(8, 16);
+    // DECISIONS #80: reopen where the user left off (default 0; clamped).
+    state.selected = clamp(settingsGet("selCode") | 0, 0, 255);
     state.scale = clamp(settingsGet("pvScale") | 0, 1, 64);
     state.bold = !!settingsGet("pvBold");
     state.italic = !!settingsGet("pvItalic");
@@ -2223,6 +2230,7 @@
       onEditorDown: onEditorDown, onEditorMove: onEditorMove, onEditorUp: onEditorUp,
       getLastToast: function () { return lastToast; },
       exportPng: exportPng, settingsGet: settingsGet, settingsSet: settingsSet,
+      settingsDefaults: function () { return settingsDefaults; },
       resolveTheme: resolveTheme, chooseTheme: chooseTheme, applyTheme: applyTheme,
       watchSystemTheme: watchSystemTheme, redrawAll: redrawAll,
       syncThemeMenu: syncThemeMenu, themeColors: themeColors,
