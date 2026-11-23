@@ -479,29 +479,36 @@ test("dom: Edit tab status buttons set the glyph status and follow the selection
 // ---------- menu bar (DECISIONS #51) ----------
 
 test("dom: menu bar — open, switch, and item click closes", function () {
+  // DECISIONS #81: four menus — Project / Font / Glyph / App.
   var els = globalThis.__stub.els;
   var stub = globalThis.__stub;
-  stub.dispatch("mb-file", "click", {});
-  assert(els["menu-file"].classList.contains("open"), "File opens on click");
-  stub.dispatch("mb-edit", "click", {});
-  assert(els["menu-edit"].classList.contains("open"), "Edit opens on click");
-  assert(!els["menu-file"].classList.contains("open"), "File closes when switching to Edit");
+  stub.dispatch("mb-project", "click", {});
+  assert(els["menu-project"].classList.contains("open"), "Project opens on click");
+  stub.dispatch("mb-font", "click", {});
+  assert(els["menu-font"].classList.contains("open"), "Font opens on click");
+  assert(!els["menu-project"].classList.contains("open"), "Project closes when switching to Font");
+  stub.dispatch("mb-glyph", "click", {});
+  assert(els["menu-glyph"].classList.contains("open"), "Glyph opens on click");
+  assert(!els["menu-font"].classList.contains("open"), "Font closes when switching to Glyph");
+  stub.dispatch("mb-app", "click", {});
+  assert(els["menu-app"].classList.contains("open"), "App opens on click");
+  assert(!els["menu-glyph"].classList.contains("open"), "Glyph closes when switching to App");
   // Hover-switch while a menu is open
-  stub.dispatch("mb-file", "mouseenter", {});
-  assert(els["menu-file"].classList.contains("open"), "hover switches to File");
-  assert(!els["menu-edit"].classList.contains("open"), "Edit closed by hover-switch");
+  stub.dispatch("mb-project", "mouseenter", {});
+  assert(els["menu-project"].classList.contains("open"), "hover switches to Project");
+  assert(!els["menu-app"].classList.contains("open"), "App closed by hover-switch");
   // An item click runs its action and closes the menu
   var app = globalThis.__stub.app;
   stub.blob = null;
-  stub.dispatch("mb-edit", "click", {});
+  stub.dispatch("mb-glyph", "click", {});
   stub.dispatch("mi-copy-glyph", "click", {});
-  assert(!els["menu-edit"].classList.contains("open"), "menu closes after item click");
+  assert(!els["menu-glyph"].classList.contains("open"), "menu closes after item click");
   assert(app.getLastToast().indexOf("Could not rasterize") === 0, "item action ran: " + app.getLastToast());
   // Clicking a closed title opens it; clicking the open title again toggles it closed
-  stub.dispatch("mb-file", "click", {});
-  assert(els["menu-file"].classList.contains("open"), "click re-opens");
-  stub.dispatch("mb-file", "click", {});
-  assert(!els["menu-file"].classList.contains("open"), "second click closes");
+  stub.dispatch("mb-project", "click", {});
+  assert(els["menu-project"].classList.contains("open"), "click re-opens");
+  stub.dispatch("mb-project", "click", {});
+  assert(!els["menu-project"].classList.contains("open"), "second click closes");
 });
 
 test("dom: PNG export background is a remembered setting (pngBg)", function () {
@@ -576,10 +583,10 @@ test("dom: D cycles the glyph status; Shift+D marks done and advances", function
   // The Edit-menu items do the same thing
   app.selectGlyph(0x52);
   app.setStatus(0x52, 0);
-  stub.dispatch("mb-edit", "click", {});
+  stub.dispatch("mb-glyph", "click", {});
   stub.dispatch("mi-cycle-status", "click", {});
   assertEqual(app.state.font.status[0x52], 1, "menu item cycles");
-  stub.dispatch("mb-edit", "click", {});
+  stub.dispatch("mb-glyph", "click", {});
   stub.dispatch("mi-done-next", "click", {});
   assertEqual(app.state.font.status[0x52], 2, "menu item marks done");
   assertEqual(app.state.selected, 0x53, "menu item advances");
@@ -587,19 +594,22 @@ test("dom: D cycles the glyph status; Shift+D marks done and advances", function
 
 // ---------- About menu + modal (DECISIONS #55) ----------
 
-test("dom: About menu shows live font info; About modal opens and closes", function () {
+test("dom: Font menu shows live font info; App menu's About modal opens and closes", function () {
+  // DECISIONS #81: the font-info line moved to the Font menu; the About
+  // bitforge item moved to the App menu.
   var app = globalThis.__stub.app;
   var els = globalThis.__stub.els;
   var stub = globalThis.__stub;
-  stub.dispatch("mb-about", "click", {});
-  assert(els["menu-about"].classList.contains("open"), "About menu opens");
-  var info = els["about-font-info"].textContent;
+  stub.dispatch("mb-font", "click", {});
+  assert(els["menu-font"].classList.contains("open"), "Font menu opens");
+  var info = els["font-info"].textContent;
   assert(info.indexOf("256 glyphs") !== -1, "info mentions 256 glyphs: " + info);
   assert(info.indexOf(app.state.font.width + " \u00d7 " + app.state.font.height) !== -1, "info shows the current font dims: " + info);
   assert(info.indexOf("ink px") !== -1 && info.indexOf("done ") !== -1 && info.indexOf("wip ") !== -1,
     "info shows ink + status counts: " + info);
+  stub.dispatch("mb-app", "click", {});
   stub.dispatch("mi-about-bitforge", "click", {});
-  assert(!els["menu-about"].classList.contains("open"), "menu closes after the item click");
+  assert(!els["menu-app"].classList.contains("open"), "menu closes after the item click");
   assertEqual(els["about-modal"].hidden, false, "modal opens");
   stub.dispatch("about-close", "click", {});
   assertEqual(els["about-modal"].hidden, true, "the \u00d7 button closes the modal");
@@ -613,24 +623,24 @@ test("dom: mousedown on a menu item must NOT close the menu (real-browser click 
   var stub = globalThis.__stub;
   // The stub doesn't model the DOM tree; give the item its real parent so
   // the "inside" walk can reach the container.
-  els["mi-export-verilog"].parentElement = els["menu-file"];
-  stub.dispatch("mb-file", "click", {});
-  assert(els["menu-file"].classList.contains("open"), "menu open");
+  els["mi-export-verilog"].parentElement = els["menu-project"];
+  stub.dispatch("mb-project", "click", {});
+  assert(els["menu-project"].classList.contains("open"), "menu open");
   // Real browsers fire the document mousedown BEFORE the item's click.
   stub.docDispatch("mousedown", { target: els["mi-export-verilog"] });
-  assert(els["menu-file"].classList.contains("open"), "menu stays open on an item mousedown");
+  assert(els["menu-project"].classList.contains("open"), "menu stays open on an item mousedown");
   // A mousedown genuinely outside still closes it
   stub.docDispatch("mousedown", { target: els["editor"] });
-  assert(!els["menu-file"].classList.contains("open"), "outside mousedown closes the menu");
+  assert(!els["menu-project"].classList.contains("open"), "outside mousedown closes the menu");
   // And Escape closes (and would also close the About modal)
-  stub.dispatch("mb-edit", "click", {});
+  stub.dispatch("mb-glyph", "click", {});
   stub.docDispatch("keydown", { key: "Escape" });
-  assert(!els["menu-edit"].classList.contains("open"), "Escape closes the menu");
+  assert(!els["menu-glyph"].classList.contains("open"), "Escape closes the menu");
 });
 
 test("dom: About modal head + browser tab show the app version (DECISIONS #56)", function () {
   assert(/^\d+\.\d+\.\d+$/.test(BF.VERSION), "BF.VERSION is semver-ish: " + BF.VERSION);
-  assertEqual(BF.VERSION, "0.24.0", "pinned version — bump this test when you bump the app");
+  assertEqual(BF.VERSION, "0.25.0", "pinned version — bump this test when you bump the app");
   var els = globalThis.__stub.els;
   assertEqual(els["about-title"].textContent, "bitforge " + BF.VERSION, "modal head shows name + version");
   assertEqual(document.title, "bitforge " + BF.VERSION, "browser tab shows name + version");

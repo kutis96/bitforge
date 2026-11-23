@@ -1,6 +1,6 @@
 # bitforge — Status
 
-> **HANDOVER (2026-11-23, mid-turn):** the user greenlit three new ideas (easiest→hardest): **[X] persist the last selected glyph** (settings + `.bitforge` + sample starts at 0x42) → 0.24.0; **[Y] menu-bar rearrangement** → **Project / Font / Glyph / App** (File→Project, Edit split into Font+Glyph, About→App, "Load sample…"→"Open sample…", font stats move under Font) → 0.25.0; **[Z] dogfooding mode** (use the font being edited as bitforge's own UI font, with safe fallback) → **PLAN ONLY this turn** (DESIGN.md "Dogfooding (planned)" + DECISIONS #82), no code. Base state before all of this: [W] dark mode done, 191/191, HEAD = 9e58495. Ritual, conventions and gotchas: [AGENTS.md](AGENTS.md) (root) + this file + DECISIONS.md. The `hidden`-vs-`display` CSS trap and the init-order trap are documented in DECISIONS #75 [T.1] — don't relearn them.
+> **HANDOVER (2026-11-23):** the user greenlit three ideas (easiest→hardest): **[X] persist the last selected glyph** → 0.24.0 (**done**); **[Y] menu-bar rearrangement** → **Project / Font / Glyph / App** (File→Project, Edit split into Font+Glyph, About→App, "Load sample…"→"Open sample…", font stats under Font, theme radios under App) → 0.25.0 (**done**); **[Z] dogfooding mode** (use the font being edited as bitforge's own UI font, with safe fallback) → 0.26.0 reserved — **PLAN ONLY** (DESIGN.md "Dogfooding (planned)" + DECISIONS #82): **await the user's greenlight before writing any [Z] code**. 196/196 tests green. Ritual, conventions and gotchas: [AGENTS.md](AGENTS.md) (root) + this file + DECISIONS.md. The `hidden`-vs-`display` CSS trap and the init-order trap are documented in DECISIONS #75 [T.1] — don't relearn them.
 
 ## Current state
 - [x] Requirements gathered and clarified with the user
@@ -49,6 +49,8 @@
 - [x] **[V] Sample fonts: infrastructure** (2026-11-22): `js/samples.js` registry (embedded `.bitforge` strings) · File → **Load sample…** picker (empty state included) · first-run preloads the default sample (saved font always wins) · suite validates every shipped entry — 184 tests *(superseded in part by [V.1])*
 - [x] **[V.1] Server-served sample fonts** (2026-11-22): `samples/` folder + `manifest.json` replace the embedded registry (deleted) · **Load sample… hidden unless served over http(s)** · first-run default-sample preload gated on served (identity-guarded) · **Small & Cozy** = first sample · harness now awaits async tests (fake `fetch`/`location`) — 185 tests
 - [x] **[W] Dark mode** (2026-11-23): **Edit → Theme: Light / Dark / Auto** (auto = default, live system-scheme reactivity) · theme as a **setting** (persisted + rides `.bitforge`) · CSS custom-property palettes · editor + selector canvases follow the theme; Preview/Atlas surfaces + exports deliberately unthemed — 190 tests
+- [x] **[X] Persist the last selected glyph** (2026-11-23): `selCode` setting (persisted, rides `.bitforge`) · restored on start + import · Small & Cozy sample opens at 0x42 — 196 tests
+- [x] **[Y] Menu-bar rearrangement** (2026-11-23): four menus — **Project** (all file I/O) · **Font** (info line, Properties…, Resize…) · **Glyph** (undo/redo, clear, mirror, copy, status) · **App** (theme, changelog, about) · "Load sample…" → "Open sample…" — 196 tests
 - [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -87,7 +89,9 @@ Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–
 | 0.21.0 | [U] Move/copy paste modes (merge/replace toggle + Ctrl/Alt-drag copy) |
 | 0.22.0 | [V] Sample fonts: embedded registry + Load sample… picker + first-run preload (superseded in part by 0.22.1) |
 | 0.22.1 | [V.1] Server-served sample fonts (samples/ + manifest.json) |
-| **0.23.0** (current) | [W] Dark mode (theme: light / dark / auto) |
+| 0.23.0 | [W] Dark mode (theme: light / dark / auto) |
+| 0.24.0 | [X] Persist the last selected glyph (`selCode` setting; sample opens at 0x42) |
+| **0.25.0** (current) | [Y] Menu-bar rearrangement (Project / Font / Glyph / App) |
 
 **Lettering note (2026-11-15, chunk M):** chunk letters drifted at some point (the I-wave landed after L); they now follow list position. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Git commit subjects still use the old letters.
 
@@ -439,6 +443,17 @@ User request (2026-11-23): "make the last selected glyph persist — when I open
 - **Tests (196 total, +5):** new `test/test-selcode.js` — select ⇒ persisted (setting + localStorage blob) · import-with-key ⇒ restored (+ 999 ⇒ clamped to 255) · import-without-key ⇒ selection untouched (path taken via a guaranteed-differing pvScale) · `projectExportText` carries it · defaults table guarded via new seam `settingsDefaults()`. New: `run-tests.sh` gained a **python3 shipped-sample file check** (jsc has no file reads; asserts the real sample is a valid bitforge project with selCode 66).
 - **Docs:** DECISIONS #80; STATUS plan entry; changelog 0.24.0 in both files; version pin 0.24.0.
 
+### [Y] Menu-bar rearrangement (`index.html` + `js/app.js` + `test/test-dom.js` + docs, 2026-11-23)
+User request (2026-11-23): rearrange the menu bar so it's obvious what each item acts on, without lumping confusing things together. The user's own sketch — **Project / Font / Glyph / App** — was kept (they explicitly allowed a better distribution; this one was good). Shipped (DECISIONS #81, version 0.25.0):
+- **Project** (ex-File, all file I/O): New font · Open PNG…/BDF…/project…/sample… · Import PNG from clipboard ─ Export PNG (solid/transparent) · Copy PNG to clipboard · Export BDF · Export project… · Export Verilog ROM. Shortcuts unchanged.
+- **Font**: the live font-info line (moved out of the old About menu; `#about-font-info` → **`#font-info`**, re-rendered on each **Font**-menu open by `renderFontInfo()`) · Properties… · Resize….
+- **Glyph**: Undo/Redo · Clear glyph · Mirror L–R / U–D · Copy to codepoint… · Cycle glyph status · Mark done & next · Copy glyph to clipboard.
+- **App**: Theme: Light/Dark/Auto radios (moved out of Edit) · Changelog… · About bitforge….
+- **Renamed:** "Load sample…" → **"Open sample…"** (menu item + title, sample-picker modal head, confirm text); "New font" keeps its name (project-creation verb users expect).
+- **Mechanics:** item ids (`mi-*`) are unchanged — only their containers move — so all `menuItem()` wiring, shortcuts and titles are untouched. Changed: the three old menu containers in `index.html` (now four); the `el` map (`menuFile→menuProject`, `menuAbout→menuApp`, plus new `menuFont`/`menuGlyph` and matching `mb*`); the `menuEls`/`menuPairs` lists. No CSS change (menus are styled by class, not id).
+- **Tests (196 total, count unchanged):** the menu-mechanics tests in `test-dom.js` now drive **all four** menus (open/switch/hover-switch/item-click-close/toggle/Escape) — they are the guard that the JS wiring follows the DOM. The font-info test reads `els["font-info"]` after `mb-font`; the About-modal test dispatches `mb-app`.
+- **Docs:** DECISIONS #81; DESIGN.md menu-bar paragraph + Font/preview persistence bullets; TESTING.md menu bullets; README menu references; version pin 0.25.0; changelog 0.25.0 in both files. (Also back-filled: [X] was missing from the Current-state list and the Versions table — fixed here.)
+
 ## Plan — this round (user greenlit 2026-11-23, easiest → hardest)
 
 ### [X] Persist the last selected glyph — **done** (2026-11-23; see Completed + DECISIONS #80) → 0.24.0
@@ -448,7 +463,7 @@ User: "make the last selected glyph persist — when I open the app again, it do
 - `samples/small-and-cozy.bitforge` gains `"selCode": 66` (0x42, "B").
 - Analysis: cheapest possible shape — no new blob field, no UI. Risk: none meaningful; the only subtlety is the init-order rule (never touch settings before `loadSettings()`).
 
-### [Y] Menu-bar rearrangement → **0.25.0**
+### [Y] Menu-bar rearrangement — **done** (2026-11-23; see Completed + DECISIONS #81) → 0.25.0
 User: arrange all existing items sensibly without lumping confusing things together; their sketch was Project / Font / Glyph / App and they explicitly allowed a better distribution/naming. We keep their naming — it is good.
 - **Project** (ex-File, all file I/O): New font · Open PNG… / BDF… / project… / sample… ("Load sample…" renamed to **Open sample…**) · Import PNG from clipboard ─ Export PNG (solid/transparent) · Copy PNG to clipboard · Export BDF · Export project… · Export Verilog ROM. Shortcuts unchanged.
 - **Font** (font-level): the font-stats info block (moved out of About) · Properties… · Resize…

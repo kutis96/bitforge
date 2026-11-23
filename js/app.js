@@ -1549,7 +1549,7 @@
       .catch(function (err) { warnSampleSkip(null, (err && err.message) || err); fetchedSamples = []; samplesState = "unavailable"; return []; })
       .then(function () { updateSampleMenu(); return fetchedSamples; });
   }
-  // Show/hide File > Load sample… : visible only when we actually have samples.
+  // Show/hide Project > Open sample… : visible only when we actually have samples.
   function updateSampleMenu() {
     if (el.miLoadSample) el.miLoadSample.hidden = !(samplesState === "ready" && fetchedSamples.length > 0);
   }
@@ -1586,7 +1586,7 @@
   function loadSample(idx) {
     var s = fetchedSamples[idx];
     if (!s) { toast("Unknown sample", true); return; }
-    if (!confirm("Load sample " + s.name + "? It replaces the current font; the sample's settings are applied too.")) return;
+    if (!confirm("Open sample " + s.name + "? It replaces the current font; the sample's settings are applied too.")) return;
     setFont(s.font);
     if (s.settings) applyImportedSettings(s.settings);
     toast("Loaded sample " + s.name);
@@ -1697,13 +1697,14 @@
     closeMenus();
     m.classList.add("open");
     openMenu = m;
-    if (m === el.menuAbout) renderAboutInfo(); // fresh numbers each open
+    if (m === el.menuFont) renderFontInfo(); // fresh numbers each open
   }
   function toggleMenu(m) { if (openMenu === m) closeMenus(); else showMenu(m); }
   function hoverMenu(m) { if (openMenu !== m) showMenu(m); }
 
-  // About menu + Properties modal share this live font info line
-  // (DECISIONS #55 moved the dims here from the toolbar; #70 added the name).
+  // Font menu + Properties modal share this live font info line
+  // (DECISIONS #55 moved the dims here from the toolbar; #70 added the name;
+  // #81 moved the info block from the About menu to the Font menu).
   function fontInfoText() {
     var f = state.font, c = BF.statusCounts(f), ink = 0, code;
     for (code = 0; code < BF.NUM_GLYPHS; code++) ink += BF.inkCount(f, code);
@@ -1711,7 +1712,7 @@
       f.width + " \u00d7 " + f.height + " px \u00b7 256 glyphs \u00b7 " + ink + " ink px\n" +
       "done " + c.all.done + " \u00b7 wip " + c.all.wip + " \u00b7 unfinished " + c.all.unfinished;
   }
-  function renderAboutInfo() { el.aboutFontInfo.textContent = fontInfoText(); }
+  function renderFontInfo() { el.fontInfo.textContent = fontInfoText(); }
   function openAboutModal() { el.aboutModal.hidden = false; }
   function closeAboutModal() { el.aboutModal.hidden = true; }
 
@@ -1857,9 +1858,9 @@
     el = {
       selHeader: $("sel-header"), jump: $("jump"), btnJump: $("btn-jump"), selector: $("selector"),
       filePng: $("file-png"), fileBdf: $("file-bdf"), fileProject: $("file-project"),
-      menuFile: $("menu-file"), menuEdit: $("menu-edit"), menuAbout: $("menu-about"),
-      mbFile: $("mb-file"), mbEdit: $("mb-edit"), mbAbout: $("mb-about"),
-      aboutFontInfo: $("about-font-info"), miAboutBitforge: $("mi-about-bitforge"), miChangelog: $("mi-changelog"),
+      menuProject: $("menu-project"), menuFont: $("menu-font"), menuGlyph: $("menu-glyph"), menuApp: $("menu-app"),
+      mbProject: $("mb-project"), mbFont: $("mb-font"), mbGlyph: $("mb-glyph"), mbApp: $("mb-app"),
+      fontInfo: $("font-info"), miAboutBitforge: $("mi-about-bitforge"), miChangelog: $("mi-changelog"),
       clModal: $("cl-modal"), clClose: $("cl-close"), clTitle: $("cl-title"), clList: $("cl-list"), clFull: $("cl-full"), clOk: $("cl-ok"),
       aboutTitle: $("about-title"), aboutModal: $("about-modal"), aboutClose: $("about-close"),
       miNew: $("mi-new"), miOpenPng: $("mi-open-png"), miOpenBdf: $("mi-open-bdf"), miOpenProject: $("mi-open-project"), miLoadSample: $("mi-load-sample"), miImportPngClip: $("mi-import-png-clip"),
@@ -1910,8 +1911,8 @@
     el.fileProject.addEventListener("change", onProjectFile);
 
     // Menu bar: titles (open/toggle + hover-switch) and items (action + close).
-    menuEls = [el.menuFile, el.menuEdit, el.menuAbout];
-    var menuPairs = [[el.menuFile, el.mbFile], [el.menuEdit, el.mbEdit], [el.menuAbout, el.mbAbout]];
+    menuEls = [el.menuProject, el.menuFont, el.menuGlyph, el.menuApp];
+    var menuPairs = [[el.menuProject, el.mbProject], [el.menuFont, el.mbFont], [el.menuGlyph, el.mbGlyph], [el.menuApp, el.mbApp]];
     for (var mp = 0; mp < menuPairs.length; mp++)
       (function (cont, btn) {
         btn.addEventListener("click", function () { toggleMenu(cont); });

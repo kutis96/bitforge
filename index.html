@@ -12,15 +12,15 @@
   <header id="toolbar">
     <div class="brand">bitforge</div>
     <nav id="menubar" aria-label="Main menu">
-      <div class="menu" id="menu-file">
-        <button type="button" class="menu-btn" id="mb-file">File</button>
-        <div class="menu-items" id="mi-file">
+      <div class="menu" id="menu-project">
+        <button type="button" class="menu-btn" id="mb-project">Project</button>
+        <div class="menu-items" id="mi-project">
           <button type="button" id="mi-new" title="New blank font (prompts for width &amp; height)">New font<span class="mi-key">Alt+N</span></button>
           <hr>
           <button type="button" id="mi-open-png" title="Import a PNG atlas (16x16)">Open PNG&#8230;<span class="mi-key">Alt+O</span></button>
           <button type="button" id="mi-open-bdf" title="Import a BDF font (first face)">Open BDF&#8230;<span class="mi-key">Alt+Shift+O</span></button>
           <button type="button" id="mi-open-project" title="Import a .bitforge project file (font + guidelines + status + silences + settings)">Open project&#8230;<span class="mi-key">Alt+P</span></button>
-          <button type="button" id="mi-load-sample" hidden title="Load a sample font from the server's samples/ folder (replaces the current font)">Load sample&hellip;</button>
+          <button type="button" id="mi-load-sample" hidden title="Open a sample font from the server's samples/ folder (replaces the current font)">Open sample&hellip;</button>
           <button type="button" id="mi-import-png-clip" title="Import the first PNG image on the system clipboard (replaces the current font)">Import PNG from clipboard</button>
           <hr>
           <button type="button" id="mi-export-png-solid" title="Export a PNG atlas with a white background">Export PNG (solid bg)<span class="mi-key">Ctrl+S</span></button>
@@ -31,14 +31,20 @@
           <button type="button" id="mi-export-verilog" title="Export a Verilog $readmemb ROM">Export Verilog ROM<span class="mi-key">Ctrl+Shift+S</span></button>
         </div>
       </div>
-      <div class="menu" id="menu-edit">
-        <button type="button" class="menu-btn" id="mb-edit">Edit</button>
-        <div class="menu-items" id="mi-edit">
-          <button type="button" id="mi-undo" title="Undo (Ctrl/&#8984;+Z)">Undo<span class="mi-key">Ctrl+Z</span></button>
-          <button type="button" id="mi-redo" title="Redo (Ctrl/&#8984;+Shift+Z)">Redo<span class="mi-key">Ctrl+Shift+Z</span></button>
+      <div class="menu" id="menu-font">
+        <button type="button" class="menu-btn" id="mb-font">Font</button>
+        <div class="menu-items" id="mi-font">
+          <div class="mi-info" id="font-info">&mdash;</div>
           <hr>
           <button type="button" id="mi-props" title="Font name and basic info">Properties&hellip;</button>
           <button type="button" id="mi-resize" title="Crop or extend the cell at a chosen edge">Resize&hellip;</button>
+        </div>
+      </div>
+      <div class="menu" id="menu-glyph">
+        <button type="button" class="menu-btn" id="mb-glyph">Glyph</button>
+        <div class="menu-items" id="mi-glyph">
+          <button type="button" id="mi-undo" title="Undo (Ctrl/&#8984;+Z)">Undo<span class="mi-key">Ctrl+Z</span></button>
+          <button type="button" id="mi-redo" title="Redo (Ctrl/&#8984;+Shift+Z)">Redo<span class="mi-key">Ctrl+Shift+Z</span></button>
           <hr>
           <button type="button" id="mi-clear-glyph" title="Clear the current glyph (undoable)">Clear glyph</button>
           <hr>
@@ -49,16 +55,14 @@
           <button type="button" id="mi-done-next" title="Mark the current glyph done and move on to the next one">Mark done &amp; next<span class="mi-key">Shift+D</span></button>
           <hr>
           <button type="button" id="mi-copy-glyph" title="Copy the current glyph as a PNG to the clipboard (16&times;, transparent background); downloads if the clipboard is unavailable">Copy glyph to clipboard</button>
-          <hr>
+        </div>
+      </div>
+      <div class="menu" id="menu-app">
+        <button type="button" class="menu-btn" id="mb-app">App</button>
+        <div class="menu-items" id="mi-app">
           <button type="button" id="mi-theme-light" class="mi-radio" title="Always use the light theme (the current look)"><span class="mi-check"></span>Theme: Light</button>
           <button type="button" id="mi-theme-dark" class="mi-radio" title="Always use the dark theme"><span class="mi-check"></span>Theme: Dark</button>
           <button type="button" id="mi-theme-auto" class="mi-radio" title="Follow the system / browser color preference (default)"><span class="mi-check"></span>Theme: Auto</button>
-        </div>
-      </div>
-      <div class="menu" id="menu-about">
-        <button type="button" class="menu-btn" id="mb-about">About</button>
-        <div class="menu-items" id="mi-about">
-          <div class="mi-info" id="about-font-info">&mdash;</div>
           <hr>
           <button type="button" id="mi-changelog" title="Show the full changelog">Changelog&#8230;</button>
           <button type="button" id="mi-about-bitforge" title="About this application">About bitforge&#8230;</button>
@@ -250,8 +254,8 @@
   </div>
 
   <div id="sample-modal" class="modal-backdrop" hidden>
-    <div class="modal" role="dialog" aria-modal="true" aria-label="Load sample font">
-      <div class="modal-head"><b>Load sample&hellip;</b><button id="sample-close" type="button" title="Close">&times;</button></div>
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Open sample font">
+      <div class="modal-head"><b>Open sample&hellip;</b><button id="sample-close" type="button" title="Close">&times;</button></div>
       <div class="modal-body">
         <p class="muted">Sample fonts served from the <code>samples/</code> folder. Loading one replaces the current font (its guidelines, glyph statuses and settings come with it).</p>
         <p id="sample-empty" class="muted" hidden>No samples are available here. Samples are served from the <code>samples/</code> folder (listed in <code>samples/manifest.json</code>) and only load when the page is served over http/https &mdash; open it from a web server to see them.</p>

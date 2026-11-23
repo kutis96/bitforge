@@ -14,6 +14,10 @@
  * (date "" = pre-dated history, not shown in the UI)
  */
 var BF_CHANGELOG = [
+  { version: "0.25.0", date: "2026-11-23", changes: [
+    "The menu bar was rearranged into four menus — **Project** (all file I/O: new/open/import/export), **Font** (properties, resize, live font info), **Glyph** (undo/redo, clear, mirror, copy, status), and **App** (theme, changelog, about) — so it's obvious what each item acts on.",
+    "\u201cFile \u2192 Load sample\u2026\u201d is now \u201cProject \u2192 Open sample\u2026\u201d (same action, consistent \u201cOpen \u2026\u201d naming)."
+  ] },
   { version: "0.24.0", date: "2026-11-23", changes: [
     "The app now remembers your last selected glyph — reopen it (or open a project/sample that carries it) and you'll land back on that glyph instead of 0x00.",
     "The shipped Small & Cozy sample now opens at \u201cB\u201d (0x42) instead of 0x00."

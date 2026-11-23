@@ -23,10 +23,10 @@ Pure vanilla JS: no build, no dependencies, no server. Open `index.html` in a br
 
 No install. Double-click `index.html` (any modern browser).
 
-1. **File → New font** (default 8 wide × 16 high) or **File → Open PNG…** to import an existing atlas — a 16×16 grid of cells, so the image size must be a multiple of 16 in each dimension (the cell size is derived by dividing by 16).
+1. **Project → New font** (default 8 wide × 16 high) or **Project → Open PNG…** to import an existing atlas — a 16×16 grid of cells, so the image size must be a multiple of 16 in each dimension (the cell size is derived by dividing by 16).
 2. Pick a glyph in the sidebar grid (or type its hex code / character in the jump field) and paint: click toggles, drag paints, right-drag erases.
 3. Watch it live in **Preview** (multi-line sample) and **Atlas** (the whole face).
-4. **File → Export …** — PNG atlas (solid white or transparent background), binary Verilog ROM text, BDF font, or a `.bitforge` project file.
+4. **Project → Export …** — PNG atlas (solid white or transparent background), binary Verilog ROM text, BDF font, or a `.bitforge` project file.
 
 The app also persists the current font and settings in `localStorage` automatically; use the project file for deliberate snapshots and the PNG for finished faces.
 
@@ -36,7 +36,7 @@ The app also persists the current font and settings in `localStorage` automatica
 256 cells in a 16×16 grid, row-major: the first row of cells is codes `0x00`–`0x0F`, the second `0x10`–`0x1F`, …, the last `0xF0`–`0xFF`.
 
 - **Import:** dark pixels become ink — a luminance test that includes alpha, so both white *and* transparent count as "no ink" (a light checkerboard background imports fine).
-- **Export:** ink is always black; the background is white or transparent, your choice. The File menu also has **Copy PNG to clipboard** / **Import PNG from clipboard**.
+- **Export:** ink is always black; the background is white or transparent, your choice. The Project menu also has **Copy PNG to clipboard** / **Import PNG from clipboard**.
 
 ### Verilog ROM (`$readmemb`)
 Plain binary text, no headers or comments: for each of the 256 glyphs, one row per pixel row, top to bottom; each row is a string of `0`/`1` bits with the **rightmost pixel as the MSB** (`1` = ink). Rows 1…H are glyph 0, the next H rows glyph 1, and so on. Binary rather than hex on purpose, so cell widths need not be multiples of 4 bits.

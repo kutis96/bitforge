@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to bitforge. The in-app changelog (About → Changelog…, and
+All notable changes to bitforge. The in-app changelog (App → Changelog…, and
 the “What’s new” modal on version bumps) is rendered from `js/changelog.js` —
 **keep both files in sync** (procedure below; design: `docs/DECISIONS.md` #73).
 
@@ -40,6 +40,15 @@ Rules:
   fix gets its own entry under the new version.
 - Run `./test/run-tests.sh` before committing — the changelog data-sanity
   test is the safety net.
+
+## 0.25.0 (2026-11-23)
+
+- **Menu bar rearranged into four menus** — **Project** (all file I/O:
+  new/open/import/export), **Font** (properties, resize, live font info),
+  **Glyph** (undo/redo, clear, mirror, copy, status), and **App** (theme,
+  changelog, about) — so it's obvious what each item acts on.
+- “File → Load sample…” is now “**Project → Open sample…**” (same action,
+  consistent “Open …” naming).
 
 ## 0.24.0 (2026-11-23)
 
