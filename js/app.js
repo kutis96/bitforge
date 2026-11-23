@@ -31,6 +31,7 @@
     tool: "paint",     // editor tool: "paint" | "erase" | "select" (DECISIONS #75)
     selRect: null,     // { x, y, w, h } selection on the current glyph (session-only)
     inverted: false,   // preview surfaces: white on black
+    theme: "light",    // RESOLVED theme in effect: "light" | "dark" (DECISIONS #79)
     fontVersion: 0     // bumped on every font mutation; drives QA staleness
   };
   var editing = null;   // active editor stroke
@@ -123,7 +124,8 @@
     pvBaseline: 5,
     inverted: false,
     qaShowSilenced: false, // QA tab: show silenced violations in the table
-    pasteMode: "merge"     // "merge" | "replace" — blend for dragged selections (DECISIONS #76)
+    pasteMode: "merge",    // "merge" | "replace" — blend for dragged selections (DECISIONS #76)
+    theme: "auto"          // "light" | "dark" | "auto" — auto follows the system (DECISIONS #79)
   };
   var settingsCache = null;
   function loadSettings() {
@@ -564,9 +566,73 @@
   }
 
   // Ink + background colors for the preview surfaces (inverted = white on black,
-  // how the font will look in a real terminal; editor/sidebar stay black-on-white).
+  // how the font will look in a real terminal). Deliberately NOT theme-aware:
+  // the "inverted" checkbox is the single switch for those surfaces (DECISIONS #79).
   function inkColor() { return state.inverted ? "#eee" : "#111"; }
   function bgColor() { return state.inverted ? "#111" : "#fff"; }
+
+  // ---------- theme (DECISIONS #79) ----------
+  // `theme` is a persisted setting: "light" | "dark" | "auto" (default "auto").
+  // auto follows the system/browser color scheme; an explicit choice always
+  // wins. The resolved theme lands on <html data-theme> — the CSS custom
+  // properties there re-skin the whole chrome; the canvas editing surfaces
+  // (editor + selector) pick colors from themeColors() and are redrawn on
+  // change. Exports are never themed (black ink, white/transparent bg).
+  function resolveTheme(setting, prefersDark) {
+    var s = (setting === "light" || setting === "dark") ? setting : "auto";
+    return (s === "auto") ? (prefersDark ? "dark" : "light") : s;
+  }
+  function prefersDark() {
+    try {
+      if (typeof window !== "undefined" && typeof window.matchMedia === "function")
+        return !!window.matchMedia("(prefers-color-scheme: dark)").matches;
+    } catch (e) { /* no matchMedia (headless) -> light */ }
+    return false;
+  }
+  // Re-resolve + apply. Idempotent — safe to call after any settings import.
+  // Must run after init() (it redraws and touches the menu elements).
+  function applyTheme() {
+    var t = resolveTheme(settingsGet("theme"), prefersDark());
+    var changed = (t !== state.theme);
+    state.theme = t;
+    try {
+      var docEl = document.documentElement;
+      if (docEl && docEl.setAttribute) docEl.setAttribute("data-theme", t);
+    } catch (e) { /* headless stub without documentElement */ }
+    syncThemeMenu();
+    if (changed) redrawAll();
+  }
+  // Follow system-scheme changes (guarded: no matchMedia under the jsc stub).
+  function watchSystemTheme() {
+    try {
+      if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+        var q = window.matchMedia("(prefers-color-scheme: dark)");
+        if (q && typeof q.addEventListener === "function")
+          q.addEventListener("change", function () { applyTheme(); });
+      }
+    } catch (e) {}
+  }
+  function chooseTheme(t) {
+    if (t !== "light" && t !== "dark" && t !== "auto") return;
+    settingsSet("theme", t);
+    applyTheme();
+  }
+  function syncThemeMenu() {
+    var cur = settingsGet("theme");
+    if (cur !== "light" && cur !== "dark") cur = "auto";
+    var map = [["miThemeLight", "light"], ["miThemeDark", "dark"], ["miThemeAuto", "auto"]];
+    for (var i = 0; i < map.length; i++) {
+      var b = el[map[i][0]];
+      if (b && b.classList) b.classList.toggle("active", cur === map[i][1]);
+    }
+  }
+  // Canvas palette for the themed editing surfaces (editor + selector).
+  function themeColors() {
+    var dark = (state.theme === "dark");
+    return dark
+      ? { bg: "#1d1d1d", grid: "#333333", ink: "#e6e6e6", refUnder: "#5f5f5f", selStroke: "#e6e6e6", selRef: "#8a8a8a" }
+      : { bg: "#ffffff", grid: "#e2e2e2", ink: "#111111", refUnder: "#b5b5b5", selStroke: "#111111", selRef: "#888888" };
+  }
 
   // Glyph status tints (DECISIONS #39): WIP = light peach, unfinished = light
   // pastel blue, done = plain background. Dark variants for inverted surfaces.
@@ -578,17 +644,18 @@
   function drawEditor() {
     var f = state.font, c = el.editor, ctx = c.getContext("2d");
     var s = editorScale();
+    var tc = themeColors();
     setCanvasSize(c, f.width * s, f.height * s);
-    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
-    ctx.strokeStyle = "#e2e2e2"; ctx.lineWidth = 1; ctx.beginPath();
+    ctx.fillStyle = tc.bg; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.strokeStyle = tc.grid; ctx.lineWidth = 1; ctx.beginPath();
     for (var gx = 0; gx <= f.width; gx++) { ctx.moveTo(gx * s + 0.5, 0); ctx.lineTo(gx * s + 0.5, c.height); }
     for (var gy = 0; gy <= f.height; gy++) { ctx.moveTo(0, gy * s + 0.5); ctx.lineTo(c.width, gy * s + 0.5); }
     ctx.stroke();
     // reference glyph underlay (Shift-click in the sidebar), behind the ink
     if (state.ref != null && state.ref !== state.selected) {
-      drawGlyphTo(ctx, state.ref, 0, 0, s, { color: "#b5b5b5" });
+      drawGlyphTo(ctx, state.ref, 0, 0, s, { color: tc.refUnder });
     }
-    ctx.fillStyle = "#111";
+    ctx.fillStyle = tc.ink;
     for (var y = 0; y < f.height; y++)
       for (var x = 0; x < f.width; x++)
         if (BF.getPixel(f, state.selected, x, y)) ctx.fillRect(x * s, y * s, s, s);
@@ -616,22 +683,23 @@
   function drawSelector() {
     var f = state.font, c = el.selector, ctx = c.getContext("2d");
     var cell = 16;
+    var tc = themeColors();
     setCanvasSize(c, 16 * cell, 16 * cell);
-    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.fillStyle = tc.bg; ctx.fillRect(0, 0, c.width, c.height);
     var ms = clamp(Math.floor((cell - 2) / Math.max(f.width, f.height)), 1, cell - 2);
     for (var code = 0; code < 256; code++) {
       var col = code % 16, row = (code / 16) | 0;
-      var tint = statusTint(f.status[code], false);
+      var tint = statusTint(f.status[code], state.theme === "dark");
       if (tint) { ctx.fillStyle = tint; ctx.fillRect(col * cell, row * cell, cell, cell); }
       var ox = col * cell + ((cell - f.width * ms) >> 1);
       var oy = row * cell + ((cell - f.height * ms) >> 1);
       drawGlyphTo(ctx, code, ox, oy, ms, {});
     }
     var sc = state.selected;
-    ctx.strokeStyle = "#111"; ctx.lineWidth = 2;
+    ctx.strokeStyle = tc.selStroke; ctx.lineWidth = 2;
     ctx.strokeRect((sc % 16) * cell + 1, ((sc / 16) | 0) * cell + 1, cell - 2, cell - 2);
     if (state.ref != null) {
-      ctx.strokeStyle = "#888"; ctx.lineWidth = 2;
+      ctx.strokeStyle = tc.selRef; ctx.lineWidth = 2;
       ctx.strokeRect((state.ref % 16) * cell + 2, ((state.ref / 16) | 0) * cell + 2, cell - 4, cell - 4);
     }
   }
@@ -1376,6 +1444,7 @@
     el.qaShowSilenced.checked = !!settingsGet("qaShowSilenced");
     syncRenderControls();
     redrawAll();
+    applyTheme(); // the import may have carried a different `theme` (DECISIONS #79)
   }
 
   // ---------- sample fonts (DECISIONS #78, supersedes #77's embedded registry) ----------
@@ -1795,6 +1864,7 @@
       selFill: $("sel-fill"), selClear: $("sel-clear"), selInvert: $("sel-invert"),
       selCopy: $("sel-copy"), selCopyTo: $("sel-copyto"), selX: $("sel-x"),
       miCycleStatus: $("mi-cycle-status"), miDoneNext: $("mi-done-next"),
+      miThemeLight: $("mi-theme-light"), miThemeDark: $("mi-theme-dark"), miThemeAuto: $("mi-theme-auto"),
       propsModal: $("props-modal"), propsClose: $("props-close"), propsInfo: $("props-info"),
       sampleModal: $("sample-modal"), sampleClose: $("sample-close"), sampleList: $("sample-list"), sampleEmpty: $("sample-empty"),
       propsName: $("props-name"), propsSave: $("props-save"), propsCancel: $("props-cancel"),
@@ -1895,6 +1965,11 @@
     menuItem("miCycleStatus", cycleStatusAction);
     menuItem("miDoneNext", doneNextAction);
     menuItem("miCopyGlyph", copyGlyphToClipboard);
+    // Theme radio (DECISIONS #79): explicit choice wins over the system;
+    // auto follows prefers-color-scheme (watchSystemTheme keeps it live).
+    menuItem("miThemeLight", function () { chooseTheme("light"); });
+    menuItem("miThemeDark", function () { chooseTheme("dark"); });
+    menuItem("miThemeAuto", function () { chooseTheme("auto"); });
     menuItem("miAboutBitforge", openAboutModal);
     menuItem("miChangelog", function () { openChangelogModal(BF_CHANGELOG, false); });
 
@@ -2111,6 +2186,11 @@
     syncPasteModeBtn(); // paste-mode button label (after loadSettings — init order!)
     setFont(font); // setFont -> syncRenderControls (state.font must exist first)
 
+    // Theme (DECISIONS #79): after loadSettings + setFont (init order!),
+    // resolve the theme setting, tag <html>, and re-skin the canvases.
+    watchSystemTheme();
+    applyTheme();
+
     // Changelog (DECISIONS #73): remember this run's version, and if the
     // user is on a newer bitforge than before, show what has changed since
     // their last run (first run = no stored version = full changelog).
@@ -2139,6 +2219,9 @@
       onEditorDown: onEditorDown, onEditorMove: onEditorMove, onEditorUp: onEditorUp,
       getLastToast: function () { return lastToast; },
       exportPng: exportPng, settingsGet: settingsGet, settingsSet: settingsSet,
+      resolveTheme: resolveTheme, chooseTheme: chooseTheme, applyTheme: applyTheme,
+      watchSystemTheme: watchSystemTheme,
+      syncThemeMenu: syncThemeMenu, themeColors: themeColors,
       whatsNew: whatsNew, openChangelogModal: openChangelogModal, closeChangelogModal: closeChangelogModal,
       changelogVersionKey: VERSION_KEY,
       sampleList: sampleList, defaultSample: defaultSample, samplesState: samplesStateNow,

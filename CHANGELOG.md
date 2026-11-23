@@ -41,6 +41,19 @@ Rules:
 - Run `./test/run-tests.sh` before committing — the changelog data-sanity
   test is the safety net.
 
+## 0.23.0 (2026-11-23)
+
+- **Dark mode** — Edit → **Theme: Light / Dark / Auto**. Auto (the default)
+  follows your system / browser color preference and updates live when it
+  changes; Light and Dark pin the look regardless of the system. The choice
+  is remembered and travels inside `.bitforge` project files.
+- In **Dark**, the app chrome, menus and modals go dark, and the **editor +
+  glyph selector** follow the theme (light ink on dark).
+- **Preview and Atlas render surfaces are unaffected**: the existing
+  *Inverted* checkbox still switches them white-on-black, and exports
+  (PNG / BDF / Verilog) are always black ink on white or transparent, in
+  either theme.
+
 ## 0.22.1 (2026-11-22)
 
 - **Samples are now server files**: they live in the `samples/` folder and are

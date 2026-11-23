@@ -126,7 +126,14 @@
       return [];
     },
     createElement: function () { return makeEl("__tmp__"); },
-    body: { appendChild: function () {}, removeChild: function () {} }
+    body: { appendChild: function () {}, removeChild: function () {} },
+    // Theme target (DECISIONS #79): app.js sets data-theme on <html>; the
+    // stub records it so tests can assert the resolved theme.
+    documentElement: {
+      _attrs: {},
+      setAttribute: function (n, v) { this._attrs[n] = String(v); },
+      getAttribute: function (n) { return Object.prototype.hasOwnProperty.call(this._attrs, n) ? this._attrs[n] : null; }
+    }
   };
 
   root.document = documentStub;

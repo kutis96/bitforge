@@ -1,6 +1,6 @@
 # bitforge — Status
 
-> **HANDOVER (2026-11-22, context rollover):** we're at **[V.1] / 0.22.1**, 185/185 tests, clean tree (HEAD = the [V.1] commit). Samples are now **files on the server** (`bitforge/samples/*.bitforge` + `samples/manifest.json`), fetched at runtime — **File → Load sample… is hidden under `file://`**, and first-run preload is gated on "served". The user's **Small & Cozy** font is the first (default) sample. **Browser-verify for the user:** served page → Load sample… visible, lists *Small & Cozy (default)*, load-confirm replaces the font; clean profile → Small & Cozy preloaded; `file://` → item hidden, blank start (graceful degrade). Adding a sample = drop `.bitforge` into `samples/` + one `manifest.json` entry (AGENTS.md). Next real work: the open **[O] polish** catch-all (editor hover crosshair, jump UX, slant-spill clipping, guideline visuals) or whatever the user greenlights. Ritual, conventions and gotchas: [AGENTS.md](AGENTS.md) (root) + this file + DECISIONS.md. The `hidden`-vs-`display` CSS trap and the init-order trap are documented in DECISIONS #75 [T.1] — don't relearn them.
+> **HANDOVER (2026-11-23, context rollover):** we're at **[W] / 0.23.0**, 190/190 tests, clean tree (HEAD = the [W] commit). Dark mode is in: **Edit → Theme: Light / Dark / Auto** (auto = default, follows the system/browser preference live; explicit choice pins the look). The choice is a **setting** ⇒ persisted + rides `.bitforge` files. Chrome + **editor/selector canvases** follow the theme; **Preview/Atlas render surfaces stay under the Inverted checkbox; exports are never themed** (black ink, white/transparent). **Browser-verify for the user:** Edit → Theme: Dark flips the app + editor + selector (checkmark moves, survives reload); Auto follows system preference live (DevTools emulation works); Preview/Atlas + exports unchanged in either theme; toasts/modals/menus/QA tab readable in dark. Next real work: the open **[O] polish** catch-all or whatever the user greenlights. Ritual, conventions and gotchas: [AGENTS.md](AGENTS.md) (root) + this file + DECISIONS.md. The `hidden`-vs-`display` CSS trap and the init-order trap are documented in DECISIONS #75 [T.1] — don't relearn them.
 
 ## Current state
 - [x] Requirements gathered and clarified with the user
@@ -48,6 +48,7 @@
 - [x] **[U] Move/copy paste modes** (2026-11-19): `paste: merge ⇄ replace` toggle in the selection bar (setting, default merge) · **Ctrl/Alt+drag = copy** the selection (source kept) — 180 tests
 - [x] **[V] Sample fonts: infrastructure** (2026-11-22): `js/samples.js` registry (embedded `.bitforge` strings) · File → **Load sample…** picker (empty state included) · first-run preloads the default sample (saved font always wins) · suite validates every shipped entry — 184 tests *(superseded in part by [V.1])*
 - [x] **[V.1] Server-served sample fonts** (2026-11-22): `samples/` folder + `manifest.json` replace the embedded registry (deleted) · **Load sample… hidden unless served over http(s)** · first-run default-sample preload gated on served (identity-guarded) · **Small & Cozy** = first sample · harness now awaits async tests (fake `fetch`/`location`) — 185 tests
+- [x] **[W] Dark mode** (2026-11-23): **Edit → Theme: Light / Dark / Auto** (auto = default, live system-scheme reactivity) · theme as a **setting** (persisted + rides `.bitforge`) · CSS custom-property palettes · editor + selector canvases follow the theme; Preview/Atlas surfaces + exports deliberately unthemed — 190 tests
 - [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -85,7 +86,8 @@ Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–
 | 0.20.2 | [T.2] Rollback: collapsible guides bar removed (user retraction) |
 | 0.21.0 | [U] Move/copy paste modes (merge/replace toggle + Ctrl/Alt-drag copy) |
 | 0.22.0 | [V] Sample fonts: embedded registry + Load sample… picker + first-run preload (superseded in part by 0.22.1) |
-| **0.22.1** (current) | [V.1] Server-served sample fonts (samples/ + manifest.json) |
+| 0.22.1 | [V.1] Server-served sample fonts (samples/ + manifest.json) |
+| **0.23.0** (current) | [W] Dark mode (theme: light / dark / auto) |
 
 **Lettering note (2026-11-15, chunk M):** chunk letters drifted at some point (the I-wave landed after L); they now follow list position. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Git commit subjects still use the old letters.
 
@@ -418,6 +420,16 @@ User revision of [V] (2026-11-22): the user now hosts the page on a server and w
 - **Test harness upgrade (shared file, backward-compatible):** `test/harness.js` now **awaits a Promise returned by a test** (serial, in order, exit code preserved; sync tests unaffected) — this is what lets 3 new tests drive the real fetch→validate→render→`loadSample` pipeline headlessly via a fake `globalThis.fetch`/`location` (`bfFakeFetch` routes, every test restores env in both settle paths).
 - **Tests (185 total):** −4 old embedded-registry tests, +5 new (file:// not-served; `buildSamples` pure; served happy-path async incl. cancel no-op; served partial/broken entry; first-run preload). **Browser-verify (user, requested this turn):** served page → Load sample… visible, lists *Small & Cozy (default)*, load confirms + replaces + toasts; clean profile → preloaded; `file://` → hidden + blank.
 - **Docs:** DECISIONS #78 (#77 marked superseded-in-part); DESIGN persistence section; AGENTS.md samples procedure + async-harness note; changelog 0.22.1 in both files.
+
+### [W] Dark mode (`css/style.css` + `index.html` + `js/app.js` + `test/` + docs, 2026-11-23)
+User request (2026-11-23): "Can we add a darkmode as well? This should be both selectable manually (light - current theme, dark - to be implemented, and auto - selected according to what browser reports). Auto should be the default." Shipped (DECISIONS #79, version 0.23.0):
+- **Setting:** `theme` = `light | dark | auto` (default **auto**) in the settings API ⇒ persisted in `localStorage` and carried by `.bitforge` project files; import applies it (`applyImportedSettings` → `applyTheme()`).
+- **Resolution & application:** explicit choice always wins; `auto` follows `matchMedia("(prefers-color-scheme: dark)")` with a **light fallback** (headless stub has no matchMedia). Resolved theme = `state.theme` + `<html data-theme>`; all chrome colors are **CSS custom properties** (light in `:root`, dark in `html[data-theme="dark"]`); the **editor + glyph-selector canvases** read the `themeColors()` palette (dark: bg #1d1d1d, ink #e6e6e6, grid #333; status tints reuse the existing dark variants). Redraw happens only when the *resolved* theme actually changed.
+- **UI:** Edit menu, bottom — radio group **Theme: Light / Dark / Auto** (`.mi-radio`/`.mi-check` CSS, checkmark via `syncThemeMenu()`). Deliberate: no new View menu (Edit already hosts Properties/Resize).
+- **Scope split (judgment call, surfaced in changelog):** Preview/Atlas render surfaces are **not themed** — the *Inverted* checkbox remains their single switch (user prefers white bg for seeing fonts clearly); **exports are never themed** (black ink, white/transparent).
+- **Live reactivity:** `watchSystemTheme()` arms the matchMedia `change` listener (fully guarded); `applyTheme()` re-resolves and is a no-op unless the resolved theme differs — explicit choices ignore later system flips.
+- **Tests (190 total, +5, new `test/test-theme.js`):** `resolveTheme` pure matrix · default auto + headless apply → light + `<html>` attr + menu check · persisted dark choice (setting + attr + menu + palette) + bogus no-op · fake-matchMedia live reactivity (env faking/restore pattern from test-samples.js) · import-pickup. Stub gained `document.documentElement` (records `data-theme`); seam gained the theme fns (`resolveTheme/chooseTheme/applyTheme/watchSystemTheme/syncThemeMenu/themeColors`).
+- **Docs:** DECISIONS #79; DESIGN persistence bullet; AGENTS.md theme + test-file registration notes; changelog 0.23.0 in both files.
 
 ## Plan — remaining chunks (decisions locked in DECISIONS #32–78)
 

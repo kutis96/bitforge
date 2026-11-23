@@ -1,4 +1,7 @@
-/* bitforge — styling. Black on white, monospace, terminal-tool feel. */
+/* bitforge — styling. Monospace, terminal-tool feel.
+ * Theming (DECISIONS #79): every color flows through CSS custom properties.
+ * Light is the default; `html[data-theme="dark"]` (set by app.js from the
+ * `theme` setting + the system preference) swaps the whole palette. */
 
 :root {
   --ink: #111111;
@@ -8,6 +11,38 @@
   --line-strong: #888888;
   --muted: #555555;
   --sel: #111111;
+  --hover: #f0f0f0;
+  --hover-2: #e6e6e6;
+  --tab-hover: #f4f4f4;
+  --active-bg: #e4e4e4;
+  --surface: #ffffff;      /* menus, modals, cards, chips */
+  --field-bg: #ffffff;     /* text/number inputs, textarea */
+  --code-bg: #f2f2f2;      /* <code> chips */
+  --canvas-surface: #ffffff; /* selector / editor / atlas surfaces */
+  --danger-border: #cc3333;
+  --danger-text: #a03030;
+  --danger-bg: #fff5f5;
+}
+
+html[data-theme="dark"] {
+  --ink: #e6e6e6;
+  --bg: #171717;
+  --panel: #1f1f1f;
+  --line: #454545;
+  --line-strong: #7d7d7d;
+  --muted: #9a9a9a;
+  --sel: #e6e6e6;
+  --hover: #2a2a2a;
+  --hover-2: #303030;
+  --tab-hover: #262626;
+  --active-bg: #383838;
+  --surface: #202020;
+  --field-bg: #1c1c1c;
+  --code-bg: #2c2c2c;
+  --canvas-surface: #1d1d1d;
+  --danger-border: #c65050;
+  --danger-text: #d98a8a;
+  --danger-bg: #2a1c1c;
 }
 
 * { box-sizing: border-box; }
@@ -35,10 +70,10 @@ body { display: flex; flex-direction: column; }
 #menubar { display: flex; align-items: center; gap: 2px; flex: 1; }
 .menu { position: relative; }
 .menu-btn { border: none; background: none; border-radius: 3px; padding: 4px 10px; font: inherit; color: var(--ink); cursor: pointer; }
-.menu-btn:hover, .menu.open > .menu-btn { background: #e6e6e6; }
+.menu-btn:hover, .menu.open > .menu-btn { background: var(--hover-2); }
 .menu-items {
   display: none; position: absolute; top: calc(100% + 2px); left: 0; z-index: 100;
-  min-width: 250px; padding: 4px 0; background: #fff;
+  min-width: 250px; padding: 4px 0; background: var(--surface);
   border: 1px solid var(--line-strong); box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.12);
 }
 .menu.open .menu-items { display: block; }
@@ -46,7 +81,12 @@ body { display: flex; flex-direction: column; }
   display: flex; width: 100%; align-items: baseline; justify-content: space-between; gap: 18px;
   border: none; background: none; text-align: left; padding: 5px 14px; font: inherit; color: var(--ink); cursor: pointer;
 }
-.menu-items button:hover { background: #f0f0f0; }
+.menu-items button:hover { background: var(--hover); }
+/* Radio-style menu items (the theme selector, DECISIONS #79): label sits next
+   to the check slot instead of being spread to the right edge. */
+.menu-items button.mi-radio { justify-content: flex-start; gap: 8px; }
+.mi-check { display: inline-block; width: 12px; text-align: center; }
+.mi-radio.active .mi-check::before { content: "\2713"; }
 .menu-items .mi-key { color: var(--muted); font-size: 11px; white-space: nowrap; }
 .menu-items hr { border: none; border-top: 1px solid var(--line); margin: 4px 0; }
 .menu-items .mi-info { padding: 5px 14px 6px; color: var(--muted); font-size: 12px; line-height: 1.5; white-space: pre-line; }
@@ -54,7 +94,7 @@ body { display: flex; flex-direction: column; }
 /* About modal */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.35); z-index: 200; display: flex; align-items: center; justify-content: center; }
 .modal-backdrop[hidden] { display: none; } /* the display:flex above would otherwise override the UA hidden rule */
-.modal { background: #fff; border: 1px solid var(--line-strong); box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.2); min-width: 440px; max-width: 90vw; }
+.modal { background: var(--surface); border: 1px solid var(--line-strong); box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.2); min-width: 440px; max-width: 90vw; }
 .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; border-bottom: 1px solid var(--line); }
 .modal-head button { padding: 0 8px; border: none; background: none; font-size: 16px; line-height: 1; cursor: pointer; }
 .modal-body { padding: 12px 16px 14px; font-size: 13px; line-height: 1.55; }
@@ -62,21 +102,21 @@ body { display: flex; flex-direction: column; }
 .modal-body label { display: block; margin-top: 10px; font-weight: 700; }
 .modal-body input[type="text"] {
   width: 100%; margin-top: 4px; font: inherit;
-  padding: 4px 6px; border: 1px solid var(--line-strong); border-radius: 3px; background: #fff; color: var(--ink);
+  padding: 4px 6px; border: 1px solid var(--line-strong); border-radius: 3px; background: var(--field-bg); color: var(--ink);
 }
 .modal-actions { display: flex; gap: 8px; margin-top: 14px; }
 .rz-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; margin-top: 10px; }
 .rz-grid label { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 0; }
 .rz-grid input[type="number"] {
   width: 72px; font: inherit; text-align: right;
-  padding: 3px 6px; border: 1px solid var(--line-strong); border-radius: 3px; background: #fff; color: var(--ink);
+  padding: 3px 6px; border: 1px solid var(--line-strong); border-radius: 3px; background: var(--field-bg); color: var(--ink);
 }
 .modal-scroll { max-height: 60vh; overflow-y: auto; } /* long modals (changelog) */
 
 /* Sample picker modal (DECISIONS #77) */
 .sample-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
-.sample-item { display: block; width: 100%; text-align: left; padding: 8px 10px; border: 1px solid var(--line); background: #fff; cursor: pointer; font-size: 13px; line-height: 1.45; }
-.sample-item:hover { background: #f2f2f2; }
+.sample-item { display: block; width: 100%; text-align: left; padding: 8px 10px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-size: 13px; line-height: 1.45; }
+.sample-item:hover { background: var(--hover); }
 .sample-item .s-name { font-weight: 700; }
 .sample-item .s-desc { color: var(--muted); display: block; }
 .sample-item .s-def { float: right; color: var(--muted); font-size: 11px; font-weight: 400; }
@@ -91,18 +131,21 @@ body { display: flex; flex-direction: column; }
 
 button {
   font: inherit;
-  background: #fff;
+  background: var(--surface);
   color: var(--ink);
   border: 1px solid var(--line-strong);
   border-radius: 3px;
   padding: 4px 10px;
   cursor: pointer;
 }
-button:hover { background: #f0f0f0; }
-button:active { background: #e4e4e4; }
+button:hover { background: var(--hover); }
+button:active { background: var(--active-bg); }
 /* Destructive (but undoable) actions get a subtle reddish outline. */
-button.btn-danger { border-color: #cc3333; color: #a03030; }
-button.btn-danger:hover { background: #fff5f5; }
+button.btn-danger { border-color: var(--danger-border); color: var(--danger-text); }
+button.btn-danger:hover { background: var(--danger-bg); }
+/* Form fields follow the theme (DECISIONS #79). Checkboxes/ranges are
+   unaffected visually; text/number/textarea get themed bg + ink. */
+input, textarea { background: var(--field-bg); color: var(--ink); }
 
 /* ---------- layout ---------- */
 #layout { flex: 1; display: flex; min-height: 0; }
@@ -133,7 +176,7 @@ button.btn-danger:hover { background: #fff5f5; }
   border: 1px solid var(--line-strong);
   border-radius: 3px;
 }
-#selector { border: 1px solid var(--line); background: #fff; image-rendering: pixelated; }
+#selector { border: 1px solid var(--line); background: var(--canvas-surface); image-rendering: pixelated; }
 .sel-hint { font-size: 11px; color: var(--muted); line-height: 1.35; }
 
 /* ---------- content / tabs ---------- */
@@ -146,7 +189,7 @@ button.btn-danger:hover { background: #fff5f5; }
   background: transparent;
   padding: 8px 12px;
 }
-.tab:hover { background: #f4f4f4; }
+.tab:hover { background: var(--tab-hover); }
 .tab.active { border-bottom-color: var(--ink); font-weight: 700; }
 
 .panel { display: none; flex: 1; flex-direction: column; padding: 10px; min-height: 0; }
@@ -179,18 +222,20 @@ button.btn-danger:hover { background: #fff5f5; }
 .spacer { flex: 1; }
 
 /* ---------- canvas surfaces ---------- */
-/* Everything renders as black ink on white — no checkerboard. */
+/* No checkerboard. The editing surfaces (editor, selector) follow the theme
+   (DECISIONS #79); the Preview/Atlas render surfaces stay black-on-white
+   unless their own "inverted" control is set. */
 .canvas-wrap {
   flex: 1;
   overflow: auto;
   display: flex;
-  background: #ffffff;
+  background: var(--bg);
 }
 .canvas-wrap canvas { margin: 12px; image-rendering: pixelated; flex: 0 0 auto; }
 
-/* Solid white editing surface; preview surfaces stay transparent over the board. */
-#editor { background: #fff; border: 1px solid var(--line); }
-#atlas { background: #fff; border: 1px solid var(--line); }
+/* Themed editing surface; preview surfaces stay transparent over the board. */
+#editor { background: var(--canvas-surface); border: 1px solid var(--line); }
+#atlas { background: var(--canvas-surface); border: 1px solid var(--line); }
 #pv-text-canvas { border: 1px solid var(--line); }
 
 /* ---------- preview ---------- */
@@ -223,8 +268,8 @@ button.btn-danger:hover { background: #fff5f5; }
 .guides .glist { display: inline-flex; gap: 4px; flex-wrap: wrap; margin-left: auto; }
 .gchip {
   display: inline-flex; align-items: center; gap: 2px;
-  border: 1px solid #999; border-left: 3px solid #999; border-radius: 3px;
-  padding: 1px 4px; background: #fff; font-size: 11px;
+  border: 1px solid var(--line-strong); border-left: 3px solid var(--line-strong); border-radius: 3px;
+  padding: 1px 4px; background: var(--surface); font-size: 11px;
 }
 .gchip b { font-weight: 700; }
 .gchip i { font-style: normal; color: var(--muted); }
@@ -241,31 +286,31 @@ button.btn-danger:hover { background: #fff5f5; }
   z-index: 60;
   display: flex;
   flex-direction: column;
-  border: 1px solid #111;
-  background: #fff;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
   box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.15);
 }
 .status-menu button {
   border: none;
-  background: #fff;
+  background: var(--surface);
   padding: 3px 12px 3px 8px;
   font: inherit;
   font-size: 12px;
   text-align: left;
   cursor: pointer;
 }
-.status-menu button:hover { background: #eee; }
+.status-menu button:hover { background: var(--hover); }
 
 .qa-badge { color: #a00; font-size: 12px; }
 .qa-hint { color: var(--muted); font-size: 12px; }
 .markup-note { color: var(--muted); font-size: 12px; }
-.markup-note code { background: #f2f2f2; padding: 0 3px; }
+.markup-note code { background: var(--code-bg); padding: 0 3px; }
 .qa-empty { color: var(--muted); padding: 10px; font-size: 13px; }
 .qa-table-wrap { overflow: auto; max-height: calc(100vh - 190px); }
 #qa-table { border-collapse: collapse; width: 100%; font-size: 12px; }
 #qa-table th, #qa-table td { border-bottom: 1px solid var(--line); padding: 2px 8px; text-align: left; white-space: nowrap; }
 #qa-table th { background: var(--panel); position: sticky; top: 0; }
-.qa-code { border: none; background: transparent; font: inherit; color: #111; text-decoration: underline; cursor: pointer; padding: 0; }
+.qa-code { border: none; background: transparent; font: inherit; color: var(--ink); text-decoration: underline; cursor: pointer; padding: 0; }
 .qa-code:hover { color: #a00; }
 /* QA summary strip + status icons (DECISIONS #59) */
 .qa-summary { padding: 8px 12px 0; }
@@ -286,14 +331,14 @@ button.qa-silbtn { font-size: 11px; padding: 1px 8px; }
   max-width: 420px;
   max-height: 70vh;
   overflow: auto;
-  border: 1px solid #111;
-  background: #fff;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
   padding: 8px 12px;
   box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.15);
 }
 .keys-card[hidden] { display: none; }
 .keys-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-.keys-head button { border: none; background: transparent; font-size: 15px; cursor: pointer; color: #555; }
+.keys-head button { border: none; background: transparent; font-size: 15px; cursor: pointer; color: var(--muted); }
 .keys-head button:hover { color: #f00; }
 #keys-list { list-style: none; margin: 0; padding: 0; font-size: 12px; }
 #keys-list li { padding: 2px 0; border-bottom: 1px dotted var(--line); }
@@ -307,7 +352,7 @@ button.qa-silbtn { font-size: 11px; padding: 1px 8px; }
   bottom: 18px;
   transform: translateX(-50%);
   background: var(--ink);
-  color: #fff;
+  color: var(--bg);
   padding: 8px 14px;
   border-radius: 4px;
   font-size: 13px;

@@ -14,6 +14,11 @@
  * (date "" = pre-dated history, not shown in the UI)
  */
 var BF_CHANGELOG = [
+  { version: "0.23.0", date: "2026-11-23", changes: [
+    "Dark mode: Edit → Theme: Light / Dark / Auto. Auto (the default) follows your system / browser color preference and updates live when it changes; Light and Dark pin the look regardless of the system. The choice is remembered (and travels inside .bitforge project files).",
+    "In Dark, the app chrome, menus and modals go dark, and the editor + glyph selector follow the theme (light ink on dark).",
+    "Preview and Atlas render surfaces are unaffected: the existing Inverted checkbox still switches them white-on-black, and exports (PNG / BDF / Verilog) are always black ink on white or transparent, in either theme."
+  ] },
   { version: "0.22.1", date: "2026-11-22", changes: [
     "Sample fonts are now served from the server's samples/ folder (listed in samples/manifest.json) instead of being embedded — add, rename or reorder samples by editing that folder, no code change or build step. Shipped with a first real sample: Small & Cozy.",
     "File > Load sample… now only appears when the page is served over http/https; opened straight from a file it's hidden and the app starts blank, as before.",

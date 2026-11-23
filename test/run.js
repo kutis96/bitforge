@@ -31,5 +31,6 @@ load("test/stub-dom.js");
 load("js/app.js");
 load("test/test-dom.js");
 load("test/test-samples.js");
+load("test/test-theme.js");
 
 __runAll();
