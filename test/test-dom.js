@@ -640,7 +640,7 @@ test("dom: mousedown on a menu item must NOT close the menu (real-browser click 
 
 test("dom: About modal head + browser tab show the app version (DECISIONS #56)", function () {
   assert(/^\d+\.\d+\.\d+$/.test(BF.VERSION), "BF.VERSION is semver-ish: " + BF.VERSION);
-  assertEqual(BF.VERSION, "0.26.2", "pinned version — bump this test when you bump the app");
+  assertEqual(BF.VERSION, "0.27.0", "pinned version — bump this test when you bump the app");
   var els = globalThis.__stub.els;
   assertEqual(els["about-title"].textContent, "bitforge " + BF.VERSION, "modal head shows name + version");
   assertEqual(document.title, "bitforge " + BF.VERSION, "browser tab shows name + version");
@@ -792,6 +792,73 @@ test("dom: edge-ink check flags edge-touching glyphs and silences per glyph (DEC
 
   BF.clearGlyph(f, code);
   app.qaRefresh(); // leave the glyph clean for later tests
+});
+
+test("dom: edge-ink check property — ignoreEdges checkboxes (DECISIONS #83)", function () {
+  var app = globalThis.__stub.app;
+  var els = globalThis.__stub.els;
+  var stub = globalThis.__stub;
+  var f = app.state.font;
+  f.checkProps = {};
+  f.silences["edge"] = {};
+  var code = 6;
+  BF.setPixel(f, code, 0, 0, 1); // touches top + left
+
+  app.qaRefresh();
+
+  function edgeRow() {
+    var rows = app.qaRows();
+    for (var i = 0; i < rows.length; i++)
+      if (rows[i].checkId === "edge" && rows[i].code === code) return rows[i];
+    return null;
+  }
+  var sum = els["qa-summary"].innerHTML;
+  assert(sum.indexOf("ignore:") !== -1, "props group is labeled on the edge-ink row");
+  var id = function (opt) { return "qa-prop-edge-ignoreEdges-" + opt; };
+  assert(sum.indexOf(id("top")) !== -1, "summary row carries the top checkbox");
+  assert(sum.indexOf(id("right")) !== -1, "…and the right one");
+
+  assert(edgeRow() !== null, "reported by default (nothing ignored)");
+
+  // Tick top + left: the glyph touches only those → it drops out of the report.
+  els[id("top")].checked = true;
+  stub.dispatch(id("top"), "change", {});
+  assertEqual(app.qaPropValue(f, "edge", "ignoreEdges").join(","), "top", "first toggle stored");
+  assert(edgeRow() !== null, "top only ignored → left edge still reported");
+  els[id("left")].checked = true;
+  stub.dispatch(id("left"), "change", {});
+  assertEqual(app.qaPropValue(f, "edge", "ignoreEdges").join(","), "top,left", "second toggle stored");
+  assert(edgeRow() === null, "glyph touching only ignored edges is gone");
+
+  var raw = globalThis.localStorage.getItem("bitforge.font.v1");
+  assert(raw.indexOf("ignoreEdges") !== -1, "ignore list persisted in the font blob");
+
+  // Re-render re-derives the checked state from the font (source of truth).
+  app.qaRefresh();
+  assert(els["qa-summary"].innerHTML.indexOf("checked") !== -1, "checked state re-derived on render");
+
+  // A no-op toggle (bottom, already unchecked) must not bump the version.
+  var v0 = app.state.fontVersion;
+  els[id("bottom")].checked = false;
+  stub.dispatch(id("bottom"), "change", {});
+  assertEqual(app.state.fontVersion, v0, "no-op toggle does not bump the version");
+
+  // Un-tick top: the glyph is reported again — left is still ignored, so its
+  // ACTIVE edge is top and the detail names top, not left.
+  els[id("top")].checked = false;
+  stub.dispatch(id("top"), "change", {});
+  assertEqual(app.qaPropValue(f, "edge", "ignoreEdges").join(","), "left", "top no longer ignored");
+  var row = edgeRow();
+  assert(row !== null, "row is back");
+  assert(row.detail.indexOf("top") !== -1, "detail names the active top edge: " + row.detail);
+  assert(row.detail.indexOf("left") === -1, "still-ignored left edge is not named: " + row.detail);
+
+  // Cleanup: un-ignore, clear the glyph, reset checkProps.
+  els[id("left")].checked = false;
+  stub.dispatch(id("left"), "change", {});
+  BF.clearGlyph(f, code);
+  f.checkProps = {};
+  app.qaRefresh();
 });
 
 test("dom: guideline check names the crossed guide in the detail (DECISIONS #47)", function () {

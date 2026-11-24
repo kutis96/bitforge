@@ -14,6 +14,9 @@
  * (date "" = pre-dated history, not shown in the UI)
  */
 var BF_CHANGELOG = [
+  { version: "0.27.0", date: "2026-11-24", changes: [
+    "The QA tab's checks can now be configured per font: the **edge-ink** check gained an **ignore** list — tick the edges (top / bottom / left / right) your font reaches on purpose (ROM-tight faces), and ink on those edges stops being reported. The choice is saved with the font (and in \u201c.bitforge\u201d project files) and defaults to none ignored."
+  ] },
   { version: "0.26.2", date: "2026-11-24", changes: [
     "Menu layout fix: the long Project items (Open BDF…, Export BDF font, Export TTF font) no longer wrap — the label, **Beta** badge and shortcut hint now sit on one line, and the menu sizes itself to its widest item."
   ] },

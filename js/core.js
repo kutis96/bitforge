@@ -26,7 +26,7 @@
    * (1-indexed) in the STATUS.md "Current state" list; PATCH = 0 for a single
    * chunk, the sub-index for a wave (chunk L.3 shipped 0.12.3). Bump in the
    * same commit as the chunk — a headless test pins the exact value. */
-  var VERSION = "0.26.2";
+  var VERSION = "0.27.0";
 
   /* ============================================================
    * [1] Font model
@@ -54,6 +54,7 @@
       guidelines: [], // editor guides, per-font (shared across glyphs); NOT exported to ROM
       status: new Uint8Array(NUM_GLYPHS), // 0=unfinished 1=wip 2=done (DECISIONS #38); NOT exported
       silences: {} // silenced QA checks per glyph { checkId: { code: true } } (DECISIONS #59); NOT exported
+      , checkProps: {} // QA check properties per check { checkId: { key: [...] } } (DECISIONS #83); NOT exported
     };
   }
 
@@ -500,6 +501,31 @@
     return edges;
   }
 
+  // Cell-edge names (DECISIONS #83): the edge-ink check's option vocabulary.
+  var EDGE_NAMES = ["top", "bottom", "left", "right"];
+
+  // The edge-ink ignore list for this font (font.checkProps.edge.ignoreEdges),
+  // normalized: unknown names dropped, deduped, non-array/absent -> [].
+  // Small ROM-tight fonts may legitimately ignore edges they reach by design.
+  function ignoreEdges(font) {
+    var v = font && font.checkProps && font.checkProps.edge && font.checkProps.edge.ignoreEdges;
+    if (!Array.isArray(v)) return [];
+    var out = [];
+    for (var i = 0; i < v.length; i++)
+      if (EDGE_NAMES.indexOf(v[i]) >= 0 && out.indexOf(v[i]) < 0) out.push(v[i]);
+    return out;
+  }
+
+  // The edge-ink edges that actually count for this font: edgeInk minus the
+  // font's ignore list (order preserved). A glyph touching only ignored
+  // edges is clean; a mixed glyph reports its active edges only.
+  function activeEdges(font, code) {
+    var all = edgeInk(font, code), ig = ignoreEdges(font), out = [];
+    for (var i = 0; i < all.length; i++)
+      if (ig.indexOf(all[i]) < 0) out.push(all[i]);
+    return out;
+  }
+
   /* ============================================================
    * [11] Guideline-violation QA (DECISIONS #47 — label-aware bounds)
    * ============================================================ */
@@ -600,7 +626,8 @@
       n: font.name,
       g: font.guidelines,
       s: Array.prototype.slice.call(font.status),
-      si: font.silences
+      si: font.silences,
+      cp: (font.checkProps && typeof font.checkProps === "object") ? font.checkProps : {}
     };
   }
 
@@ -641,6 +668,19 @@
             sm[cv] = true;
         }
         font.silences[sid] = sm;
+      }
+    }
+    // QA check properties (DECISIONS #83): same policy as silences — only the
+    // ids core knows survive, values validated per id. Unknown ids and
+    // malformed values are dropped; older blobs (no cp) keep the makeFont {}.
+    if (o.cp && typeof o.cp === "object") {
+      if (o.cp.edge && typeof o.cp.edge === "object" && Array.isArray(o.cp.edge.ignoreEdges)) {
+        var ig = [];
+        for (var ei = 0; ei < o.cp.edge.ignoreEdges.length; ei++) {
+          var en = o.cp.edge.ignoreEdges[ei];
+          if (EDGE_NAMES.indexOf(en) >= 0 && ig.indexOf(en) < 0) ig.push(en);
+        }
+        if (ig.length) font.checkProps.edge = { ignoreEdges: ig };
       }
     }
     return font;
@@ -988,6 +1028,10 @@
     rectCopy: rectCopy,
     // edge-ink QA
     edgeInk: edgeInk,
+    // edge-ink ignore list (DECISIONS #83)
+    EDGE_NAMES: EDGE_NAMES,
+    ignoreEdges: ignoreEdges,
+    activeEdges: activeEdges,
     // guideline-violation QA
     GUIDE_BOUND_LABELS: GUIDE_BOUND_LABELS,
     guideBounds: guideBounds,

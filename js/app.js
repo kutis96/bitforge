@@ -355,11 +355,14 @@
       // Edge-ink lint (DECISIONS #46): ink on the outermost cell row/col
       // collides with neighbours at zero spacing. Silenceable per glyph —
       // box-drawing / pseudo-graphics touch edges by design.
+      // Check property (DECISIONS #83): ignoreEdges — edges this font reaches
+      // on purpose (ROM-tight faces); toggled on the summary row.
       id: "edge", name: "edge-ink", severity: "warning", silenceable: true,
+      props: { ignoreEdges: { label: "ignore", options: ["top", "bottom", "left", "right"] } },
       run: function (f) {
         var rows = [], code, e;
         for (code = 0; code < 256; code++) {
-          e = BF.edgeInk(f, code);
+          e = BF.activeEdges(f, code);
           if (e.length === 0) continue;
           rows.push({ check: "edge-ink", codes: codeLabel(code),
             detail: "ink touches the " + e.join(" + ") + (e.length === 1 ? " edge" : " edges"), code: code });
@@ -436,23 +439,100 @@
     if (el.qaSummary) { el.qaSummary.hidden = true; el.qaSummary.innerHTML = ""; }
     updateQaBadge();
   }
+  // ---------- QA check properties (DECISIONS #83, chunk [AA]) ----------
+  // Checks may declare `props: { key: { label, options: [...] } }` — a subset
+  // multi-select. Values live PER-FONT in font.checkProps = { checkId: { key:
+  // [options...] } } (makeFont inits {}; the blob's cp field + fontFromBlob
+  // sanitizing carry it through localStorage and .bitforge). Toggling is a
+  // font mutation — same pattern as toggleSilence.
+  function qaPropInputId(checkId, key, opt) {
+    return "qa-prop-" + checkId + "-" + key + "-" + opt;
+  }
+  function qaPropValue(font, checkId, key) {
+    var cp = font.checkProps && font.checkProps[checkId];
+    var v = cp && cp[key];
+    return Array.isArray(v) ? v.slice() : [];
+  }
+  function onQaPropChange(checkId, key) {
+    var decl = null;
+    for (var i = 0; i < qaChecks.length; i++)
+      if (qaChecks[i].id === checkId && qaChecks[i].props) { decl = qaChecks[i].props[key]; break; }
+    if (!decl || !Array.isArray(decl.options)) return;
+    var f = state.font, cur = qaPropValue(f, checkId, key), next = [];
+    for (var j = 0; j < decl.options.length; j++) {
+      var opt = decl.options[j];
+      var input = document.getElementById(qaPropInputId(checkId, key, opt));
+      if (input ? !!input.checked : cur.indexOf(opt) >= 0) next.push(opt);
+    }
+    var same = next.length === cur.length;
+    if (same)
+      for (var k = 0; k < next.length; k++) if (cur.indexOf(next[k]) < 0) { same = false; break; }
+    if (same) return; // no-op: don't bump the version or re-render
+    if (!f.checkProps) f.checkProps = {};
+    if (!f.checkProps[checkId]) f.checkProps[checkId] = {};
+    f.checkProps[checkId][key] = next;
+    bumpFontVersion();
+    saveLS();
+    qaRefresh();
+  }
+
   // Summary strip: one line per check — icon of the worst ACTIVE severity
-  // (ok when clean, silenced when everything is silenced) + counts.
+  // (ok when clean, silenced when everything is silenced) + counts, and the
+  // check's declared props rendered as inline checkboxes (DECISIONS #83).
   function renderQaSummary(rows) {
     var html = "";
     for (var i = 0; i < qaChecks.length; i++) {
-      var id = qaChecks[i].id, act = 0, sil = 0, warn = false;
+      var chk = qaChecks[i], id = chk.id, act = 0, sil = 0, warn = false;
       for (var j = 0; j < rows.length; j++) {
         if (rows[j].checkId !== id) continue;
         if (rows[j].silenced) sil++;
         else { act++; if (rows[j].severity === "warning") warn = true; }
       }
       var icon = act === 0 ? (sil > 0 ? "sil" : "ok") : (warn ? "warn" : "info");
-      html += '<div class="qa-sum-row">' + qaIcon(icon) + " <b>" + qaChecks[i].name + "</b> \u2014 " + act +
-        (sil > 0 ? " (" + sil + " silenced)" : "") + "</div>";
+      html += '<div class="qa-sum-row">' + qaIcon(icon) + " <b>" + chk.name + "</b> \u2014 " + act +
+        (sil > 0 ? " (" + sil + " silenced)" : "") +
+        (chk.props ? " " + qaPropsHtml(chk) : "") + "</div>";
     }
     el.qaSummary.innerHTML = html;
     el.qaSummary.hidden = false;
+    wireQaProps();
+  }
+  // Declared props as inline checkbox chips; checked state re-derived from
+  // the font on every render (the font is the source of truth).
+  function qaPropsHtml(chk) {
+    var f = state.font, out = "<span class=\"qa-props\">";
+    for (var key in chk.props) {
+      var decl = chk.props[key];
+      if (!decl || !Array.isArray(decl.options)) continue;
+      var cur = qaPropValue(f, chk.id, key);
+      out += '<span class="qa-prop-label">' + decl.label + ":</span>";
+      for (var i = 0; i < decl.options.length; i++) {
+        var opt = decl.options[i];
+        out += '<label class="qa-prop"><input type="checkbox" id="' + qaPropInputId(chk.id, key, opt) +
+          "\"" + (cur.indexOf(opt) >= 0 ? " checked" : "") + "> " + opt + "</label>";
+      }
+    }
+    return out + "</span>";
+  }
+  // Wire change listeners once per input id: the headless stub reuses element
+  // objects across re-renders (the real DOM gets fresh nodes each time).
+  function wireQaProps() {
+    for (var i = 0; i < qaChecks.length; i++) {
+      var chk = qaChecks[i];
+      if (!chk.props) continue;
+      for (var key in chk.props) {
+        var decl = chk.props[key];
+        if (!decl || !Array.isArray(decl.options)) continue;
+        for (var j = 0; j < decl.options.length; j++) {
+          var input = document.getElementById(qaPropInputId(chk.id, key, decl.options[j]));
+          if (!input || input.__qaWired) continue;
+          input.__qaWired = true;
+          (function (cid, k) {
+            input.addEventListener("change", function () { onQaPropChange(cid, k); });
+          })(chk.id, key);
+        }
+      }
+    }
   }
   function qaRefresh() {
     qaLastVersion = state.fontVersion;
@@ -2294,6 +2374,7 @@
     globalThis.__stub.app = { state: state, shortcuts: shortcuts, selectGlyph: selectGlyph, toggleKeysCard: toggleKeysCard,
       setStatus: setStatus, qaRefresh: qaRefresh, qaRows: qaComputeRows, qaStale: qaStale, atlasCellAt: atlasCellAt,
       toggleSilence: toggleSilence, qaChecks: qaChecks, guidePresets: GUIDE_PRESETS,
+      qaPropValue: qaPropValue, qaPropInputId: qaPropInputId, onQaPropChange: onQaPropChange,
       importBdfText: importBdfText, exportBdf: exportBdf,
       importProjectText: importProjectText, projectExportText: projectExportText, exportProject: exportProject,
       copyPngToClipboard: copyPngToClipboard, importPngFromClipboard: importPngFromClipboard,

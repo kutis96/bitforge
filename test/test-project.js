@@ -50,6 +50,29 @@ test("project: fontFromBlob drops silences when no known-check list given", func
   assertEqual(f.silences["edge"], undefined, "silences dropped without a check list");
 });
 
+test("project: fontToBlob/fontFromBlob roundtrips checkProps (DECISIONS #83)", function () {
+  var f = BF.makeFont(6, 4);
+  f.checkProps.edge = { ignoreEdges: ["top", "left"] };
+  var b = BF.fontToBlob(f);
+  assert(b.cp && b.cp.edge, "blob carries the cp field");
+  var g = BF.fontFromBlob(b, CHECK_IDS);
+  assertEqual(g.checkProps.edge.ignoreEdges.join(","), "top,left", "ignore list survived");
+});
+
+test("project: fontFromBlob sanitizes checkProps (DECISIONS #83)", function () {
+  var f = BF.fontFromBlob({ w: 8, h: 16, cp: { edge: { ignoreEdges: ["top", "bogus", "top"] } } }, CHECK_IDS);
+  assertEqual(f.checkProps.edge.ignoreEdges.join(","), "top", "bad names dropped, deduped");
+  var g = BF.fontFromBlob({ w: 8, h: 16, cp: { edge: { ignoreEdges: "top" } } }, CHECK_IDS);
+  assertEqual(g.checkProps.edge, undefined, "non-array dropped");
+  var h = BF.fontFromBlob({ w: 8, h: 16, cp: { bogus: { whatever: 1 }, edge: { ignoreEdges: ["left"] } } }, CHECK_IDS);
+  assertEqual(h.checkProps.bogus, undefined, "unknown check id dropped");
+  assertEqual(h.checkProps.edge.ignoreEdges.join(","), "left", "known id kept");
+  var i = BF.fontFromBlob({ w: 8, h: 16, cp: "junk" }, CHECK_IDS);
+  assertEqual(Object.keys(i.checkProps).length, 0, "non-object cp -> {} default");
+  var j = BF.fontFromBlob({ w: 8, h: 16 }, CHECK_IDS);
+  assertEqual(Object.keys(j.checkProps).length, 0, "older blob (no cp) -> {} default");
+});
+
 test("project: projectToObj writes the header + font blob + settings", function () {
   var f = BF.makeFont(8, 16);
   var o = BF.projectToObj(f, { pvScale: 4, pvText: "hi" });

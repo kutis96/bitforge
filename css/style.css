@@ -331,6 +331,11 @@ input, textarea { background: var(--field-bg); color: var(--ink); }
 .qa-svg { vertical-align: -2px; }
 #qa-table tr.qa-sil td { color: var(--muted); }
 button.qa-silbtn { font-size: 11px; padding: 1px 8px; }
+/* QA check properties (DECISIONS #83): inline subset multi-select on the summary row */
+.qa-props { margin-left: 12px; }
+.qa-prop-label { color: var(--muted); margin-left: 4px; }
+label.qa-prop { margin-left: 8px; cursor: pointer; white-space: nowrap; }
+label.qa-prop input { margin: 0 3px 0 0; vertical-align: baseline; }
 
 /* ---------- shortcut reference card ---------- */
 .keys-card {

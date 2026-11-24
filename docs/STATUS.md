@@ -51,6 +51,9 @@
 - [x] **[W] Dark mode** (2026-11-23): **Edit → Theme: Light / Dark / Auto** (auto = default, live system-scheme reactivity) · theme as a **setting** (persisted + rides `.bitforge`) · CSS custom-property palettes · editor + selector canvases follow the theme; Preview/Atlas surfaces + exports deliberately unthemed — 190 tests
 - [x] **[X] Persist the last selected glyph** (2026-11-23): `selCode` setting (persisted, rides `.bitforge`) · restored on start + import · Small & Cozy sample opens at 0x42 — 196 tests
 - [x] **[Y] Menu-bar rearrangement** (2026-11-23): four menus — **Project** (all file I/O) · **Font** (info line, Properties…, Resize…) · **Glyph** (undo/redo, clear, mirror, copy, status) · **App** (theme, changelog, about) · "Load sample…" → "Open sample…" — 196 tests
+- [x] **[Z] Dogfooding mode + Export TTF** (2026-11-24): App → **Dogfood this font** (live, per-codepoint fallback, menu bar stays system font) · `js/ttf.js` minimal deterministic TTF builder · Project → **Export TTF font** · `tools/verify-ttf.py` CoreText oracle — 225 tests
+- [x] **[Z.1] Beta badges** (2026-11-24): **Beta** badge next to Dogfood / Open BDF… / Export BDF / Export TTF (reasons + the TTF baseline/underline limitation recorded, not fixed) · menu-item wrap fix — 225 tests
+- [x] **[AA] QA check properties** (2026-11-24): per-check `props` declarations (subset multi-selects) with per-font values in `font.checkProps` (blob `cp` field + `.bitforge`) · edge-ink **ignoreEdges** mask (`BF.EDGE_NAMES`/`ignoreEdges`/`activeEdges` in core) · QA summary strip renders the props as inline checkboxes — 233 tests
 - [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -91,7 +94,10 @@ Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–
 | 0.22.1 | [V.1] Server-served sample fonts (samples/ + manifest.json) |
 | 0.23.0 | [W] Dark mode (theme: light / dark / auto) |
 | 0.24.0 | [X] Persist the last selected glyph (`selCode` setting; sample opens at 0x42) |
-| **0.25.0** (current) | [Y] Menu-bar rearrangement (Project / Font / Glyph / App) |
+| 0.25.0 | [Y] Menu-bar rearrangement (Project / Font / Glyph / App) |
+| 0.26.0 | [Z] Dogfooding mode + Export TTF (js/ttf.js, tools/verify-ttf.py) |
+| 0.26.1 – 0.26.2 | [Z.1] Beta badges (Dogfood / BDF / TTF items) + menu-item wrap fix |
+| **0.27.0** (current) | [AA] QA check properties (edge-ink ignoreEdges mask, per-font `checkProps`) |
 
 **Lettering note (2026-11-15, chunk M):** chunk letters drifted at some point (the I-wave landed after L); they now follow list position. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Git commit subjects still use the old letters.
 
@@ -485,6 +491,13 @@ User: badge **Dogfood this font** + **Open BDF…** + **Export BDF font** + **Ex
 - `css/style.css`: new `.mi-badge` rule (10px uppercase, muted, 1px border, 3px radius); base `.menu-items button` switched `space-between` → flex-start with `.mi-key { margin-left:auto }` (identical look for all existing items, badge stays adjacent to its label). No JS, no new shortcut, no new setting.
 - Version 0.26.1 (core.js + test-dom.js pin + both changelogs).
 - **Wrap fix (0.26.2, user report):** the long Project items wrapped after the first word (pre-existing "sus" behavior, now visible next to the badge) — the abspos dropdown never grows past `min-width: 250px`. Fixed with `white-space: nowrap` on `.menu-items button`: items never wrap, and shrink-to-fit sizes the menu to its widest item (no hardcoded width). Label + badge + key share one baseline.
+
+### [AA] QA check properties — **done** (2026-11-24; 0.27.0)
+User: change QA check properties; for edge-ink, a mask of which edges to ignore (empty by default, selectable per edge); set from the QA tab next to each check with settings. Rationale: small ROM-tight fonts intentionally reach the edges.
+- **core.js:** `BF.EDGE_NAMES`, `BF.ignoreEdges(font)` (normalized), `BF.activeEdges(font, code)` (`edgeInk` minus ignored); `makeFont` gains `checkProps: {}`; blob gains `cp` (`fontToBlob`); `fontFromBlob` sanitizes (unknown ids dropped, edge names filtered/deduped, non-object ignored).
+- **app.js:** `qaChecks` entries may declare `props: { key: { label, options } }` — the edge-ink check declares `ignoreEdges`; its `run` uses `BF.activeEdges`. The QA summary strip renders declared props as inline checkboxes on the check's row (ids `qa-prop-<check>-<key>-<option>`; listeners wired once per id). Toggle = font mutation (`bumpFontVersion` + `saveLS` + `qaRefresh`), no-op-safe.
+- **Tests:** +8 → **233/233**. core — `activeEdges`/`ignoreEdges` semantics + blob round-trip + sanitizing (test-edge.js / test-project.js); dom — checkbox rendering + toggle end-to-end (rows appear/disappear, persisted, re-derived on render, no-op-safe, detail names active-not-ignored edges). Two first-run failures were my own test-data slips (a "top-only" pixel actually sat on the left edge; an inverted active/ignored assertion) — the code was right.
+- **Browser-verify list (user):** QA tab → edge-ink summary row shows the `ignore:` checkboxes; tick top+left → glyphs touching only top/left drop out of the report; un-tick → back; new font / re-import resets to none ignored.
 
 **[N] QA checks are fully done** (N.1 + N.2 + N.3 — both deferred checks #46/#47 shipped with per-glyph silencing).
 

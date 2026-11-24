@@ -41,6 +41,14 @@ Rules:
 - Run `./test/run-tests.sh` before committing — the changelog data-sanity
   test is the safety net.
 
+## 0.27.0 (2026-11-24)
+
+- The QA tab's checks can now be configured per font: the **edge-ink**
+  check gained an **ignore** list — tick the edges (top / bottom / left /
+  right) your font reaches on purpose (ROM-tight faces), and ink on those
+  edges stops being reported. The choice is saved with the font (and in
+  `.bitforge` project files) and defaults to none ignored.
+
 ## 0.26.2 (2026-11-24)
 
 - Menu layout fix: the long Project items (Open BDF…, Export BDF font,
