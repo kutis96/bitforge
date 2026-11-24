@@ -26,6 +26,9 @@ One entry per released version, added **in the same commit as the
    - `date` = the release date, `YYYY-MM-DD` (use `""` only if genuinely unknown).
    - `changes` = what the **user can observe** — menus, keys, behaviours — not
      implementation detail. 1–5 short bullets.
+   - **Formatting:** the in-app changelog renders a limited markdown subset —
+     `**bold**` and `` `inline code` `` (via `BF.mdLite`, escape-first; DECISIONS
+     #84). Keep entries inside this subset — anything else shows up literally.
 2. **`CHANGELOG.md`** (this file) — add a matching `## version (date)` section
    directly below this “How to add” section, with the same bullets (markdown
    formatting is fine: backticks, links, menu names).
@@ -40,6 +43,12 @@ Rules:
   fix gets its own entry under the new version.
 - Run `./test/run-tests.sh` before committing — the changelog data-sanity
   test is the safety net.
+
+## 0.27.1 (2026-11-24)
+
+- The in-app changelog (App → Changelog… and the What's new modal) now
+  renders its `**bold**` and `` `inline code` `` markers instead of showing
+  them literally.
 
 ## 0.27.0 (2026-11-24)
 

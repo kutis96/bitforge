@@ -26,7 +26,7 @@
    * (1-indexed) in the STATUS.md "Current state" list; PATCH = 0 for a single
    * chunk, the sub-index for a wave (chunk L.3 shipped 0.12.3). Bump in the
    * same commit as the chunk — a headless test pins the exact value. */
-  var VERSION = "0.27.0";
+  var VERSION = "0.27.1";
 
   /* ============================================================
    * [1] Font model
@@ -816,6 +816,19 @@
     return out;
   }
 
+  // Mini-markdown for the in-app changelog (DECISIONS #84): renders the
+  // LIMITED subset the entries actually use — **bold** and `inline code` —
+  // to HTML, escape-first (the text is ours, but we don't trust it anyway).
+  // Unbalanced markers stay literal. Everything else is plain text. Keep new
+  // changelog entries inside this subset (see CHANGELOG.md "How to add").
+  function mdLite(text) {
+    var s = String(text == null ? "" : text);
+    s = s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    s = s.replace(/`([^`]+)`/g, "<code>$1</code>");
+    s = s.replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+    return s;
+  }
+
   /* ============================================================
    * [15] Glyph manipulation (DECISIONS #74)
    * ============================================================ */
@@ -1012,9 +1025,10 @@
     // cell resize (DECISIONS #71)
     cloneFont: cloneFont,
     resizeFont: resizeFont,
-    // changelog (DECISIONS #73)
+    // changelog (DECISIONS #73, #84)
     cmpVersions: cmpVersions,
     changelogSince: changelogSince,
+    mdLite: mdLite,
     // glyph manipulation (DECISIONS #74)
     copyGlyphTo: copyGlyphTo,
     mirrorGlyph: mirrorGlyph,

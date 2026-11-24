@@ -41,3 +41,30 @@ test("changelog data: sane format, strictly descending, matches BF.VERSION", fun
       assertEqual(BF.cmpVersions(e.version, cl[i - 1].version), -1, "strictly descending at " + e.version);
   }
 });
+
+// ---------- mini-markdown rendering (DECISIONS #84) ----------
+
+test("mdLite: plain text passes through untouched", function () {
+  assertEqual(BF.mdLite("just words, no markers"), "just words, no markers", "plain");
+  assertEqual(BF.mdLite(""), "", "empty");
+  assertEqual(BF.mdLite(null), "", "null");
+});
+
+test("mdLite: renders **bold** and `inline code`", function () {
+  assertEqual(BF.mdLite("**Dogfood this font** (App menu)"), "<b>Dogfood this font</b> (App menu)", "bold");
+  assertEqual(BF.mdLite("a **paste-mode toggle** — `paste: merge`"),
+    "a <b>paste-mode toggle</b> — <code>paste: merge</code>", "mixed in one line");
+  assertEqual(BF.mdLite("**a** and **b**"), "<b>a</b> and <b>b</b>", "multiple bolds");
+});
+
+test("mdLite: escapes HTML before formatting (no injection)", function () {
+  assertEqual(BF.mdLite("<script>alert(1)</script>"), "&lt;script&gt;alert(1)&lt;/script&gt;", "tags escaped");
+  assertEqual(BF.mdLite("**<b>bold**"), "<b>&lt;b&gt;bold</b>", "marker around escaped content");
+  assertEqual(BF.mdLite("5 &amp; 10"), "5 &amp;amp; 10", "ampersands escaped");
+});
+
+test("mdLite: unbalanced markers stay literal", function () {
+  assertEqual(BF.mdLite("**unbalanced"), "**unbalanced", "lone **");
+  assertEqual(BF.mdLite("`unbalanced"), "`unbalanced", "lone backtick");
+  assertEqual(BF.mdLite("**bold** trailing **"), "<b>bold</b> trailing **", "one pair, one stray");
+});

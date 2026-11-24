@@ -14,6 +14,9 @@
  * (date "" = pre-dated history, not shown in the UI)
  */
 var BF_CHANGELOG = [
+  { version: "0.27.1", date: "2026-11-24", changes: [
+    "The in-app changelog (App \u2192 Changelog\u2026 and the What\u2019s new modal) now renders its **bold** and `inline code` markers instead of showing them literally."
+  ] },
   { version: "0.27.0", date: "2026-11-24", changes: [
     "The QA tab's checks can now be configured per font: the **edge-ink** check gained an **ignore** list — tick the edges (top / bottom / left / right) your font reaches on purpose (ROM-tight faces), and ink on those edges stops being reported. The choice is saved with the font (and in \u201c.bitforge\u201d project files) and defaults to none ignored."
   ] },

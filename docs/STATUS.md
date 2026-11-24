@@ -54,6 +54,7 @@
 - [x] **[Z] Dogfooding mode + Export TTF** (2026-11-24): App → **Dogfood this font** (live, per-codepoint fallback, menu bar stays system font) · `js/ttf.js` minimal deterministic TTF builder · Project → **Export TTF font** · `tools/verify-ttf.py` CoreText oracle — 225 tests
 - [x] **[Z.1] Beta badges** (2026-11-24): **Beta** badge next to Dogfood / Open BDF… / Export BDF / Export TTF (reasons + the TTF baseline/underline limitation recorded, not fixed) · menu-item wrap fix — 225 tests
 - [x] **[AA] QA check properties** (2026-11-24): per-check `props` declarations (subset multi-selects) with per-font values in `font.checkProps` (blob `cp` field + `.bitforge`) · edge-ink **ignoreEdges** mask (`BF.EDGE_NAMES`/`ignoreEdges`/`activeEdges` in core) · QA summary strip renders the props as inline checkboxes — 233 tests
+- [x] **[AA.1] Changelog markdown rendering** (2026-11-24): `BF.mdLite` (pure, escape-first) renders the limited subset — `**bold**` + `inline code` — in the in-app changelog/what's-new modals — 237 tests
 - [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -97,7 +98,8 @@ Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–
 | 0.25.0 | [Y] Menu-bar rearrangement (Project / Font / Glyph / App) |
 | 0.26.0 | [Z] Dogfooding mode + Export TTF (js/ttf.js, tools/verify-ttf.py) |
 | 0.26.1 – 0.26.2 | [Z.1] Beta badges (Dogfood / BDF / TTF items) + menu-item wrap fix |
-| **0.27.0** (current) | [AA] QA check properties (edge-ink ignoreEdges mask, per-font `checkProps`) |
+| 0.27.0 | [AA] QA check properties (edge-ink ignoreEdges mask, per-font `checkProps`) |
+| **0.27.1** (current) | [AA.1] Changelog markdown rendering (`BF.mdLite`: **bold** + `inline code`) |
 
 **Lettering note (2026-11-15, chunk M):** chunk letters drifted at some point (the I-wave landed after L); they now follow list position. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Git commit subjects still use the old letters.
 
@@ -498,6 +500,12 @@ User: change QA check properties; for edge-ink, a mask of which edges to ignore 
 - **app.js:** `qaChecks` entries may declare `props: { key: { label, options } }` — the edge-ink check declares `ignoreEdges`; its `run` uses `BF.activeEdges`. The QA summary strip renders declared props as inline checkboxes on the check's row (ids `qa-prop-<check>-<key>-<option>`; listeners wired once per id). Toggle = font mutation (`bumpFontVersion` + `saveLS` + `qaRefresh`), no-op-safe.
 - **Tests:** +8 → **233/233**. core — `activeEdges`/`ignoreEdges` semantics + blob round-trip + sanitizing (test-edge.js / test-project.js); dom — checkbox rendering + toggle end-to-end (rows appear/disappear, persisted, re-derived on render, no-op-safe, detail names active-not-ignored edges). Two first-run failures were my own test-data slips (a "top-only" pixel actually sat on the left edge; an inverted active/ignored assertion) — the code was right.
 - **Browser-verify list (user):** QA tab → edge-ink summary row shows the `ignore:` checkboxes; tick top+left → glyphs touching only top/left drop out of the report; un-tick → back; new font / re-import resets to none ignored.
+
+### [AA.1] Changelog markdown rendering — **done** (2026-11-24; 0.27.1)
+User: the changelog is written in markdown but the app showed the markers raw.
+- **`BF.mdLite`** (core.js, pure, tested): escape `&`/`<`/`>` first, then `**bold**` → `<b>`, `` `code` `` → `<code>`; unbalanced markers stay literal. `renderChangelogList` (app.js) uses it for each bullet (was `textContent`).
+- **Authoring rule** added to CHANGELOG.md "How to add an entry": keep entries inside this subset.
+- **Tests:** +4 in test-changelog.js (passthrough, bold/code, escaping/no-injection, unbalanced) → **237/237**.
 
 **[N] QA checks are fully done** (N.1 + N.2 + N.3 — both deferred checks #46/#47 shipped with per-glyph silencing).
 

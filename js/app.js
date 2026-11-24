@@ -1890,7 +1890,8 @@
       div.appendChild(head);
       ul = document.createElement("ul");
       for (j = 0; j < e.changes.length; j++) {
-        li = document.createElement("li"); li.textContent = e.changes[j];
+        li = document.createElement("li");
+        li.innerHTML = BF.mdLite(e.changes[j]); // **bold** / `code` subset (DECISIONS #84), escape-first
         ul.appendChild(li);
       }
       div.appendChild(ul);
