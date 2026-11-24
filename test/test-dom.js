@@ -121,8 +121,8 @@ test("dom: shortcut card toggles; registry holds the full binding set", function
   assertEqual(els["keys-card"].hidden, false, "toggle shows it");
   app.toggleKeysCard();
   assertEqual(els["keys-card"].hidden, true, "toggle hides it");
-  // 8 nav + 9 file-ops + 5 tabs + 2 status + 3 mirror/copy-to + 3 tools + 3 sel-actions + 4 shift + 3 undo/redo + 1 card + 1 drag-entry = 41
-  assertEqual(app.shortcuts.list.length, 41, "41 shortcuts registered (incl. the Ctrl/Alt-drag card entry)");
+  // 8 nav + 10 file-ops (incl. Export TTF) + 5 tabs + 2 status + 3 mirror/copy-to + 3 tools + 3 sel-actions + 4 shift + 3 undo/redo + 1 card + 1 drag-entry = 42
+  assertEqual(app.shortcuts.list.length, 42, "42 shortcuts registered (incl. the Ctrl/Alt-drag card entry)");
   var combos = {};
   for (var i = 0; i < app.shortcuts.list.length; i++) combos[app.shortcuts.list[i].combo] = true;
   assert(combos["Ctrl+ArrowLeft"] && combos["?"] && combos["Ctrl+z"] && combos["PageUp"], "expected combos present");
@@ -640,7 +640,7 @@ test("dom: mousedown on a menu item must NOT close the menu (real-browser click 
 
 test("dom: About modal head + browser tab show the app version (DECISIONS #56)", function () {
   assert(/^\d+\.\d+\.\d+$/.test(BF.VERSION), "BF.VERSION is semver-ish: " + BF.VERSION);
-  assertEqual(BF.VERSION, "0.25.0", "pinned version — bump this test when you bump the app");
+  assertEqual(BF.VERSION, "0.26.0", "pinned version — bump this test when you bump the app");
   var els = globalThis.__stub.els;
   assertEqual(els["about-title"].textContent, "bitforge " + BF.VERSION, "modal head shows name + version");
   assertEqual(document.title, "bitforge " + BF.VERSION, "browser tab shows name + version");

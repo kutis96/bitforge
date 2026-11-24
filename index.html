@@ -27,6 +27,7 @@
           <button type="button" id="mi-export-png-transparent" title="Export a PNG atlas with a transparent background">Export PNG (transparent bg)</button>
           <button type="button" id="mi-copy-png-clip" title="Copy the whole atlas PNG (remembered background) to the clipboard; downloads if the clipboard is unavailable">Copy PNG to clipboard<span class="mi-key">Alt+Shift+C</span></button>
           <button type="button" id="mi-export-bdf" title="Export a BDF font (single face, 256 codes)">Export BDF font<span class="mi-key">Alt+Shift+S</span></button>
+          <button type="button" id="mi-export-ttf" title="Export a TrueType (.ttf) font — blank glyphs are left unmapped so other fonts can fill them in">Export TTF font<span class="mi-key">Alt+Shift+T</span></button>
           <button type="button" id="mi-export-project" title="Export a .bitforge project file (font + guidelines + status + silences + settings)">Export project&#8230;<span class="mi-key">Alt+Shift+P</span></button>
           <button type="button" id="mi-export-verilog" title="Export a Verilog $readmemb ROM">Export Verilog ROM<span class="mi-key">Ctrl+Shift+S</span></button>
         </div>
@@ -60,6 +61,8 @@
       <div class="menu" id="menu-app">
         <button type="button" class="menu-btn" id="mb-app">App</button>
         <div class="menu-items" id="mi-app">
+          <button type="button" id="mi-dogfood" class="mi-radio" title="Render the app's interface in the font you are editing. Blank glyphs fall back to the system font per character; the menu bar itself always stays on the system font."><span class="mi-check"></span>Dogfood this font</button>
+          <hr>
           <button type="button" id="mi-theme-light" class="mi-radio" title="Always use the light theme (the current look)"><span class="mi-check"></span>Theme: Light</button>
           <button type="button" id="mi-theme-dark" class="mi-radio" title="Always use the dark theme"><span class="mi-check"></span>Theme: Dark</button>
           <button type="button" id="mi-theme-auto" class="mi-radio" title="Follow the system / browser color preference (default)"><span class="mi-check"></span>Theme: Auto</button>
@@ -200,7 +203,7 @@
       <div class="modal-head"><b id="about-title">bitforge</b><button id="about-close" type="button" title="Close">&times;</button></div>
       <div class="modal-body">
         <p><b>bitforge</b> is a <b>bitmap font editor</b> for fixed-size, zero-spacing, non-proportional <b>monospaced fonts</b> &mdash; 256 glyphs per face, cell size of your choosing (default 8&times;16).</p>
-        <p>Edit a 256-glyph bitmap font of any size (default 8&times;16), preview it with artificial bold and a cheap slant, track per-glyph status (unfinished / wip / done), run QA checks, and export a <b>PNG atlas</b>, <b>BDF</b>, or a <b>Verilog $readmemb</b> ROM.</p>
+        <p>Edit a 256-glyph bitmap font of any size (default 8&times;16), preview it with artificial bold and a cheap slant, track per-glyph status (unfinished / wip / done), run QA checks, and export a <b>PNG atlas</b>, <b>BDF</b>, a <b>TrueType (.ttf)</b> font, or a <b>Verilog $readmemb</b> ROM &mdash; or toggle on <b>dogfooding</b> and read the app's own UI in the face you're drawing.</p>
         <p class="muted" id="about-credit">Designed by spacecat &middot; Coded by Qwen 3.8 (Bionic harness) &middot; vanilla JS, zero dependencies, runs straight from file://</p>
       </div>
     </div>
@@ -268,6 +271,7 @@
 
   <script src="js/core.js"></script>
   <script src="js/changelog.js"></script>
+  <script src="js/ttf.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

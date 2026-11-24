@@ -172,37 +172,28 @@ Bindings (all via the registry; ⌘ = Ctrl):
 - **Small settings use a dedicated settings API**, not raw `localStorage`: a defaults table + `settings.get(key)` / `settings.set(key, value)` backed by one JSON blob. First persisted settings: preview text, scale, bold, italic, baseline, inverted toggle. **Rule for future agents: new persistable UI value ⇒ add it to the defaults table and use the API** (see DECISIONS #40). The font blob stays on its own path — it's large binary-ish data with its own versioning/sanitizing needs.
 - **Theme (DECISIONS #79):** `theme` = `light | dark | auto` is a **setting** (default **auto** = follow the system/browser color scheme, live via the matchMedia `change` event; explicit light/dark pin the look). The *resolved* theme is `state.theme`, written to `<html data-theme>`; all chrome colors are CSS custom properties (`:root` light / `html[data-theme="dark"]` dark in `style.css`), and the **editor + glyph-selector canvases** use the `themeColors()` palette. **Deliberate scope split:** the Preview/Atlas render surfaces are governed only by the existing *Inverted* checkbox (not themed — that's the "how it looks in a terminal" switch), and **exports are never themed** (black ink, white/transparent). Because it's a setting, it persists in `localStorage` and rides `.bitforge` project import/export (`applyImportedSettings` → `applyTheme()`). App menu radio: **Theme: Light / Dark / Auto**.
 
-## Dogfooding (planned — chunk [Z], DECISIONS #82, reserved 0.26.0; NOT implemented yet)
+## Dogfooding + TTF export (implemented — chunk [Z], DECISIONS #82, 0.26.0)
 
-> Status: **design only**, deliberately not built (2026-11-23). The user asked for a plan first — this section is that plan. Do not implement without a fresh greenlight; re-read this section and DECISIONS #82.
-
-**Goal:** a toggle that renders bitforge's own UI text in the font currently being edited — live feedback on a real application, without leaving the app.
+**Goal (met):** a toggle that renders bitforge's own UI text in the font currently being edited — live feedback on a real application — plus a first-class **Export TTF** of the same artifact.
 
 ### Why a real TTF (and not a sprite/CSS trick)
-- Only a real font lets the UI use normal text (`font-family: bf-dogfood`) with **per-codepoint fallback**: the browser automatically falls back to the system font for any codepoint the dogfood font lacks. A PNG-atlas + CSS sprite scheme can't express fallback and would need re-rendering every text node.
-- It is the same artifact the user can reuse elsewhere (their stated synergy): an `@font-face` for other web pages, or a downloadable `.ttf` for general applications.
+- Only a real font lets the UI use normal text with **per-codepoint fallback**: the browser automatically falls back to the system font for any codepoint the dogfood font lacks. A PNG-atlas + CSS sprite scheme can't express fallback.
+- It is the same artifact the user can reuse elsewhere: an `@font-face` for other web pages, or a downloadable `.ttf` for general applications.
 
-### Architecture (proposed)
-1. **`js/ttf.js` — new pure module** (like core.js: no DOM, testable under jsc). `BF_TTF.build(font, opts) → Uint8Array` of a minimal single-face TTF:
-   - Tables: `cmap` (format 4, identity subset of 0–255), `glyf` (each ink pixel = one 1×1 square contour; blank glyphs get a `.notdef`-style empty outline), `head`, `hhea`, `hmtx`, `loca`, `maxp`, `name` (font name from the font's own name field — synergy with DECISIONS #70), `post` (format 3.0, no glyph names), `OS/2` (minimal required fields).
-   - Conservative on purpose: no hinting, no layout tables, integer metrics, `unitsPerEm` = a power-of-two multiple of the glyph height (e.g. 1024 for 16px) so pixel→unit is exact. 8-bit codepoints map 1:1 (no Unicode surprises).
-   - **Blank policy (user-locked):** glyphs with zero ink are **omitted from `cmap`**, except 0x20 (space stays as a blank advance-width glyph so inter-word spacing works). Omitted ⇒ browser falls back per-codepoint. (Other formats — PNG/BDF/Verilog — keep blanks; that's fine, user-confirmed.)
-2. **In-app injection:** build the TTF → base64 → inject/replace a `<style>` with `@font-face { font-family: "bf-dogfood"; src: url(data:font/ttf;base64,…); }`, then set the app's text stack to `"bf-dogfood", <existing system stack>`.
-   - **Cache-busting:** a data-URI's identity is its content, so regenerating the font yields a new URL ⇒ a fresh font load. If a browser still caches stale, append a trivial `?v=`-equivalent via a distinct family suffix — decide during [Z], test in the browser.
-   - **Regeneration timing (plan):** on toggle-on + explicit **Refresh** while on; live-on-stroke-end (debounced) is a nice-to-have, not the baseline.
-3. **Safety (user-locked):** the **App menu and its toggle stay on the fixed system stack** — never the dogfood family — so the switch is always readable/clickable even with a mostly-blank font. The rest of the UI (tabs, labels, panels, modals, toasts) dogfoods.
-4. **UI:** App menu gains a **Dogfood this font** check item (+ `dogfood` setting, so it survives reload and rides `.bitforge` files like `theme` does); while active, a small note in the toast area on toggle ("UI font: <name> — blank glyphs fall back").
-5. **Synergies:**
-   - **Project → Export TTF** — the same builder, written to `<fontname>.ttf` (filename from the font name, like the other exports). First-class interchange for web pages / general apps, complementing BDF (X11 world) and PNG (bitmap world).
-   - **QA:** the existing `empty` check's printable list is exactly the set of codepoints that will fall back when dogfooding — worth a one-line cross-reference in its detail text (cheap, in [Z]).
+### What shipped
+1. **`js/ttf.js` — pure module** (no DOM, testable under jsc). `BF_TTF.build(font, family) → Uint8Array` of a minimal single-face TrueType font:
+   - Tables: `cmap` (format 4), `glyf` (each maximal horizontal ink run per row = one 4-point rectangle contour, clockwise), `head` (54 B), `hhea` (36 B), `hmtx`, `loca` (short/long), `maxp` (v1.0, 32 B), `name` (pool-relative offsets + format field), `post` (v3.0, 32 B), `OS/2` (v0, 56 B). Conservative: no hinting/layout tables, integer metrics, `unitsPerEm = height × round(1024/height)` so pixel→unit is exact. Deterministic (no timestamps).
+   - **Blank policy (user-locked):** zero-ink codes are **absent from the cmap** (no segment at all) ⇒ the renderer falls back per-codepoint — the dogfood safety rule. 0x20 keeps its slot (blank advance-width glyph). Codes 0x100–0xFFFF sit in a final delta segment that resolves out of range ⇒ `.notdef`. (PNG/BDF/Verilog exports keep blanks — different format, user-confirmed.)
+   - **glyf coordinate encoding (hard-won — do not "simplify"):** flags are **0x01** (on-curve only). Per the spec, bit 0x02/0x04 mean the delta is **1 BYTE** (short); a 16-bit signed delta appears only when the short bit AND the same-as-previous bit are both clear. 0x10 = "x same as previous" (drops the x!). Every x delta is written first (all points), then every y delta; each relative to the previous point, the first to the origin. `test/test-ttf.js` decodes per these rules (flag-driven), and `tools/verify-ttf.py` proves the output against CoreText + fontTools.
+2. **In-app injection (`applyDogfood` in app.js):** builds the TTF → `@font-face` (fixed family **`bf-dogfood`**) in `<style id="bf-dogfood">`, tags `<html data-dogfood="1">`; `css/style.css` applies the family to `body` and re-pins `#toolbar` to the system stack. Live: `bumpFontVersion()` schedules a **debounced (~400 ms) rebuild** while the toggle is on; `setFont()` rebuilds immediately. A data-URI's identity is its content, so each rebuild is a fresh font (no cache-stale).
+3. **Safety (user-locked, shipped as planned):** the menu bar (`#toolbar`) — hosting the toggle — always stays on the system stack, readable even with a half-blank font; blanks fall back per-codepoint through the stack.
+4. **UI:** App menu → **Dogfood this font** (check item, `dogfood` setting — survives reload, rides `.bitforge` project files like `theme`).
+5. **Project → Export TTF font** (`Alt+Shift+T`): the same builder → `<fontname>.ttf` (font name = TTF family = filename, like every other export). `tools/verify-ttf.py` (macOS builtins: python3 + jsc + CoreText) independently validates `.bitforge`→TTF and bare `.ttf` files: loads, metrics, cmap semantics (inked→inked glyph, blanks never→ink), exact ink bounding boxes, and a soft bitmap-render pixel-count check.
 
-### Testing plan (headless-friendly)
-- `test-ttf.js`: magic number `\x00\x01\x00\x00`, table directory checksums, `cmap` contains 0x20 and an inked printable but **not** a blank printable, `hmtx`/`head` metrics consistent, determinism (same font ⇒ same bytes), name table carries the font name.
-- DOM-level (stub): toggle sets/unsets the injected style + the body font stack; the App menu itself is asserted to keep the fixed stack; `dogfood` setting round-trips through `applyImportedSettings`.
-- Browser-verify: toggle on with Small & Cozy (readable), with a blank-ish font (fallback everywhere, App menu still usable), export a TTF and open it in a throwaway HTML page.
-
-### Effort estimate
-One focused chunk: `js/ttf.js` (~300–500 lines, the bulk is fixed-format bookkeeping) + app wiring + tests. The risky 10% is browser TTF-parsing quirks — mitigate by keeping the TTF minimal/conservative and verifying in the browser early within the chunk.
+### Tests
+- `test/test-ttf.js` (23 tests): spec-conformant in-file sfnt reader (flag-driven glyf decode, cmap format-4 with idRangeOffset pool, name pool offsets); table layouts pinned byte-for-byte against real system fonts (Geneva/Monaco/Symbol) + fontTools; cmap blank/sparse/final-segment rules; determinism; guards.
+- `test/test-dogfood.js` (5 tests): setting default, toggle (html tag + menu check), injected CSS (family + data URI), blank-unmapped safety rule, export naming.
+- Verifier: `python3 tools/verify-ttf.py <font.bitforge|font.ttf>` — 6 hard checks (all green on Small & Cozy).
 
 ## Testing
 

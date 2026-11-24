@@ -22,9 +22,21 @@ test/
   test-model.js    # tests for core.js section [1]
   test-verilog.js  # tests for core.js section [2]
   ...              # one more file per pure-logic module
+  test-ttf.js      # tests js/ttf.js — a spec-conformant in-file sfnt reader decodes the output
+  test-dogfood.js  # tests the dogfood toggle + TTF export wiring (needs the DOM stub)
   stub-dom.js      # minimal DOM/canvas/localStorage stub (for the DOM smoke test)
   test-dom.js      # smoke test: runs app.js's init() under the stub
 ```
+
+## The TTF verifier (independent oracle, not part of the suite)
+`tools/verify-ttf.py` is a **separate** macOS-only check for the TrueType output (dogfooding + Export TTF). It does not run under `run-tests.sh`; it uses `python3` + `jsc` + the system font engine (CoreText) as an **independent oracle** — the app's own tests parse the TTF with their own in-file reader, which could share a bug with the builder, so this tool re-proves the bytes against a real font engine.
+
+```sh
+python3 tools/verify-ttf.py samples/small-and-cozy.bitforge   # build .bitforge -> TTF, then verify
+python3 tools/verify-ttf.py yourface.ttf                      # verify a bare exported .ttf
+```
+
+It checks: CoreText accepts the font, `unitsPerEm`/family name, cmap semantics (inked codes → inked glyphs, blank codes never → ink — the dogfooding safety rule), advances, **exact ink bounding boxes**, and a soft bitmap-render pixel-count match. Exit `0` = pass. **Run it whenever you touch `js/ttf.js` or the dogfood path** — it is the guard that the font is genuinely valid, not just self-consistent.
 
 ## How to run
 

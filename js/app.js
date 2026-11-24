@@ -69,6 +69,7 @@
     redrawAll();
     renderGuideList();
     saveLS();
+    applyDogfood(); // font identity changed → the dogfood face (if on) must follow
   }
 
   // Every font mutation (stroke end, clear, shift, status change) bumps this;
@@ -76,6 +77,7 @@
   function bumpFontVersion() {
     state.fontVersion++;
     updateQaBadge();
+    scheduleDogfood(); // live dogfooding: rebuild the injected face (debounced)
   }
 
   function newFont() {
@@ -126,7 +128,8 @@
     qaShowSilenced: false, // QA tab: show silenced violations in the table
     pasteMode: "merge",    // "merge" | "replace" — blend for dragged selections (DECISIONS #76)
     theme: "auto",         // "light" | "dark" | "auto" — auto follows the system (DECISIONS #79)
-    selCode: 0             // last selected glyph (0–255) — restored on load & import (DECISIONS #80)
+    selCode: 0,            // last selected glyph (0–255) — restored on load & import (DECISIONS #80)
+    dogfood: false         // render the UI in the font being edited (DECISIONS #82)
   };
   var settingsCache = null;
   function loadSettings() {
@@ -627,6 +630,61 @@
       if (b && b.classList) b.classList.toggle("active", cur === map[i][1]);
     }
   }
+  // ---------- dogfooding (DECISIONS #82) ----------
+  // Render the app UI in the font being edited. applyDogfood() (re)builds
+  // the font as a minimal TTF (js/ttf.js), injects it as an @font-face
+  // (family "bf-dogfood") in <style id="bf-dogfood">, and tags <html> with
+  // data-dogfood. css/style.css applies the family to everything EXCEPT
+  // #toolbar — the menu bar (and thus this toggle) always stays on the
+  // system stack, so the user can reach the switch even with a blank font.
+  // Blank glyphs are left UNMAPPED in the cmap on purpose: the browser then
+  // falls back per-codepoint into the system stack (the dogfood safety rule).
+  var dogfoodTimer = null;
+  var dogfoodStyleEl = null;
+  function dogfoodCSS() {
+    return BF_TTF.buildFontFace(state.font, "bf-dogfood");
+  }
+  function applyDogfood() {
+    var on = !!settingsGet("dogfood") && !!state.font;
+    try {
+      var docEl = document.documentElement;
+      if (on) docEl.setAttribute("data-dogfood", "1");
+      else if (docEl && docEl.removeAttribute) docEl.removeAttribute("data-dogfood");
+      // Drop the previous <style> (tracked, and any stale one with the id).
+      var old = null;
+      try { old = document.getElementById("bf-dogfood"); } catch (e) { old = null; }
+      if (old && old.parentNode && old.parentNode.removeChild) old.parentNode.removeChild(old);
+      if (dogfoodStyleEl && dogfoodStyleEl.parentNode && dogfoodStyleEl.parentNode.removeChild)
+        dogfoodStyleEl.parentNode.removeChild(dogfoodStyleEl);
+      dogfoodStyleEl = null;
+      if (on) {
+        dogfoodStyleEl = document.createElement("style");
+        dogfoodStyleEl.id = "bf-dogfood";
+        dogfoodStyleEl.textContent = dogfoodCSS();
+        (document.head || document.body).appendChild(dogfoodStyleEl);
+      }
+    } catch (e) { /* headless stub — setting + <html> tag + menu are the testable surface */ }
+    syncDogfoodMenu();
+  }
+  // The font changed: rebuild the injected face. Debounced — bumps fire on
+  // every stroke end, and building + base64-encoding a 256-slot TTF per tick
+  // is wasteful; 400 ms after the last edit is "live" enough.
+  function scheduleDogfood() {
+    if (!settingsGet("dogfood")) return;
+    clearTimeout(dogfoodTimer);
+    dogfoodTimer = setTimeout(function () { applyDogfood(); }, 400);
+  }
+  function toggleDogfood() {
+    settingsSet("dogfood", !settingsGet("dogfood"));
+    applyDogfood();
+  }
+  function syncDogfoodMenu() {
+    try {
+      var b = el.miDogfood;
+      if (b && b.classList) b.classList.toggle("active", !!settingsGet("dogfood"));
+    } catch (e) { /* before init */ }
+  }
+
   // Canvas palette for the themed editing surfaces (editor + selector).
   // Light values are the pre-[W] literals (#fff/#e2e2e2/#111/#b5b5b5/#888),
   // so the light look is pixel-identical to before dark mode existed.
@@ -1387,6 +1445,16 @@
     downloadText(BF.toBDF(state.font), BF.filenameBase(state.font.name) + ".bdf");
   }
 
+  // TrueType export (DECISIONS #82): the same minimal TTF the dogfood mode
+  // injects, as a file. The font's own name becomes the family name (and the
+  // .ttf's basename), like every other export.
+  function exportTtf() {
+    var bytes;
+    try { bytes = BF_TTF.build(state.font, state.font.name || "bitforge"); }
+    catch (e) { toast((e && e.message) || "TTF: build failed", true); return; }
+    downloadBlob(new Blob([bytes], { type: "font/ttf" }), BF.filenameBase(state.font.name) + ".ttf");
+  }
+
   // ---------- project file (.bitforge) — DECISIONS #64 ----------
   // WIP snapshot: font (data + guidelines + status + silences) + settings.
   // PNG stays the primary interchange format for finalized fonts; this is
@@ -1451,6 +1519,7 @@
     syncRenderControls();
     redrawAll();
     applyTheme(); // the import may have carried a different `theme` (DECISIONS #79)
+    applyDogfood(); // …or a different dogfood state (DECISIONS #82)
     // DECISIONS #80: an imported selCode re-selects the remembered glyph; a file
     // without the key (older projects) leaves the current selection untouched.
     if (o.hasOwnProperty("selCode")) selectGlyph(settingsGet("selCode") | 0);
@@ -1865,7 +1934,8 @@
       aboutTitle: $("about-title"), aboutModal: $("about-modal"), aboutClose: $("about-close"),
       miNew: $("mi-new"), miOpenPng: $("mi-open-png"), miOpenBdf: $("mi-open-bdf"), miOpenProject: $("mi-open-project"), miLoadSample: $("mi-load-sample"), miImportPngClip: $("mi-import-png-clip"),
       miExportPngSolid: $("mi-export-png-solid"), miExportPngTransparent: $("mi-export-png-transparent"), miCopyPngClip: $("mi-copy-png-clip"),
-      miExportBdf: $("mi-export-bdf"), miExportVerilog: $("mi-export-verilog"), miExportProject: $("mi-export-project"),
+      miExportBdf: $("mi-export-bdf"), miExportTtf: $("mi-export-ttf"), miExportVerilog: $("mi-export-verilog"), miExportProject: $("mi-export-project"),
+      miDogfood: $("mi-dogfood"),
       miUndo: $("mi-undo"), miRedo: $("mi-redo"), miProps: $("mi-props"), miClearGlyph: $("mi-clear-glyph"), miCopyGlyph: $("mi-copy-glyph"),
       miMirrorH: $("mi-mirror-h"), miMirrorV: $("mi-mirror-v"), miCopyTo: $("mi-copy-to"),
       toolPaint: $("tool-paint"), toolErase: $("tool-erase"), toolSelect: $("tool-select"),
@@ -1962,6 +2032,7 @@
     menuItem("miExportPngTransparent", function () { exportPng("transparent"); });
     menuItem("miCopyPngClip", copyPngToClipboard);
     menuItem("miExportBdf", exportBdf);
+    menuItem("miExportTtf", exportTtf);
     menuItem("miExportProject", exportProject);
     menuItem("miExportVerilog", exportVerilog);
     menuItem("miUndo", undo);
@@ -1977,6 +2048,7 @@
     menuItem("miCopyGlyph", copyGlyphToClipboard);
     // Theme radio (DECISIONS #79): explicit choice wins over the system;
     // auto follows prefers-color-scheme (watchSystemTheme keeps it live).
+    menuItem("miDogfood", toggleDogfood);
     menuItem("miThemeLight", function () { chooseTheme("light"); });
     menuItem("miThemeDark", function () { chooseTheme("dark"); });
     menuItem("miThemeAuto", function () { chooseTheme("auto"); });
@@ -2151,6 +2223,7 @@
     shortcuts.register({ combo: "Ctrl+s", description: "Export PNG (last-used bg)", handler: function () { exportPng(); } });
     shortcuts.register({ combo: "Ctrl+Shift+s", description: "Export Verilog ROM", handler: exportVerilog });
     shortcuts.register({ combo: "Alt+Shift+s", description: "Export BDF font", handler: exportBdf });
+    shortcuts.register({ combo: "Alt+Shift+t", description: "Export TTF font", handler: exportTtf });
     shortcuts.register({ combo: "Alt+Shift+p", description: "Export project file", handler: exportProject });
     shortcuts.register({ combo: "Alt+Shift+c", description: "Copy PNG atlas to clipboard", handler: copyPngToClipboard });
     shortcuts.register({ combo: "e", description: "Show the Edit tab", handler: function () { setActiveTab("edit"); } });
@@ -2235,6 +2308,10 @@
       resolveTheme: resolveTheme, chooseTheme: chooseTheme, applyTheme: applyTheme,
       watchSystemTheme: watchSystemTheme, redrawAll: redrawAll,
       syncThemeMenu: syncThemeMenu, themeColors: themeColors,
+      exportTtf: exportTtf,
+      dogfoodCSS: dogfoodCSS, applyDogfood: applyDogfood, toggleDogfood: toggleDogfood,
+      syncDogfoodMenu: syncDogfoodMenu, scheduleDogfood: scheduleDogfood,
+      dogfoodStyle: function () { return dogfoodStyleEl; },
       whatsNew: whatsNew, openChangelogModal: openChangelogModal, closeChangelogModal: closeChangelogModal,
       changelogVersionKey: VERSION_KEY,
       sampleList: sampleList, defaultSample: defaultSample, samplesState: samplesStateNow,

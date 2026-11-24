@@ -135,7 +135,8 @@
     documentElement: {
       _attrs: {},
       setAttribute: function (n, v) { this._attrs[n] = String(v); },
-      getAttribute: function (n) { return Object.prototype.hasOwnProperty.call(this._attrs, n) ? this._attrs[n] : null; }
+      getAttribute: function (n) { return Object.prototype.hasOwnProperty.call(this._attrs, n) ? this._attrs[n] : null; },
+      removeAttribute: function (n) { delete this._attrs[n]; }
     }
   };
 

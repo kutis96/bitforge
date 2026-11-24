@@ -41,6 +41,19 @@ Rules:
 - Run `./test/run-tests.sh` before committing — the changelog data-sanity
   test is the safety net.
 
+## 0.26.0 (2026-11-24)
+
+- **Dogfood this font** (App menu) — bitforge's own interface now renders in
+  the font you are editing, live: it updates as you draw. Blank characters
+  fall back to the system font per character, and the menu bar itself always
+  stays on the system font, so you can always reach the toggle.
+- **Project → Export TTF font** (`Alt+Shift+T`) — exports the font as a real
+  TrueType (`.ttf`) file for use in web pages or other applications. Blank
+  glyphs are left unmapped on purpose, so other fonts can fill them in.
+- New `tools/verify-ttf.py` — a macOS CLI that validates the exported TTF
+  against the system's own font engine (CoreText): loading, metrics, glyph
+  outlines and exact rendering.
+
 ## 0.25.0 (2026-11-23)
 
 - **Menu bar rearranged into four menus** — **Project** (all file I/O:

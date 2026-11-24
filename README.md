@@ -16,7 +16,8 @@ Pure vanilla JS: no build, no dependencies, no server. Open `index.html` in a br
 - **Atlas view** — the whole face at a selectable scale, with bold/slant/inverted; click a cell to select it, right-click to set its status.
 - **Glyph status** — mark glyphs *unfinished / wip / done*; the selector and atlas tint them. Pump through a face with `D` (cycle status) and `Shift+D` (mark done, move to next).
 - **QA checks** — duplicate glyphs, edge-touching ink, guideline violations, empty printable glyphs; per-glyph *silencing* for expected cases (box drawing, …) and a stale-aware report.
-- **Import/export** — PNG atlas (file or clipboard), BDF, binary Verilog `$readmemb` ROM text, and a `.bitforge` project file carrying the work-in-progress state (guidelines, status, silences, settings).
+- **Import/export** — PNG atlas (file or clipboard), BDF, a real **TrueType (`.ttf`)** font, binary Verilog `$readmemb` ROM text, and a `.bitforge` project file carrying the work-in-progress state (guidelines, status, silences, settings).
+- **Dogfooding** — App → **Dogfood this font** renders bitforge's own interface *in the font you're editing*, live as you draw. Blank characters fall back to the system font per character; the menu bar itself always stays on the system font, so the toggle is always reachable.
 - **Keyboard-driven** — glyph navigation, file ops, status pumping, tools; press `?` in the app for the shortcut reference (rendered from the live binding registry, so it can't drift).
 
 ## Getting started
@@ -26,7 +27,7 @@ No install. Double-click `index.html` (any modern browser).
 1. **Project → New font** (default 8 wide × 16 high) or **Project → Open PNG…** to import an existing atlas — a 16×16 grid of cells, so the image size must be a multiple of 16 in each dimension (the cell size is derived by dividing by 16).
 2. Pick a glyph in the sidebar grid (or type its hex code / character in the jump field) and paint: click toggles, drag paints, right-drag erases.
 3. Watch it live in **Preview** (multi-line sample) and **Atlas** (the whole face).
-4. **Project → Export …** — PNG atlas (solid white or transparent background), binary Verilog ROM text, BDF font, or a `.bitforge` project file.
+4. **Project → Export …** — PNG atlas (solid white or transparent background), binary Verilog ROM text, BDF font, a TrueType (`.ttf`) font, or a `.bitforge` project file.
 
 The app also persists the current font and settings in `localStorage` automatically; use the project file for deliberate snapshots and the PNG for finished faces.
 
@@ -43,6 +44,13 @@ Plain binary text, no headers or comments: for each of the 256 glyphs, one row p
 
 ### BDF
 Import and export, as an interchange with other bitmap-font tools.
+
+### TrueType (`.ttf`)
+Export only — a real, minimal, single-face TrueType font (no hinting or layout tables) built from the 256-glyph atlas, for use in web pages and general applications. Each maximal horizontal ink run becomes a 4-point rectangle contour, so the face is pixel-exact at its native size. Blank glyphs are **left unmapped** on purpose, so a renderer falls back to the next font per character; space keeps its slot for word spacing. The same builder powers the in-app dogfooding mode. Validate an exported face with the bundled macOS-only tool:
+
+```sh
+python3 tools/verify-ttf.py yourfont.ttf          # or a .bitforge project
+```
 
 ### `.bitforge` project file
 A JSON snapshot for work in progress: the font plus the things a PNG can't carry — editor guidelines, per-glyph status, QA silences, and app settings. The PNG remains the primary interchange for *finished* fonts.
@@ -66,7 +74,9 @@ bitforge/
   css/style.css       # styling (black-on-white, monospace)
   js/core.js          # PURE logic — model, exports, markup, slant, QA math (global BF, no DOM)
   js/changelog.js     # changelog data (BF_CHANGELOG) — rendered into the in-app changelog
-  js/app.js           # DOM wiring — editor, preview, atlas, menus, QA UI, settings, shortcuts
+  js/ttf.js           # PURE minimal TrueType builder (global BF_TTF, no DOM) — dogfooding + Export TTF
+  js/app.js           # DOM wiring — editor, preview, atlas, menus, QA UI, settings, shortcuts, dogfood
+  tools/verify-ttf.py # macOS-only CLI: validates a .ttf / .bitforge via CoreText (python3 + jsc, no deps)
   CHANGELOG.md        # changelog (human-readable mirror of js/changelog.js)
   test/               # headless unit tests (macOS JavaScriptCore, no Node)
   docs/               # handover documentation + screenshot (see below)

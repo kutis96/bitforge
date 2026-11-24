@@ -14,6 +14,11 @@
  * (date "" = pre-dated history, not shown in the UI)
  */
 var BF_CHANGELOG = [
+  { version: "0.26.0", date: "2026-11-24", changes: [
+    "**Dogfood this font** (App menu) — bitforge's own interface now renders in the font you are editing, live: it updates as you draw. Blank characters fall back to the system font per character, and the menu bar itself always stays on the system font, so you can always reach the toggle.",
+    "**Project → Export TTF font** (Alt+Shift+T) — exports the font as a real TrueType (.ttf) file for use in web pages or other applications. Blank glyphs are left unmapped on purpose, so other fonts can fill them in.",
+    "New tools/verify-ttf.py — a macOS CLI that validates the exported TTF against the system's own font engine (CoreText): loading, metrics, glyph outlines and exact rendering."
+  ] },
   { version: "0.25.0", date: "2026-11-23", changes: [
     "The menu bar was rearranged into four menus — **Project** (all file I/O: new/open/import/export), **Font** (properties, resize, live font info), **Glyph** (undo/redo, clear, mirror, copy, status), and **App** (theme, changelog, about) — so it's obvious what each item acts on.",
     "\u201cFile \u2192 Load sample\u2026\u201d is now \u201cProject \u2192 Open sample\u2026\u201d (same action, consistent \u201cOpen \u2026\u201d naming)."

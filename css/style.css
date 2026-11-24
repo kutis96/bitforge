@@ -360,3 +360,19 @@ button.qa-silbtn { font-size: 11px; padding: 1px 8px; }
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 .toast.error { background: #b00020; }
+
+/* ---------- dogfooding (DECISIONS #82) ----------
+ * app.js injects <style id="bf-dogfood"> (an @font-face for family
+ * "bf-dogfood") and sets data-dogfood="1" on <html> when the user toggles
+ * App > Dogfood this font. The font being edited is then applied to the UI.
+ * Blank glyphs are left UNMAPPED in the TTF cmap on purpose, so the browser
+ * falls back per-codepoint — the stack therefore MUST end in the original
+ * system mono stack. SAFETY: the menu bar (#toolbar) always keeps the system
+ * font, so the App menu that hosts the toggle stays readable even when the
+ * font being edited is half-blank. */
+html[data-dogfood="1"] body {
+  font-family: "bf-dogfood", ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+html[data-dogfood="1"] #toolbar {
+  font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
