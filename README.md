@@ -16,8 +16,8 @@ Pure vanilla JS: no build, no dependencies, no server. Open `index.html` in a br
 - **Atlas view** — the whole face at a selectable scale, with bold/slant/inverted; click a cell to select it, right-click to set its status.
 - **Glyph status** — mark glyphs *unfinished / wip / done*; the selector and atlas tint them. Pump through a face with `D` (cycle status) and `Shift+D` (mark done, move to next).
 - **QA checks** — duplicate glyphs, edge-touching ink, guideline violations, empty printable glyphs; per-glyph *silencing* for expected cases (box drawing, …) and a stale-aware report.
-- **Import/export** — PNG atlas (file or clipboard), BDF, a real **TrueType (`.ttf`)** font, binary Verilog `$readmemb` ROM text, and a `.bitforge` project file carrying the work-in-progress state (guidelines, status, silences, settings).
-- **Dogfooding** — App → **Dogfood this font** renders bitforge's own interface *in the font you're editing*, live as you draw. Blank characters fall back to the system font per character; the menu bar itself always stays on the system font, so the toggle is always reachable.
+- **Import/export** — PNG atlas (file or clipboard), BDF, a real **TrueType (`.ttf`)** font (beta), binary Verilog `$readmemb` ROM text, and a `.bitforge` project file carrying the work-in-progress state (guidelines, status, silences, settings).
+- **Dogfooding (beta)** — App → **Dogfood this font** renders bitforge's own interface *in the font you're editing*, live as you draw. Blank characters fall back to the system font per character; the menu bar itself always stays on the system font, so the toggle is always reachable.
 - **Keyboard-driven** — glyph navigation, file ops, status pumping, tools; press `?` in the app for the shortcut reference (rendered from the live binding registry, so it can't drift).
 
 ## Getting started
@@ -42,11 +42,11 @@ The app also persists the current font and settings in `localStorage` automatica
 ### Verilog ROM (`$readmemb`)
 Plain binary text, no headers or comments: for each of the 256 glyphs, one row per pixel row, top to bottom; each row is a string of `0`/`1` bits with the **rightmost pixel as the MSB** (`1` = ink). Rows 1…H are glyph 0, the next H rows glyph 1, and so on. Binary rather than hex on purpose, so cell widths need not be multiples of 4 bits.
 
-### BDF
-Import and export, as an interchange with other bitmap-font tools.
+### BDF (beta)
+Import and export, as an interchange with other bitmap-font tools. Export is untested in other tools so far; import is partial.
 
-### TrueType (`.ttf`)
-Export only — a real, minimal, single-face TrueType font (no hinting or layout tables) built from the 256-glyph atlas, for use in web pages and general applications. Each maximal horizontal ink run becomes a 4-point rectangle contour, so the face is pixel-exact at its native size. Blank glyphs are **left unmapped** on purpose, so a renderer falls back to the next font per character; space keeps its slot for word spacing. The same builder powers the in-app dogfooding mode. Validate an exported face with the bundled macOS-only tool:
+### TrueType (`.ttf`, beta)
+Export only — a real, minimal, single-face TrueType font (no hinting or layout tables) built from the 256-glyph atlas, for use in web pages and general applications. Each maximal horizontal ink run becomes a 4-point rectangle contour, so the face is pixel-exact at its native size. Known limitation: the exported face may sit slightly above/below the baseline (fine for the in-app dogfooding preview; to be improved later). Blank glyphs are **left unmapped** on purpose, so a renderer falls back to the next font per character; space keeps its slot for word spacing. The same builder powers the in-app dogfooding mode. Validate an exported face with the bundled macOS-only tool:
 
 ```sh
 python3 tools/verify-ttf.py yourfont.ttf          # or a .bitforge project

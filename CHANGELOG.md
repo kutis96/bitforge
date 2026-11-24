@@ -41,6 +41,12 @@ Rules:
 - Run `./test/run-tests.sh` before committing — the changelog data-sanity
   test is the safety net.
 
+## 0.26.1 (2026-11-24)
+
+- The still-polishing features now wear a small **Beta** badge right next to their
+  menu label: **Dogfood this font** (App), and **Open BDF…**, **Export BDF font**,
+  **Export TTF font** (Project).
+
 ## 0.26.0 (2026-11-24)
 
 - **Dogfood this font** (App menu) — bitforge's own interface now renders in

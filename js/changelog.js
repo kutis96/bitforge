@@ -14,6 +14,9 @@
  * (date "" = pre-dated history, not shown in the UI)
  */
 var BF_CHANGELOG = [
+  { version: "0.26.1", date: "2026-11-24", changes: [
+    "The still-polishing features now wear a small **Beta** badge right next to their menu label: **Dogfood this font**, and **Open BDF…**, **Export BDF font**, **Export TTF font** under the Project menu."
+  ] },
   { version: "0.26.0", date: "2026-11-24", changes: [
     "**Dogfood this font** (App menu) — bitforge's own interface now renders in the font you are editing, live: it updates as you draw. Blank characters fall back to the system font per character, and the menu bar itself always stays on the system font, so you can always reach the toggle.",
     "**Project → Export TTF font** (Alt+Shift+T) — exports the font as a real TrueType (.ttf) file for use in web pages or other applications. Blank glyphs are left unmapped on purpose, so other fonts can fill them in.",

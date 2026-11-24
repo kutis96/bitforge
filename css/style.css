@@ -78,16 +78,23 @@ body { display: flex; flex-direction: column; }
 }
 .menu.open .menu-items { display: block; }
 .menu-items button {
-  display: flex; width: 100%; align-items: baseline; justify-content: space-between; gap: 18px;
+  display: flex; width: 100%; align-items: baseline; gap: 18px;
   border: none; background: none; text-align: left; padding: 5px 14px; font: inherit; color: var(--ink); cursor: pointer;
 }
 .menu-items button:hover { background: var(--hover); }
-/* Radio-style menu items (the theme selector, DECISIONS #79): label sits next
-   to the check slot instead of being spread to the right edge. */
-.menu-items button.mi-radio { justify-content: flex-start; gap: 8px; }
+/* Radio-style menu items (the theme selector, DECISIONS #79): tighter gap so
+   the label sits close to the check slot. */
+.menu-items button.mi-radio { gap: 8px; }
 .mi-check { display: inline-block; width: 12px; text-align: center; }
 .mi-radio.active .mi-check::before { content: "\2713"; }
-.menu-items .mi-key { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.menu-items .mi-key { color: var(--muted); font-size: 11px; white-space: nowrap; margin-left: auto; }
+/* "Beta" badge (DECISIONS #82, [Z.1]): sits right next to the item's label —
+   .mi-key's auto margin keeps the shortcut hint at the right edge. */
+.menu-items .mi-badge {
+  font-size: 10px; line-height: 1; letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--muted); border: 1px solid var(--line); border-radius: 3px; padding: 2px 4px;
+  white-space: nowrap; align-self: center;
+}
 .menu-items hr { border: none; border-top: 1px solid var(--line); margin: 4px 0; }
 .menu-items .mi-info { padding: 5px 14px 6px; color: var(--muted); font-size: 12px; line-height: 1.5; white-space: pre-line; }
 

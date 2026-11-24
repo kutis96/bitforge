@@ -1,6 +1,6 @@
 # bitforge — Status
 
-> **HANDOVER (2026-11-24):** all three greenlit ideas are now shipped: **[X] persist the last selected glyph** → 0.24.0; **[Y] menu-bar rearrangement** → **Project / Font / Glyph / App** → 0.25.0; **[Z] dogfooding mode** (use the font being edited as bitforge's own UI font, with safe fallback) **+ Export TTF + `tools/verify-ttf.py`** → 0.26.0 (**done**). 225/225 tests green + verifier PASS on Small & Cozy. Ritual, conventions and gotchas: [AGENTS.md](AGENTS.md) (root) + this file + DECISIONS.md. The `hidden`-vs-`display` CSS trap and the init-order trap are documented in DECISIONS #75 [T.1] — don't relearn them. The TTF glyf-flag gotcha (0x01, not 0x07/0x10) is documented in DECISIONS #82 — don't "simplify" it.
+> **HANDOVER (2026-11-24):** all three greenlit ideas are now shipped: **[X] persist the last selected glyph** → 0.24.0; **[Y] menu-bar rearrangement** → **Project / Font / Glyph / App** → 0.25.0; **[Z] dogfooding mode** (use the font being edited as bitforge's own UI font, with safe fallback) **+ Export TTF + `tools/verify-ttf.py`** → 0.26.0 (**done**); **[Z.1] Beta badges** on Dogfood / Open BDF / Export BDF / Export TTF → 0.26.1 (**done** — the last part of this release, per the user). 225/225 tests green + verifier PASS on Small & Cozy. Ritual, conventions and gotchas: [AGENTS.md](AGENTS.md) (root) + this file + DECISIONS.md. The `hidden`-vs-`display` CSS trap and the init-order trap are documented in DECISIONS #75 [T.1] — don't relearn them. The TTF glyf-flag gotcha (0x01, not 0x07/0x10) is documented in DECISIONS #82 — don't "simplify" it.
 
 ## Current state
 - [x] Requirements gathered and clarified with the user
@@ -478,6 +478,12 @@ User: "use the font being edited as the font of bitforge's own UI, live or on de
 - **`tools/verify-ttf.py`** (macOS builtins only): independent oracle — CoreText load, metrics, cmap semantics, exact ink bboxes, soft render-pixel check. `.bitforge` or bare `.ttf` input.
 - **Tests:** `test/test-ttf.js` (23) + `test/test-dogfood.js` (5) → **225/225**; verifier PASS on Small & Cozy.
 - **Browser-verify list (user):** toggle Dogfood on with Small & Cozy (UI renders in it, menu bar still system font); toggle with a mostly-blank font (fallback per character, toggle still readable); draw a pixel and confirm the UI font updates within ~half a second; Export TTF + open the `.ttf` in a throwaway HTML page; run `python3 tools/verify-ttf.py samples/small-and-cozy.bitforge`.
+
+### [Z.1] Beta badges — **done** (2026-11-24; 0.26.1)
+User: badge **Dogfood this font** + **Open BDF…** + **Export BDF font** + **Export TTF font** as beta; reasons and the TTF baseline/underline limitation recorded in DECISIONS #82 (do NOT fix the baseline issue yet). Follow-up instruction: the badge sits **right next to the label text** (not pushed across the item).
+- `index.html`: `<span class="mi-badge">Beta</span>` inserted after the label of the 4 items (ids `mi-dogfood`, `mi-open-bdf`, `mi-export-bdf`, `mi-export-ttf`).
+- `css/style.css`: new `.mi-badge` rule (10px uppercase, muted, 1px border, 3px radius); base `.menu-items button` switched `space-between` → flex-start with `.mi-key { margin-left:auto }` (identical look for all existing items, badge stays adjacent to its label). No JS, no new shortcut, no new setting.
+- Version 0.26.1 (core.js + test-dom.js pin + both changelogs).
 
 **[N] QA checks are fully done** (N.1 + N.2 + N.3 — both deferred checks #46/#47 shipped with per-glyph silencing).
 
