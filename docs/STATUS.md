@@ -479,11 +479,12 @@ User: "use the font being edited as the font of bitforge's own UI, live or on de
 - **Tests:** `test/test-ttf.js` (23) + `test/test-dogfood.js` (5) → **225/225**; verifier PASS on Small & Cozy.
 - **Browser-verify list (user):** toggle Dogfood on with Small & Cozy (UI renders in it, menu bar still system font); toggle with a mostly-blank font (fallback per character, toggle still readable); draw a pixel and confirm the UI font updates within ~half a second; Export TTF + open the `.ttf` in a throwaway HTML page; run `python3 tools/verify-ttf.py samples/small-and-cozy.bitforge`.
 
-### [Z.1] Beta badges — **done** (2026-11-24; 0.26.1)
+### [Z.1] Beta badges — **done** (2026-11-24; 0.26.1, wrap fix 0.26.2)
 User: badge **Dogfood this font** + **Open BDF…** + **Export BDF font** + **Export TTF font** as beta; reasons and the TTF baseline/underline limitation recorded in DECISIONS #82 (do NOT fix the baseline issue yet). Follow-up instruction: the badge sits **right next to the label text** (not pushed across the item).
 - `index.html`: `<span class="mi-badge">Beta</span>` inserted after the label of the 4 items (ids `mi-dogfood`, `mi-open-bdf`, `mi-export-bdf`, `mi-export-ttf`).
 - `css/style.css`: new `.mi-badge` rule (10px uppercase, muted, 1px border, 3px radius); base `.menu-items button` switched `space-between` → flex-start with `.mi-key { margin-left:auto }` (identical look for all existing items, badge stays adjacent to its label). No JS, no new shortcut, no new setting.
 - Version 0.26.1 (core.js + test-dom.js pin + both changelogs).
+- **Wrap fix (0.26.2, user report):** the long Project items wrapped after the first word (pre-existing "sus" behavior, now visible next to the badge) — the abspos dropdown never grows past `min-width: 250px`. Fixed with `white-space: nowrap` on `.menu-items button`: items never wrap, and shrink-to-fit sizes the menu to its widest item (no hardcoded width). Label + badge + key share one baseline.
 
 **[N] QA checks are fully done** (N.1 + N.2 + N.3 — both deferred checks #46/#47 shipped with per-glyph silencing).
 

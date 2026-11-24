@@ -14,6 +14,9 @@
  * (date "" = pre-dated history, not shown in the UI)
  */
 var BF_CHANGELOG = [
+  { version: "0.26.2", date: "2026-11-24", changes: [
+    "Menu layout fix: the long Project items (Open BDF…, Export BDF font, Export TTF font) no longer wrap — the label, **Beta** badge and shortcut hint now sit on one line, and the menu sizes itself to its widest item."
+  ] },
   { version: "0.26.1", date: "2026-11-24", changes: [
     "The still-polishing features now wear a small **Beta** badge right next to their menu label: **Dogfood this font**, and **Open BDF…**, **Export BDF font**, **Export TTF font** under the Project menu."
   ] },

@@ -78,9 +78,13 @@ body { display: flex; flex-direction: column; }
 }
 .menu.open .menu-items { display: block; }
 .menu-items button {
-  display: flex; width: 100%; align-items: baseline; gap: 18px;
+  display: flex; width: 100%; align-items: baseline; gap: 18px; white-space: nowrap;
   border: none; background: none; text-align: left; padding: 5px 14px; font: inherit; color: var(--ink); cursor: pointer;
 }
+/* nowrap (not a wider min-width) on purpose: the dropdown is absolutely
+   positioned, so width: auto never grows past min-width — with nowrap, each
+   item's min-content IS its full line, so shrink-to-fit sizes the menu to its
+   widest item and nothing wraps (label, badge and key share one baseline). */
 .menu-items button:hover { background: var(--hover); }
 /* Radio-style menu items (the theme selector, DECISIONS #79): tighter gap so
    the label sits close to the check slot. */

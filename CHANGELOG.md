@@ -41,6 +41,12 @@ Rules:
 - Run `./test/run-tests.sh` before committing — the changelog data-sanity
   test is the safety net.
 
+## 0.26.2 (2026-11-24)
+
+- Menu layout fix: the long Project items (Open BDF…, Export BDF font,
+  Export TTF font) no longer wrap — the label, **Beta** badge and shortcut hint
+  now sit on one line, and the menu sizes itself to its widest item.
+
 ## 0.26.1 (2026-11-24)
 
 - The still-polishing features now wear a small **Beta** badge right next to their
