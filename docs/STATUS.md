@@ -468,7 +468,35 @@ User request (2026-11-23): rearrange the menu bar so it's obvious what each item
 - **Tests (196 total, count unchanged):** the menu-mechanics tests in `test-dom.js` now drive **all four** menus (open/switch/hover-switch/item-click-close/toggle/Escape) — they are the guard that the JS wiring follows the DOM. The font-info test reads `els["font-info"]` after `mb-font`; the About-modal test dispatches `mb-app`.
 - **Docs:** DECISIONS #81; DESIGN.md menu-bar paragraph + Font/preview persistence bullets; TESTING.md menu bullets; README menu references; version pin 0.25.0; changelog 0.25.0 in both files. (Also back-filled: [X] was missing from the Current-state list and the Versions table — fixed here.)
 
-## Plan — this round (user greenlit 2026-11-23, easiest → hardest)
+## Plan — this round (user request 2026-11-25, easiest → hardest)
+
+> The previous round's plan ([X]–[Z.4], [AA], [AA.1], [P], [Q], [S], [T], [O.1]–[O.8]) is fully **done** — see the Completed section above.
+
+### [AB] Guides can sit on the far edge (offset 0..dim) — 0.27.5
+User: “I found an OBOE bug with the guides — they should actually be able to go to the size + 1 as max position — if I want to put the guide on the edge… it is possible to go to 0, making the guide show on the 0-edge of the glyph; but it's not possible to go to the other edge of the glyph.” (Clarified: 1-indexed slip — **0..dim** inclusive is correct.)
+- A guide offset is a grid boundary BETWEEN pixels: `0` = top/left edge of the cell, `dim` = bottom/right edge. Both ends must be reachable; today the app clamps to `0..dim-1` and a line at `off=dim` would draw off-canvas (`dim·s+0.5`), so the far edge was unreachable.
+- Fix (app.js): `addGuide`/`moveGuide` clamp to `0..dim`; `drawEditor` draws guides AND the cell grid at the far edge INSIDE the canvas (`dim·s−0.5`); `guidelineAt` hit-tests at the drawn position (so an edge guide still drags cleanly).
+- Fix (core.js): `fontFromBlob` now sanitizes guide offsets into `[0, dim]` (they were previously unclamped — a corrupt 999 would have drawn off-canvas).
+- The QA guideline-violation math already handles `off=0`/`off=dim` correctly (no ink can lie past a cell edge) — pin that with tests.
+- `resizeFont` already clamps shifted guides to `[0, newDim]` — consistent with the new range, no change.
+
+### [AC] Preview tab enhancements — 0.27.6
+User: “add a checkbox to hide the big textbox for writing the demo text, so that the render is nice and visible… add a checkbox to switch between the current, line-breaking version of the preview, or a non-breaking version with scrollbars. Also… the current 'inverted' checkbox should be relative to the current theme — so for the light theme, black on white should be default and white on black inverted; for the dark theme it should be the other way around. If we are to implement it, it must also work even when the theme is auto. It would also be neat to have a feature that would insert the selected glyph … on the current … cursor position in the text (as a \uXX sequence) — perhaps on doubleclick in the left panel selector (but only when Preview is active). We could further have this gated behind a 'click to add' checkbox above the preview.”
+- **Text box on/off** (`pvShowText` setting, default ON): a checkbox in the Preview head hides the textarea + markup note so the render stands alone. (CSS `[hidden]`-vs-`display` guard added per the documented [T.1] trap.)
+- **Wrap on/off** (`pvWrap` setting, default ON = the current soft-wrap): OFF = no soft-wrap; the canvas can grow past the panel and the existing `.canvas-wrap { overflow: auto }` supplies the scrollbars.
+- **Theme-relative Inverted** (amends DECISIONS #79, which said “do not theme the preview surfaces”): the *default* preview surface is now black-on-white in the light theme and **white-on-black in the dark theme**; the Inverted checkbox flips relative to the resolved theme (light: on = white-on-black; dark: on = black-on-white). Works in Auto because `applyTheme()` already redraws on system-scheme change. Atlas tab shares the same state/colors/status tints. **Exports (PNG/BDF/Verilog/TTF) remain black ink, always** — unchanged.
+- **Click to add** (`pvInsert` setting, default OFF): a checkbox in the Preview head; when on AND the Preview tab is active, **double-clicking a glyph in the left selector** inserts `\uXX` (2 hex digits) at the textarea cursor — replacing a selection, appending at end otherwise; cursor lands after the insert. The normal click still selects the glyph (dblclick fires click first), so you get “selected + inserted”.
+- New settings go through the settings API (DECISIONS #40) ⇒ persisted + ride `.bitforge`; `syncRenderControls`/init/`applyImportedSettings` sync the three new checkboxes.
+
+### [AD] Nonsense text generators — 0.27.7
+User: “what would it take to make some sort of a nonsense text generator that would generate some perhaps grammatically correct english text, but full of nonsense words. Questions, exclamations, sentences, text with many sentences joined together, prepositions, particles, numbers, counters, bracketed stuff, the works. The idea would be to use this to generate more valid preview text. Perhaps we could extend it to also generate some JS code as a sample — but perhaps we could simply just take a random few lines from Bitforge's own sources… We could have some buttons with this with dice symbols — perhaps one with a die and a pen, and one with a die and a computer? Use inline SVGs, not emoji.”
+- Two **dice-icon buttons** (inline SVG, minimalist stroke style; die+pen and die+`</>`) in the Preview panel head: **nonsense prose** and **nonsense code**.
+- **Pure generators in core.js** (testable headlessly): `BF.nonsenseProse(rng)` and `BF.nonsenseCode(rng)` — `rng` is an injectable `() => [0,1)` (the app passes `Math.random`; tests pass a seeded LCG). No DOM, no FS.
+- **Prose:** nonsense CVCV words (blorft, quim, zab…), declarative/interrogative/exclamative sentences, prepositions, particles, numbers/counters, bracketed asides, 3–7 sentences.
+- **Code:** a curated pool of plausible JS lines (functions, loops, comments, object literals, strings, numbers) — visually indistinguishable from real code for preview purposes; we deliberately do NOT fetch our own source at runtime (keeps it pure + testable under `jsc`; noted as a refinement of the user's “random lines from Bitforge's own sources” idea).
+- **Insertion:** replaces the textarea selection, appends at the end otherwise (one blank line before when appending to non-empty text); cursor lands after the insert; `pvText` setting + redraw follow.
+
+## Old plan (previous rounds, all done — kept for reference)
 
 ### [X] Persist the last selected glyph — **done** (2026-11-23; see Completed + DECISIONS #80) → 0.24.0
 User: "make the last selected glyph persist — when I open the app again, it doesn't start at 0x00, but at the last glyph I chose. Persist it in the .bitforge file too, and update the sample file to start at glyph 'B' (0x42)."
