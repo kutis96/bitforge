@@ -14,6 +14,9 @@
  * (date "" = pre-dated history, not shown in the UI)
  */
 var BF_CHANGELOG = [
+  { version: "0.27.3", date: "2026-11-25", changes: [
+    "Relabeled the **Open BDF\u2026** and **Export BDF font** badges from **Beta** to **Alpha** (they are not yet tested in other tools); **Export TTF font** and **Dogfood this font** keep their **Beta** badge \u2014 the TTF now passes Chromium's strict OTS validation."
+  ] },
   { version: "0.27.2", date: "2026-11-25", changes: [
     "Fixed **Export TTF font** for Windows/Chromium: the generated font now passes Chromium's strict OTS validation (correct table-directory search/range formulas, a spec-conformant OS/2 v4, and the `[0xFFFF, 0xFFFF]` cmap terminator) \u2014 so the TTF, and the live \u201cDogfood this font\u201d preview, load cleanly in Chromium-based browsers, not just on macOS."
   ] },

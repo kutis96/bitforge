@@ -56,6 +56,7 @@
 - [x] **[AA] QA check properties** (2026-11-24): per-check `props` declarations (subset multi-selects) with per-font values in `font.checkProps` (blob `cp` field + `.bitforge`) · edge-ink **ignoreEdges** mask (`BF.EDGE_NAMES`/`ignoreEdges`/`activeEdges` in core) · QA summary strip renders the props as inline checkboxes — 233 tests
 - [x] **[AA.1] Changelog markdown rendering** (2026-11-24): `BF.mdLite` (pure, escape-first) renders the limited subset — `**bold**` + `inline code` — in the in-app changelog/what's-new modals — 237 tests
 - [x] **[Z.2] TTF OTS compliance** (2026-11-25): `js/ttf.js` now passes Chromium's strict **OTS** (table-directory search/range ×16 + tags ascending, `OS/2` v4/96 B, cmap `[0xFFFF,0xFFFF]` terminator, `fsSelection` 0x40) — fixed the Windows/Chromium export; the one failing test was a **test-side** reservedPad offset bug (builder was correct); `tools/verify-ttf.py` gained a hard `check_sfnt_structure()` in both modes; verified clean by a real OTS build + fontTools cross-check — 238 tests
+- [x] **[Z.3] BDF badges → Alpha** (2026-11-25): relabeled **Open BDF…** / **Export BDF font** badges **Beta → Alpha** (untested in other tools); **Export TTF font** + **Dogfood this font** keep **Beta** (TTF now OTS-clean, pending confirmation in proper font-authoring tools) — 238 tests
 - [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -101,7 +102,8 @@ Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–
 | 0.26.1 – 0.26.2 | [Z.1] Beta badges (Dogfood / BDF / TTF items) + menu-item wrap fix |
 | 0.27.0 | [AA] QA check properties (edge-ink ignoreEdges mask, per-font `checkProps`) |
 | 0.27.1 | [AA.1] Changelog markdown rendering (`BF.mdLite`: **bold** + `inline code`) |
-| **0.27.2** (current) | [Z.2] TTF OTS compliance (OTS-clean for Windows/Chromium) |
+| 0.27.2 | [Z.2] TTF OTS compliance (OTS-clean for Windows/Chromium) |
+| **0.27.3** (current) | [Z.3] BDF badges → Alpha (TTF/Dogfood keep Beta) |
 
 **Lettering note (2026-11-15, chunk M):** chunk letters drifted at some point (the I-wave landed after L); they now follow list position. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Git commit subjects still use the old letters.
 
@@ -516,6 +518,9 @@ User: Export TTF is broken on Windows/Chromium (OTS: bad table-directory searchR
 - **`tools/verify-ttf.py`:** new hard `check_sfnt_structure()` (directory formula, tag order, 4-align, overlap, OS/2 min-lengths 78/86/96, fsSelection↔macStyle, cmap terminator) in **both** modes; fixed a `struct.unpack` no-slice bug that crashed it.
 - **Oracles:** real OTS build (`/tmp/ots-build/ots-sanitize`) → "File sanitized successfully!" (zero warnings); fontTools reads our cmap correctly (0x20/0x41/0x42 mapped, 0x100/0xFFFE/0xFFFF unmapped).
 - **Tests:** → **238/238**.
+
+### [Z.3] BDF badges → Alpha — **done** (2026-11-25; 0.27.3)
+User: keep the badges, but relabel the BDF import/export as **Alpha** (not yet tested in other tools) while TTF genuinely works now. `index.html` badge text on **Open BDF…** + **Export BDF font** changed `Beta → Alpha`; **Export TTF font** + **Dogfood this font** keep **Beta**. The badge class (`.mi-badge`) is content-agnostic and no test/CSS depends on the literal text, so it's a two-word edit. See DECISIONS #82 ([Z.3] follow-up). **Tests:** 238/238 (version pin + changelog sanity only).
 
 **[N] QA checks are fully done** (N.1 + N.2 + N.3 — both deferred checks #46/#47 shipped with per-glyph silencing).
 

@@ -44,6 +44,13 @@ Rules:
 - Run `./test/run-tests.sh` before committing — the changelog data-sanity
   test is the safety net.
 
+## 0.27.3 (2026-11-25)
+
+- Relabeled the **Open BDF…** and **Export BDF font** badges from **Beta** to
+  **Alpha** (they are not yet tested in other font-authoring tools); **Export
+  TTF font** and **Dogfood this font** keep their **Beta** badge — the TTF now
+  passes Chromium's strict OTS validation.
+
 ## 0.27.2 (2026-11-25)
 
 - Fixed **Export TTF font** for Windows/Chromium: the generated TTF now
