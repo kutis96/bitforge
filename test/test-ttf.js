@@ -164,6 +164,28 @@ test("ttf: structural sanity — 10 tables, 4-aligned offsets, per-table checksu
   }
 });
 
+test("ttf: table directory — searchRange/rangeShift formula + tags ascending (OTS invariants)", function () {
+  // Chromium's OTS rejects these ("bad table directory searchRange",
+  // "bad table directory rangeShift", "Table directory is not correctly
+  // ordered") — CoreText does not, which is how this class of bug shipped
+  // (regression [Z.2], Windows/Chromium report). Spec: directory records are
+  // 16 bytes wide ⇒ searchRange = 16 x 2^floor(log2 numTables),
+  // rangeShift = numTables*16 - searchRange; tags sorted ascending.
+  var b = TTF.build(sampleFont(), "bf-test");
+  var n = t16(b, 4), power = 1, es = 0;
+  while (power * 2 <= n) { power *= 2; es++; }
+  assertEqual(t16(b, 6), power * 16, "searchRange = 16 x 2^entrySelector (was 2 x — the cmap formula)");
+  assertEqual(t16(b, 8), es, "entrySelector = floor(log2 numTables)");
+  assertEqual(t16(b, 10), n * 16 - power * 16, "rangeShift = numTables*16 - searchRange");
+  var prev = "", i, tag;
+  for (i = 0; i < n; i++) {
+    tag = String.fromCharCode(b[12 + i * 16], b[13 + i * 16], b[14 + i * 16], b[15 + i * 16]);
+    assert(tag > prev, "tags strictly ascending: '" + prev + "' < '" + tag + "'");
+    prev = tag;
+  }
+  assertEqual(prev, "post", "last tag is 'post' (OS/2 sorts FIRST, before cmap)");
+});
+
 test("ttf: checkSumAdjustment — directory checksums sum to 0xB1B0AFBA", function () {
   // Spec invariant: the SUM OF THE DIRECTORY TABLE CHECKSUMS is 0xB1B0AFBA.
   var b = TTF.build(sampleFont(), "bf-test"), t = ttfTables(b), sum = 0, k;
@@ -245,30 +267,40 @@ test("ttf: hhea — EXACTLY 36 bytes, 18 FWORDs at spec offsets", function () {
   assertEqual(t16(b, h.off + 34), 4, "numberOfHMetrics = 4 slots");
 });
 
-test("ttf: OS/2 — true v0 layout (56 bytes, fields at spec offsets)", function () {
-  // Per the OpenType spec, OS/2 v0 is EXACTLY 56 bytes in this order:
-  // ulVersion(2) xAvgCharWidth(2) usWeightClass(2) usWidthClass(2) fsType(2)
-  // panose(10) ulUnicodeRange1..4(4 each) achVendID(4) fsSelection(2)
-  // usFirstCharIndex(2) usLastCharIndex(2) sTypoAscender(2) sTypoDescender(2)
-  // sTypoLineGap(2) usWinAscent(2) usWinDescent(2).
-  // (The old "v0 full 78-byte" layout mixed v4 fields in a non-spec order —
-  //  CoreText read all-zero metrics out of it and rejected the font.)
+test("ttf: OS/2 — v4 (96 bytes), spec field order incl. sub/superscript after fsType", function () {
+  // Chromium's OTS reads the subscript/superscript/strikeout/familyClass
+  // fields right after fsType for EVERY OS/2 version — the legacy 56-byte v0
+  // layout (panose directly after fsType) fails its parse ("OS/2: Error
+  // reading more basic table fields"). CoreText accepts the legacy layout,
+  // which is how that one shipped. We emit v4 (96 bytes), spec order:
+  //   0 ulVersion(2)=4  2 xAvgCharWidth  4 usWeightClass  6 usWidthClass
+  //   8 fsType  10 ySubscript{XSize,YSize,XOff,YOff}  18 ySuperscript{...}
+  //  26 yStrikeout{Size,Pos}  30 sFamilyClass  32 panose(10)
+  //  42 UR1..4  58 achVendID  62 fsSelection  64 usFirstCharIndex
+  //  66 usLastCharIndex  68 sTypoAscender  70 sTypoDescender  72 sTypoLineGap
+  //  74 usWinAscent  76 usWinDescent  78 ulCodePageRange1  82 ulCodePageRange2
+  //  86 sxHeight  88 sCapHeight  90 usDefaultChar  92 usBreakChar  94 usMaxContext
   var b = TTF.build(sampleFont(), "bf-test"), t = ttfTables(b), o = t["OS/2"].off;
-  assertEqual(t["OS/2"].len, 56, "OS/2 v0 = 56 bytes (CoreText rejects other lengths)");
-  assertEqual(t16(b, o), 0, "ulVersion 0");
+  assertEqual(t["OS/2"].len, 96, "OS/2 v4 = 96 bytes (OTS reads the v4 layout for all versions)");
+  assertEqual(t16(b, o), 4, "ulVersion 4");
   assertEqual(t16(b, o + 2), 512, "xAvgCharWidth = width*upx");
   assertEqual(t16(b, o + 4), 400, "usWeightClass regular");
   assertEqual(t16(b, o + 6), 5, "usWidthClass medium");
   assertEqual(t16(b, o + 8), 0, "fsType");
-  assertEqual(t16(b, o + 36), 0x4246, "achVendID 'BF' (at 36, after panose+unicode ranges)");
-  assertEqual(t16(b, o + 40), 1, "fsSelection roman");
-  assertEqual(t16(b, o + 42), 0, "usFirstCharIndex");
-  assertEqual(t16(b, o + 44), 255, "usLastCharIndex");
-  assertEqual(t16s(b, o + 46), 832, "sTypoAscender");
-  assertEqual(t16s(b, o + 48), -192, "sTypoDescender");
-  assertEqual(t16s(b, o + 50), 0, "sTypoLineGap");
-  assertEqual(t16(b, o + 52), 832, "usWinAscent");
-  assertEqual(t16(b, o + 54), 192, "usWinDescent");
+  assertEqual(t16s(b, o + 10), 0, "ySubscriptXSize — the v4 field that must follow fsType");
+  assertEqual(t16(b, o + 58), 0x4246, "achVendID 'BF'");
+  assertEqual(t16(b, o + 62), 0x40, "fsSelection bit 6 = REGULAR (bit 0 is ITALIC — writing 1 there made OTS 'adjust head.macStyle (italic)')");
+  assertEqual(t16(b, o + 64), 0, "usFirstCharIndex");
+  assertEqual(t16(b, o + 66), 255, "usLastCharIndex");
+  assertEqual(t16s(b, o + 68), 832, "sTypoAscender");
+  assertEqual(t16s(b, o + 70), -192, "sTypoDescender");
+  assertEqual(t16s(b, o + 72), 0, "sTypoLineGap");
+  assertEqual(t16(b, o + 74), 832, "usWinAscent");
+  assertEqual(t16(b, o + 76), 192, "usWinDescent");
+  assertEqual(t32(b, o + 78), 1, "ulCodePageRange1 bit0 (Windows Latin1)");
+  assertEqual(t16(b, o + 90), 0x20, "usDefaultChar = space");
+  assertEqual(t16(b, o + 92), 0x20, "usBreakChar = space");
+  assertEqual(t16(b, o + 94), 1, "usMaxContext");
 });
 
 test("ttf: post — v3.0 is EXACTLY 32 bytes (no glyphNameIndex)", function () {
@@ -316,17 +348,24 @@ test("ttf: cmap — inked + space mapped, blanks unmapped (fallback rule)", func
   // dedicated final-segment test) — out-of-range there reads as unmapped.
 });
 
-test("ttf: cmap — final segment ends at 0xFFFF (spec MUST) via the out-of-range idiom", function () {
-  // Spec: the lastCode of the last segment MUST be 0xFFFF. We cover it with
-  // one [0x100..0xFFFF] segment, idDelta=1, idRangeOffset=0 → glyph = code+1
-  // ≥ 257, which is ALWAYS out of range for bitforge (≤ 257 glyphs) and thus
-  // treated as unmapped/.notdef by renderers.
+test("ttf: cmap — final segment is the [0xFFFF,0xFFFF] terminator (OTS MUST)", function () {
+  // Chromium's OTS: "cmap: Final segment start and end must be 0xFFFF". So
+  // the last segment is the standard single-code terminator [0xFFFF,0xFFFF]
+  // with idDelta=1 (→ glyph 0 = .notdef), and codes 0x100..0xFFFE sit in NO
+  // segment ⇒ unmapped ⇒ .notdef/fallback. (The old [0x100..0xFFFF] delta
+  // segment behaved the same for renderers but fails OTS's parse.)
   var b = TTF.build(sampleFont(), "bf-test"), t = ttfTables(b), cmap = t.cmap;
   var base = cmap.off + t32(b, cmap.off + 8);
   var segCount = t16(b, base + 6) / 2;
   assertEqual(t16(b, base + 14 + 2 * (segCount - 1)), 0xffff, "last endCode = 0xFFFF");
-  assertEqual(cmapGlyph(b, t.cmap, 0x100), 257, "0x100 → 257 (out of range → .notdef)");
-  assertEqual(cmapGlyph(b, t.cmap, 0xffff), 0, "0xFFFF → 0 (.notdef)");
+  // format-4 layout: endCode[] @ base+14 (n entries) → reservedPad @ base+14+2n
+  // → startCode[] @ base+16+2n. So the LAST startCode is at base+16+2n + 2(n-1)
+  // = base+16+4n-2 — NOT base+16+2(n-1) (that is the reservedPad slot, =0).
+  // (Regression [Z.2]: the earlier offset read the reservedPad and always failed.)
+  assertEqual(t16(b, base + 16 + 2 * segCount + 2 * (segCount - 1)), 0xffff, "last startCode = 0xFFFF (OTS requirement)");
+  assertEqual(cmapGlyph(b, t.cmap, 0x100), null, "0x100 unmapped (no segment) → .notdef/fallback");
+  assertEqual(cmapGlyph(b, t.cmap, 0xfffe), null, "0xFFFE unmapped → .notdef/fallback");
+  assertEqual(cmapGlyph(b, t.cmap, 0xffff), 0, "0xFFFF → 0 (.notdef) via the terminator");
 });
 
 test("ttf: cmap — sparse mapping (mapped set does not start at 0)", function () {

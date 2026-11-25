@@ -1,6 +1,6 @@
 # bitforge — Status
 
-> **HANDOVER (2026-11-24):** all three greenlit ideas are now shipped: **[X] persist the last selected glyph** → 0.24.0; **[Y] menu-bar rearrangement** → **Project / Font / Glyph / App** → 0.25.0; **[Z] dogfooding mode** (use the font being edited as bitforge's own UI font, with safe fallback) **+ Export TTF + `tools/verify-ttf.py`** → 0.26.0 (**done**); **[Z.1] Beta badges** on Dogfood / Open BDF / Export BDF / Export TTF → 0.26.1 (**done** — the last part of this release, per the user). 225/225 tests green + verifier PASS on Small & Cozy. Ritual, conventions and gotchas: [AGENTS.md](AGENTS.md) (root) + this file + DECISIONS.md. The `hidden`-vs-`display` CSS trap and the init-order trap are documented in DECISIONS #75 [T.1] — don't relearn them. The TTF glyf-flag gotcha (0x01, not 0x07/0x10) is documented in DECISIONS #82 — don't "simplify" it.
+> **HANDOVER (2026-11-24):** all three greenlit ideas are now shipped: **[X] persist the last selected glyph** → 0.24.0; **[Y] menu-bar rearrangement** → **Project / Font / Glyph / App** → 0.25.0; **[Z] dogfooding mode** (use the font being edited as bitforge's own UI font, with safe fallback) **+ Export TTF + `tools/verify-ttf.py`** → 0.26.0 (**done**); **[Z.1] Beta badges** on Dogfood / Open BDF / Export BDF / Export TTF → 0.26.1 (**done** — the last part of this release, per the user). 225/225 tests green + verifier PASS on Small & Cozy. Ritual, conventions and gotchas: [AGENTS.md](AGENTS.md) (root) + this file + DECISIONS.md. The `hidden`-vs-`display` CSS trap and the init-order trap are documented in DECISIONS #75 [T.1] — don't relearn them. The TTF glyf-flag gotcha (0x01, not 0x07/0x10) is documented in DECISIONS #82 — don't "simplify" it. **Latest (2026-11-25):** **[Z.2] TTF OTS compliance** fixed the Windows/Chromium OTS failure (table dir, OS/2 v4, cmap terminator, fsSelection) → **0.27.2**, 238/238 + CoreText verifier PASS + a real OTS build clean — see DECISIONS #85 and the three-oracle rule in AGENTS.md.
 
 ## Current state
 - [x] Requirements gathered and clarified with the user
@@ -55,6 +55,7 @@
 - [x] **[Z.1] Beta badges** (2026-11-24): **Beta** badge next to Dogfood / Open BDF… / Export BDF / Export TTF (reasons + the TTF baseline/underline limitation recorded, not fixed) · menu-item wrap fix — 225 tests
 - [x] **[AA] QA check properties** (2026-11-24): per-check `props` declarations (subset multi-selects) with per-font values in `font.checkProps` (blob `cp` field + `.bitforge`) · edge-ink **ignoreEdges** mask (`BF.EDGE_NAMES`/`ignoreEdges`/`activeEdges` in core) · QA summary strip renders the props as inline checkboxes — 233 tests
 - [x] **[AA.1] Changelog markdown rendering** (2026-11-24): `BF.mdLite` (pure, escape-first) renders the limited subset — `**bold**` + `inline code` — in the in-app changelog/what's-new modals — 237 tests
+- [x] **[Z.2] TTF OTS compliance** (2026-11-25): `js/ttf.js` now passes Chromium's strict **OTS** (table-directory search/range ×16 + tags ascending, `OS/2` v4/96 B, cmap `[0xFFFF,0xFFFF]` terminator, `fsSelection` 0x40) — fixed the Windows/Chromium export; the one failing test was a **test-side** reservedPad offset bug (builder was correct); `tools/verify-ttf.py` gained a hard `check_sfnt_structure()` in both modes; verified clean by a real OTS build + fontTools cross-check — 238 tests
 - [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -99,7 +100,8 @@ Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–
 | 0.26.0 | [Z] Dogfooding mode + Export TTF (js/ttf.js, tools/verify-ttf.py) |
 | 0.26.1 – 0.26.2 | [Z.1] Beta badges (Dogfood / BDF / TTF items) + menu-item wrap fix |
 | 0.27.0 | [AA] QA check properties (edge-ink ignoreEdges mask, per-font `checkProps`) |
-| **0.27.1** (current) | [AA.1] Changelog markdown rendering (`BF.mdLite`: **bold** + `inline code`) |
+| 0.27.1 | [AA.1] Changelog markdown rendering (`BF.mdLite`: **bold** + `inline code`) |
+| **0.27.2** (current) | [Z.2] TTF OTS compliance (OTS-clean for Windows/Chromium) |
 
 **Lettering note (2026-11-15, chunk M):** chunk letters drifted at some point (the I-wave landed after L); they now follow list position. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Git commit subjects still use the old letters.
 
@@ -506,6 +508,14 @@ User: the changelog is written in markdown but the app showed the markers raw.
 - **`BF.mdLite`** (core.js, pure, tested): escape `&`/`<`/`>` first, then `**bold**` → `<b>`, `` `code` `` → `<code>`; unbalanced markers stay literal. `renderChangelogList` (app.js) uses it for each bullet (was `textContent`).
 - **Authoring rule** added to CHANGELOG.md "How to add an entry": keep entries inside this subset.
 - **Tests:** +4 in test-changelog.js (passthrough, bold/code, escaping/no-injection, unbalanced) → **237/237**.
+
+### [Z.2] TTF OTS compliance — **done** (2026-11-25; 0.27.2)
+User: Export TTF is broken on Windows/Chromium (OTS: bad table-directory searchRange/rangeShift, not ordered, OS/2 parse failure). Root cause: CoreText (our oracle) is lenient, Chromium's OTS is strict — the five bugs only surface there. See DECISIONS #85.
+- **`js/ttf.js` fixed (5 bugs):** table directory `searchRange`/`rangeShift` use the 16-byte record formula (was the cmap 2-byte one); tables sorted by tag ascending; `OS/2` rewritten as v4 (96 B) in OTS's field order (sub/superscript/strikeout/familyClass after `fsType`); cmap format-4 final segment → `[0xFFFF,0xFFFF]`; `fsSelection` = 0x40 (bit 0 is ITALIC, not REGULAR).
+- **The one failing test was a test bug, not a builder bug:** `test-ttf.js` read the last startCode at the **reservedPad** offset (`base+16+2(n−1)`); corrected to `base+16+4n−2`. `js/ttf.js` was already correct (confirmed by a ground-truth hexdump + fontTools cross-check).
+- **`tools/verify-ttf.py`:** new hard `check_sfnt_structure()` (directory formula, tag order, 4-align, overlap, OS/2 min-lengths 78/86/96, fsSelection↔macStyle, cmap terminator) in **both** modes; fixed a `struct.unpack` no-slice bug that crashed it.
+- **Oracles:** real OTS build (`/tmp/ots-build/ots-sanitize`) → "File sanitized successfully!" (zero warnings); fontTools reads our cmap correctly (0x20/0x41/0x42 mapped, 0x100/0xFFFE/0xFFFF unmapped).
+- **Tests:** → **238/238**.
 
 **[N] QA checks are fully done** (N.1 + N.2 + N.3 — both deferred checks #46/#47 shipped with per-glyph silencing).
 

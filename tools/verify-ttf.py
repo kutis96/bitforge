@@ -505,8 +505,108 @@ def fmt_codes(codes, limit=24):
     return s
 
 
+def check_sfnt_structure(rep, path):
+    """Byte-level sfnt invariants that Chromium's OTS enforces but CoreText
+    does NOT (which is exactly how the [Z.2] bugs shipped — the CoreText-only
+    oracle let them through, Windows/Chromium rejected the font):
+      - table directory: searchRange = 16 x 2^floor(log2 n),
+        rangeShift = n*16 - searchRange, tags strictly ascending;
+      - records 4-aligned, in bounds, non-overlapping;
+      - OS/2: OTS reads the subscript/superscript/strikeout/familyClass
+        fields after fsType for EVERY version ⇒ the table needs ≥ 78 bytes;
+        for version 4, ≥ 96; fsSelection bit 0 is ITALIC — it must agree
+        with head.macStyle bit 1;
+      - cmap: the final segment's start AND end must be 0xFFFF.
+    Runs in BOTH modes, before the CoreText load (independent of it)."""
+    with open(path, "rb") as f:
+        buf = f.read()
+    problems = []
+    if len(buf) < 12 or struct.unpack(">I", buf[0:4])[0] != 0x00010000:
+        rep.add("sfnt structure (OTS invariants)", False, "not a TrueType (0x00010000) file")
+        return
+    n, searchRange, entrySelector, rangeShift = struct.unpack(">HHHH", buf[4:12])
+    power = 1
+    while power * 2 <= n:
+        power *= 2
+    if searchRange != power * 16:
+        problems.append("bad searchRange %d (want %d — 16 x 2^entrySelector)" % (searchRange, power * 16))
+    if rangeShift != n * 16 - searchRange:
+        problems.append("bad rangeShift %d (want %d)" % (rangeShift, n * 16 - searchRange))
+    if entrySelector != (power.bit_length() - 1):
+        problems.append("bad entrySelector %d" % entrySelector)
+    tags, spans = [], []
+    for i in range(n):
+        o = 12 + i * 16
+        tag = buf[o:o + 4]
+        chk, off, ln = struct.unpack(">III", buf[o + 4:o + 16])
+        if tags and tag <= tags[-1]:
+            problems.append("table directory not in strictly ascending tag order at '%s'" % tag.decode("latin1"))
+        tags.append(tag)
+        if off % 4:
+            problems.append("'%s' offset %d not 4-aligned" % (tag.decode("latin1"), off))
+        if off + ln > len(buf):
+            problems.append("'%s' runs past end of file" % tag.decode("latin1"))
+        spans.append((off, off + ln))
+    for i in range(len(spans)):
+        for j in range(i + 1, len(spans)):
+            a, b_ = spans[i], spans[j]
+            if a[0] < b_[1] and b_[0] < a[1]:
+                problems.append("tables '%s' and '%s' overlap" % (tags[i].decode("latin1"), tags[j].decode("latin1")))
+    # Regression [Z.2]: the earlier one-arg forms read a whole byte from one
+    # position (no slice end) and crashed the dict-comp. Each field is 4 bytes:
+    # offset @ +8, length @ +12 of the 16-byte directory record.
+    tables = {t: (struct.unpack(">I", buf[12 + i * 16 + 8:12 + i * 16 + 12])[0],
+                  struct.unpack(">I", buf[12 + i * 16 + 12:12 + i * 16 + 16])[0])
+              for i, t in enumerate(tags)}
+    # OS/2 — the layout OTS actually reads (all versions): the subscript/
+    # superscript/strikeout/familyClass fields sit after fsType.
+    if b"OS/2" in tables:
+        off, ln = tables[b"OS/2"]
+        ver = struct.unpack(">H", buf[off:off + 2])[0]
+        if ln < 78:
+            problems.append("OS/2 len %d < 78 (OTS's minimum for any version)" % ln)
+        if ver >= 1 and ln < 86:
+            problems.append("OS/2 v%d len %d < 86" % (ver, ln))
+        if ver >= 2 and ln < 96:
+            problems.append("OS/2 v%d len %d < 96" % (ver, ln))
+        if ver > 5:
+            problems.append("OS/2 unsupported version %d" % ver)
+        if b"head" in tables:
+            hoff, _ = tables[b"head"]
+            macStyle = struct.unpack(">H", buf[hoff + 44:hoff + 46])[0]
+            fsel = struct.unpack(">H", buf[off + 62:off + 64])[0] if ln >= 64 else 0
+            if bool(fsel & 0x0001) != bool(macStyle & 0x0002):
+                problems.append("OS/2.fsSelection ITALIC bit disagrees with head.macStyle")
+    # cmap — final segment [0xFFFF, 0xFFFF].
+    if b"cmap" in tables:
+        coff, _ = tables[b"cmap"]
+        try:
+            num = struct.unpack(">H", buf[coff + 2:coff + 4])[0]
+            for i in range(num):
+                ro = coff + 4 + i * 8
+                plat, enc, so = struct.unpack(">HHI", buf[ro:ro + 8])
+                if (plat, enc) != (3, 1):
+                    continue
+                base = coff + so
+                if struct.unpack(">H", buf[base:base + 2])[0] != 4:
+                    continue
+                segs = struct.unpack(">H", buf[base + 6:base + 8])[0] // 2
+                ends_o = base + 14
+                starts_o = ends_o + segs * 2 + 2
+                last_end = struct.unpack(">H", buf[ends_o + (segs - 1) * 2: ends_o + segs * 2])[0]
+                last_start = struct.unpack(">H", buf[starts_o + (segs - 1) * 2: starts_o + segs * 2])[0]
+                if last_end != 0xFFFF or last_start != 0xFFFF:
+                    problems.append("cmap final segment [%04X..%04X] must be [FFFF..FFFF]" % (last_start, last_end))
+                break
+        except struct.error:
+            problems.append("cmap: malformed (could not parse segments)")
+    rep.add("sfnt structure (OTS invariants: directory, OS/2, cmap terminator)",
+            not problems, "; ".join(problems) if problems else "directory, OS/2 and cmap terminator all OTS-conformant")
+
+
 def check_bitforge_mode(ttf_path, gt, expected_family):
     rep = Report()
+    check_sfnt_structure(rep, ttf_path)
     ctfont, err = load_ctfont(ttf_path)
     if err:
         rep.add("font loads in CoreText", False, err)
@@ -630,6 +730,7 @@ def check_ttf_mode(ttf_path):
     with open(ttf_path, "rb") as f:
         buf = f.read()
 
+    check_sfnt_structure(rep, ttf_path)
     ctfont, err = load_ctfont(ttf_path)
     if err:
         rep.add("font loads in CoreText", False, err)

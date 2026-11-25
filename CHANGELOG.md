@@ -44,6 +44,15 @@ Rules:
 - Run `./test/run-tests.sh` before committing — the changelog data-sanity
   test is the safety net.
 
+## 0.27.2 (2026-11-25)
+
+- Fixed **Export TTF font** for Windows/Chromium: the generated TTF now
+  passes Chromium's strict OTS validation (correct table-directory
+  search/range formulas, a spec-conformant `OS/2` v4, and the
+  `[0xFFFF, 0xFFFF]` cmap terminator), so the font — and the live
+  “Dogfood this font” preview — loads cleanly in Chromium-based browsers,
+  not just on macOS.
+
 ## 0.27.1 (2026-11-24)
 
 - The in-app changelog (App → Changelog… and the What's new modal) now

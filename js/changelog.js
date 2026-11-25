@@ -14,6 +14,9 @@
  * (date "" = pre-dated history, not shown in the UI)
  */
 var BF_CHANGELOG = [
+  { version: "0.27.2", date: "2026-11-25", changes: [
+    "Fixed **Export TTF font** for Windows/Chromium: the generated font now passes Chromium's strict OTS validation (correct table-directory search/range formulas, a spec-conformant OS/2 v4, and the `[0xFFFF, 0xFFFF]` cmap terminator) \u2014 so the TTF, and the live \u201cDogfood this font\u201d preview, load cleanly in Chromium-based browsers, not just on macOS."
+  ] },
   { version: "0.27.1", date: "2026-11-24", changes: [
     "The in-app changelog (App \u2192 Changelog\u2026 and the What\u2019s new modal) now renders its **bold** and `inline code` markers instead of showing them literally."
   ] },

@@ -249,11 +249,13 @@
       while (c < NUM_CODES && slot[c] > 0) { entries.push(slot[c]); c++; }
       segs.push({ start: s, end: c - 1, delta: 0, entries: entries });
     }
-    // Spec: the LAST segment's endCode MUST be 0xFFFF. [0x100..0xFFFF] with
-    // idDelta=1 → glyph = code+1 ≥ 257, always out of range (≤257 glyphs) ⇒
-    // .notdef. Covers codes above the 8-bit font range; blanks in 0..0xFF sit
-    // in no segment (unmapped → fallback), exactly as intended.
-    segs.push({ start: 0x100, end: 0xffff, delta: 1, entries: [] });
+    // Spec: the LAST segment's start AND end MUST be 0xFFFF (Chromium's OTS:
+    // "cmap: Final segment start and end must be 0xFFFF"). The standard
+    // terminator: [0xFFFF,0xFFFF] with idDelta=1 → glyph 0 (.notdef) for
+    // 0xFFFF; codes 0x100..0xFFFE sit in NO segment ⇒ unmapped ⇒ fallback.
+    // (The old [0x100..0xFFFF] delta segment behaved the same for renderers
+    // but fails OTS's parse.)
+    segs.push({ start: 0xffff, end: 0xffff, delta: 1, entries: [] });
     var segCount = segs.length;
     var power = 1, entrySelector = 0;
     while (power * 2 <= segCount) { power *= 2; entrySelector++; }
@@ -417,28 +419,53 @@
 
   function buildOS2(font, upx, base) {
     var asc = base * upx, desc = -(font.height - base) * upx;
-    // OS/2 v0 is EXACTLY 56 bytes in THIS order (spec):
-    // ulVersion(2) xAvgCharWidth(2) usWeightClass(2) usWidthClass(2) fsType(2)
-    // panose(10) ulUnicodeRange1..4(4 each) achVendID(4) fsSelection(2)
-    // usFirstCharIndex(2) usLastCharIndex(2) sTypoAscender(2) sTypoDescender(2)
-    // sTypoLineGap(2) usWinAscent(2) usWinDescent(2).
-    // (subscript/superscript/strikeout are v4 fields at offsets 76-89 — do
-    //  not invent a "v0 full" layout; strict readers reject it.)
+    // OS/2 v4 — EXACTLY 96 bytes in this order (OpenType spec; and the order
+    // Chromium's OTS reads for EVERY version: it expects the subscript/
+    // superscript/strikeout/familyClass fields right after fsType, so the
+    // legacy 56-byte v0 layout — panose directly after fsType — fails OTS
+    // with "OS/2: Error reading more basic table fields". CoreText accepts
+    // the legacy layout, which is how that one shipped.)
+    //   0  ulVersion(2)=4       2  xAvgCharWidth(2)
+    //   4  usWeightClass(2)     6  usWidthClass(2)
+    //   8  fsType(2)           10  ySubscript XSize/YSize/XOff/YOff (8)
+    //  18  ySuperscript XSize/YSize/XOff/YOff (8)
+    //  26  yStrikeoutSize(2)   28  yStrikeoutPosition(2)
+    //  30  sFamilyClass(2)     32  panose (10)
+    //  42  ulUnicodeRange1..4 (16)   58  achVendID (4)
+    //  62  fsSelection(2)      64  usFirstCharIndex(2)
+    //  66  usLastCharIndex(2)  68  sTypoAscender(2)
+    //  70  sTypoDescender(2)   72  sTypoLineGap(2)
+    //  74  usWinAscent(2)      76  usWinDescent(2)
+    //  78  ulCodePageRange1(4) 82  ulCodePageRange2(4)
+    //  86  sxHeight(2)         88  sCapHeight(2)
+    //  90  usDefaultChar(2)    92  usBreakChar(2)
+    //  94  usMaxContext(2)
     var o = new Writer();
-    o.u16(0);            // ulVersion 0
+    o.u16(4);            // ulVersion 4 (the spec's recommended floor)
     o.u16(font.width * upx); // xAvgCharWidth
     o.u16(400);          // usWeightClass
     o.u16(5);            // usWidthClass
     o.u16(0);            // fsType
+    o.i16(0); o.i16(0); o.i16(0); o.i16(0); // ySubscript XSize/YSize/XOff/YOff
+    o.i16(0); o.i16(0); o.i16(0); o.i16(0); // ySuperscript XSize/YSize/XOff/YOff
+    o.i16(0); o.i16(0);  // yStrikeoutSize / yStrikeoutPosition
+    o.i16(0);            // sFamilyClass
     var panose = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
     for (var i = 0; i < 10; i++) o.u8(panose[i]); // panose (10 bytes)
     o.u32(0); o.u32(0); o.u32(0); o.u32(0); // ulUnicodeRange1..4
     o.u8(0x42); o.u8(0x46); o.u8(0x30); o.u8(0); // achVendID "BF0\0"
-    o.u16(1);            // fsSelection bit 0 = roman
+    o.u16(0x40);         // fsSelection bit 6 = REGULAR. (Bit 0 is ITALIC, not
+                         //  roman — writing 1 here made OTS warn "Adjusting
+                         // head.macStyle (italic) to match fsSelection".)
     o.u16(0);            // usFirstCharIndex
     o.u16(0xff);         // usLastCharIndex
-    o.i16(asc); o.i16(desc); o.i16(0); // typo metrics
-    o.u16(asc); o.u16(-desc);          // win ascent / descent
+    o.i16(asc); o.i16(desc); o.i16(0); // sTypoAscender/Descender/LineGap
+    o.u16(asc); o.u16(-desc);          // usWinAscent / usWinDescent
+    o.u32(1); o.u32(0);  // ulCodePageRange1 bit0 (Windows Latin1), Range2
+    o.i16(0); o.i16(0);  // sxHeight / sCapHeight (untracked — 0 is valid)
+    o.u16(0x20);         // usDefaultChar = space
+    o.u16(0x20);         // usBreakChar = space (the spec's recommended value)
+    o.u16(1);            // usMaxContext
     return o.array();
   }
 
@@ -517,17 +544,25 @@
       ["OS/2", buildOS2(font, upx, base)],
       ["post", buildPost(font, upx, base)]
     ];
+    // The sfnt spec — and Chromium's OTS ("Table directory is not correctly
+    // ordered") — require the table directory sorted by tag ascending; "OS/2"
+    // (0x4F) sorts before "cmap" (0x63). CoreText doesn't enforce this.
+    tables.sort(function (a, b2) { return a[0] < b2[0] ? -1 : a[0] > b2[0] ? 1 : 0; });
 
     var numTables = tables.length;
     var power = 1, entrySelector = 0;
     while (power * 2 <= numTables) { power *= 2; entrySelector++; }
-    var searchRange = power * 2;
+    // Table-directory records are 16 bytes wide: searchRange = 16 x 2^es,
+    // rangeShift = numTables*16 - searchRange. (The 2 x 2^es formula belongs
+    // to the cmap format-4 header, whose entries are 2 bytes wide — copying
+    // it here is exactly how the Windows/Chromium OTS failure shipped.)
+    var searchRange = power * 16;
 
     var out = new Writer();
     out.u32(0x00010000); // sfnt version (TrueType)
     out.u16(numTables);
     out.u16(searchRange); out.u16(entrySelector);
-    out.u16(numTables * 2 - searchRange);
+    out.u16(numTables * 16 - searchRange);
 
     var offset = 12 + numTables * 16, i, t;
     var dirEntries = [];
