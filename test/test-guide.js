@@ -84,6 +84,23 @@ test("guide: ink below a desc bound / left of an L bound reports label + oversho
   assertEqual(byBound.left.label, "L", "left violation names the guide");
 });
 
+test("guide: edge guides (off 0 / off dim) are valid positions and cross nothing [AB]", function () {
+  var f = BF.makeFont(8, 16);
+  f.guidelines.push({ o: "h", off: 0, label: GB.top, color: "#888888" });    // top edge of the cell
+  f.guidelines.push({ o: "h", off: 16, label: GB.bottom, color: "#888888" }); // bottom edge of the cell
+  f.guidelines.push({ o: "v", off: 0, label: GB.left, color: "#cc8800" });   // left edge of the cell
+  f.guidelines.push({ o: "v", off: 8, label: GB.right, color: "#cc8800" });  // right edge of the cell
+  BF.setPixel(f, 4, 0, 0, 1);    // top-left corner pixel (on two edges)
+  BF.setPixel(f, 4, 7, 15, 1);   // bottom-right corner pixel (on two edges)
+  assertEqual(BF.guideViolations(f, 4).length, 0, "ink at the cell edges is inside edge guides");
+  // Pull the right bound one pixel in and the edge ink is flagged.
+  f.guidelines[3].off = 7; // line between cols 6|7 -> col 7 ink is past it
+  var v = BF.guideViolations(f, 4);
+  assertEqual(v.length, 1, "edge guide moved one pixel in flags the edge ink");
+  assertEqual(v[0].bound, "right", "right bound flagged");
+  assertEqual(v[0].over, 1, "overshoot is 1px");
+});
+
 test("guide: blank glyph and missing bounds produce no violations", function () {
   var f = BF.makeFont(8, 16);
   f.guidelines.push({ o: "h", off: 2, label: GB.top, color: "#888888" });

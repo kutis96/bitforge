@@ -14,6 +14,9 @@
  * (date "" = pre-dated history, not shown in the UI)
  */
 var BF_CHANGELOG = [
+  { version: "0.27.5", date: "2026-11-25", changes: [
+    "Editor guidelines now reach both cell edges: a guide's position is valid from `0` (the top/left edge of the glyph) to the full cell size (the bottom/right edge). Drag an unlocked guide to the very edge and it sticks there instead of one pixel short. The editor's outermost grid lines are drawn again — they used to be rendered off-canvas and invisible."
+  ] },
   { version: "0.27.4", date: "2026-11-25", changes: [
     "The default sample is now **spcct16** \u2014 spacecat's hand-drawn, full-size, cozy 8\u00d716 face (short descenders) for the yet-unfinished spcct16 FPGA-based computer, slightly modified for Bitforge. It loads on first run (when served) and opens on the glyph **b**; **Small & Cozy** remains available as a sample."
   ] },

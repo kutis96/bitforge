@@ -640,7 +640,7 @@ test("dom: mousedown on a menu item must NOT close the menu (real-browser click 
 
 test("dom: About modal head + browser tab show the app version (DECISIONS #56)", function () {
   assert(/^\d+\.\d+\.\d+$/.test(BF.VERSION), "BF.VERSION is semver-ish: " + BF.VERSION);
-  assertEqual(BF.VERSION, "0.27.4", "pinned version — bump this test when you bump the app");
+  assertEqual(BF.VERSION, "0.27.5", "pinned version — bump this test when you bump the app");
   var els = globalThis.__stub.els;
   assertEqual(els["about-title"].textContent, "bitforge " + BF.VERSION, "modal head shows name + version");
   assertEqual(document.title, "bitforge " + BF.VERSION, "browser tab shows name + version");
@@ -1306,4 +1306,67 @@ test("dom: selection drag — plain drag cuts, Ctrl/Alt drag copies; paste mode 
   app.setPasteMode("merge");
   app.setTool("paint");
   BF.clearGlyph(f, code);
+});
+
+// ---------- guides at the cell edge (DECISIONS #86) ----------
+
+test("dom: guide can be dragged to the far edge (off = dim), stays grabbable, draws inside", function () {
+  var app = globalThis.__stub.app, els = globalThis.__stub.els;
+  var f = app.state.font;
+  var savedLen = f.guidelines.length;
+  var savedLock = app.state.glocked;
+  try {
+    app.addGuide("descender"); // preset h guide at height-1 (between rows 14|15)
+    var g = f.guidelines[f.guidelines.length - 1];
+    assertEqual(g.o, "h", "descender preset is horizontal");
+    assertEqual(g.off, f.height - 1, "preset lands at height-1");
+
+    // Drag it past the bottom edge: the new clamp must land it ON dim.
+    app.state.glocked = false;
+    var S = 22; // editorScale for the 8x16 test font
+    app.onEditorDown({ clientX: 5, clientY: g.off * S, button: 0, preventDefault: function () {} });
+    app.onEditorMove({ clientX: 5, clientY: 10000, preventDefault: function () {} });
+    app.onEditorUp();
+    assertEqual(g.off, f.height, "dragged to the far edge: off = dim (was clamped to dim-1 before #86)");
+
+    // The edge guide is still grabbable at its DRAWN position (dim*S-0.5).
+    var hit = app.guidelineAt({ clientX: 5, clientY: f.height * S - 0.5 });
+    assert(hit === g, "guidelineAt finds the edge guide at the drawn position");
+
+    // And it draws INSIDE the canvas (dim*S-0.5), not off-canvas (dim*S+0.5).
+    var ctx = els["editor"]._ctx;
+    var n0 = ctx.path.length;
+    app.drawEditor();
+    var pts = ctx.path.slice(n0);
+    var found = false;
+    for (var i = 0; i < pts.length; i++)
+      if (Math.abs(pts[i][1] - (f.height * S - 0.5)) < 0.001) found = true;
+    assert(found, "far-edge guide line drawn at dim*S-0.5 (inside the canvas)");
+    var offCanvas = false;
+    for (i = 0; i < pts.length; i++)
+      if (pts[i][1] > f.height * S) offCanvas = true;
+    assert(!offCanvas, "nothing drawn past the bottom edge of the canvas");
+  } finally {
+    app.state.glocked = savedLock;
+    while (f.guidelines.length > savedLen) f.guidelines.pop();
+    app.drawEditor();
+  }
+});
+
+test("dom: addGuide clamps presets into 0..dim inclusive", function () {
+  var app = globalThis.__stub.app;
+  var f = app.state.font;
+  var savedLen = f.guidelines.length;
+  try {
+    app.addGuide("ascender"); app.addGuide("descender");
+    app.addGuide("left"); app.addGuide("right");
+    for (var i = 0; i < 4; i++) {
+      var g = f.guidelines[savedLen + i];
+      var max = (g.o === "h") ? f.height : f.width;
+      assert(g.off >= 0 && g.off <= max, g.label + " off " + g.off + " within 0.." + max);
+    }
+  } finally {
+    while (f.guidelines.length > savedLen) f.guidelines.pop();
+    app.drawEditor();
+  }
 });

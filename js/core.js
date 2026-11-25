@@ -26,7 +26,7 @@
    * (1-indexed) in the STATUS.md "Current state" list; PATCH = 0 for a single
    * chunk, the sub-index for a wave (chunk L.3 shipped 0.12.3). Bump in the
    * same commit as the chunk — a headless test pins the exact value. */
-  var VERSION = "0.27.4";
+  var VERSION = "0.27.5";
 
   /* ============================================================
    * [1] Font model
@@ -646,8 +646,14 @@
       font.guidelines = [];
       for (var k = 0; k < o.g.length; k++) {
         var e = o.g[k];
-        if (e && (e.o === "h" || e.o === "v") && isFinite(e.off) && e.off === (e.off | 0))
+        if (e && (e.o === "h" || e.o === "v") && isFinite(e.off) && e.off === (e.off | 0)) {
+          // Offsets are grid boundaries BETWEEN pixels: 0..dim inclusive
+          // (DECISIONS #86). Sanitize out-of-range values into that window
+          // (a corrupt 999 used to be kept and drew off-canvas).
+          var gmax = (e.o === "h") ? font.height : font.width;
+          e.off = (e.off < 0) ? 0 : ((e.off > gmax) ? gmax : e.off);
           font.guidelines.push({ o: e.o, off: e.off, label: String(e.label != null ? e.label : e.o), color: String(e.color != null ? e.color : "#444444") });
+        }
       }
     }
     if (Array.isArray(o.s) && o.s.length === NUM_GLYPHS) {

@@ -58,6 +58,9 @@
 - [x] **[Z.2] TTF OTS compliance** (2026-11-25): `js/ttf.js` now passes Chromium's strict **OTS** (table-directory search/range ×16 + tags ascending, `OS/2` v4/96 B, cmap `[0xFFFF,0xFFFF]` terminator, `fsSelection` 0x40) — fixed the Windows/Chromium export; the one failing test was a **test-side** reservedPad offset bug (builder was correct); `tools/verify-ttf.py` gained a hard `check_sfnt_structure()` in both modes; verified clean by a real OTS build + fontTools cross-check — 238 tests
 - [x] **[Z.3] BDF badges → Alpha** (2026-11-25): relabeled **Open BDF…** / **Export BDF font** badges **Beta → Alpha** (untested in other tools); **Export TTF font** + **Dogfood this font** keep **Beta** (TTF now OTS-clean, pending confirmation in proper font-authoring tools) — 238 tests
 - [x] **[Z.4] Default sample → spcct16** (2026-11-25): added **`spcct16-demo.bitforge`** (spacecat's hand-drawn spcct16 face) to `samples/` as the new **default** (Small & Cozy stays, no longer default); opens on glyph **b** (0x62); `run-tests.sh` sample check now validates the manifest generically — 238 tests
+- [x] **[AB] Guides can sit on the cell edge** (2026-11-25): guide offsets valid over **0..dim inclusive** (both cell edges reachable); far edge draws inside the canvas; blob sanitizes offsets; QA math pinned — 242 tests
+- [ ] **[AC] Preview tab enhancements** (planned — see Plan below)
+- [ ] **[AD] Nonsense text generators** (planned — see Plan below)
 - [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -105,7 +108,8 @@ Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–
 | 0.27.1 | [AA.1] Changelog markdown rendering (`BF.mdLite`: **bold** + `inline code`) |
 | 0.27.2 | [Z.2] TTF OTS compliance (OTS-clean for Windows/Chromium) |
 | 0.27.3 | [Z.3] BDF badges → Alpha (TTF/Dogfood keep Beta) |
-| **0.27.4** (current) | [Z.4] Default sample → spcct16 (opens on 'b'; Small & Cozy stays) |
+| 0.27.4 | [Z.4] Default sample → spcct16 (opens on 'b'; Small & Cozy stays) |
+| **0.27.5** (current) | [AB] Guides can sit on the cell edge (offset 0..dim) |
 
 **Lettering note (2026-11-15, chunk M):** chunk letters drifted at some point (the I-wave landed after L); they now follow list position. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Git commit subjects still use the old letters.
 
@@ -468,11 +472,35 @@ User request (2026-11-23): rearrange the menu bar so it's obvious what each item
 - **Tests (196 total, count unchanged):** the menu-mechanics tests in `test-dom.js` now drive **all four** menus (open/switch/hover-switch/item-click-close/toggle/Escape) — they are the guard that the JS wiring follows the DOM. The font-info test reads `els["font-info"]` after `mb-font`; the About-modal test dispatches `mb-app`.
 - **Docs:** DECISIONS #81; DESIGN.md menu-bar paragraph + Font/preview persistence bullets; TESTING.md menu bullets; README menu references; version pin 0.25.0; changelog 0.25.0 in both files. (Also back-filled: [X] was missing from the Current-state list and the Versions table — fixed here.)
 
+### [Z] Dogfooding mode + Export TTF (`js/ttf.js` + `tools/verify-ttf.py` + `js/app.js` + `index.html` + `test/` + docs, 2026-11-24)
+**Backfilled** (2026-11-25 — these chunks were recorded in the Plan section but never got Completed entries). App UI renders in the font being edited (live, debounced rebuild; blank glyphs left unmapped ⇒ per-codepoint system fallback; `#toolbar` stays on the system stack); `js/ttf.js` = minimal deterministic TrueType builder (shared by dogfood + **Project → Export TTF font**, `Alt+Shift+T`); `tools/verify-ttf.py` = CoreText oracle. DECISIONS #82 (incl. the glyf-flag-0x01 lesson) + DESIGN.md "Dogfooding + TTF export". 225/225.
+
+### [Z.1] Beta badges (+ 0.26.2 wrap fix) (`index.html` + `css/style.css` + docs, 2026-11-24)
+**Beta** badge next to **Dogfood this font**, **Open BDF…**, **Export BDF font**, **Export TTF font** (badge sits right after the label); 0.26.2: menu items never wrap (`white-space: nowrap` + shrink-to-fit). DECISIONS #82 follow-up.
+
+### [AA] QA check properties (`js/core.js` + `js/app.js` + `test/` + docs, 2026-11-24)
+Per-check `props` declarations; edge-ink **ignore-edges** mask (`BF.EDGE_NAMES`/`ignoreEdges`/`activeEdges`), per-font values in `font.checkProps` (blob `cp` field, sanitized); the QA summary strip renders declared props as inline checkboxes generically (no per-property UI code, no settings entry). DECISIONS #83. 233/233.
+
+### [AA.1] Changelog markdown rendering (`js/core.js` + `js/app.js` + `test/` + docs, 2026-11-24)
+`BF.mdLite` (pure, escape-first) renders the in-app changelog's `**bold**` + `` `code` `` subset safely; authoring rule in CHANGELOG.md. DECISIONS #84. 237/237.
+
+### [Z.2] TTF OTS compliance (`js/ttf.js` + `tools/verify-ttf.py` + `test/` + docs, 2026-11-25)
+Fixed 5 OTS-strict bugs (table-directory formula ×16 + tag order, `OS/2` v4, cmap `[0xFFFF,0xFFFF]` terminator, `fsSelection` 0x40) — the Windows/Chromium export; the one failing test was a test-side offset bug (builder was correct). Real OTS build clean; fontTools cross-check. DECISIONS #85 (three-oracle rule in AGENTS.md). 238/238.
+
+### [Z.3] BDF badges → Alpha (`index.html` + docs, 2026-11-25)
+**Open BDF…** / **Export BDF font** relabeled Beta → Alpha (untested in other tools); TTF + Dogfood keep Beta. DECISIONS #82 follow-up. 238/238.
+
+### [Z.4] Default sample → spcct16 (`samples/` + `test/run-tests.sh` + docs, 2026-11-25)
+`spcct16-demo.bitforge` (spacecat's hand-drawn face, internal name `spcct16-demo`, `selCode` 98) added as the **default** sample (Small & Cozy stays, no longer default); manifest blurb per user; `run-tests.sh` sample check validates the manifest generically (one default, all valid, default opens at 0x62). DECISIONS #78 follow-up. 238/238.
+
+### [AB] Guides can sit on the cell edge (`js/app.js` + `js/core.js` + `test/` + docs, 2026-11-25)
+User-reported OBOE: guides couldn't reach the far cell edge (clamped to `dim-1`; a line at `off=dim` drew off-canvas). A guide offset is a grid boundary BETWEEN pixels, so **0..dim inclusive** are all real positions. `addGuide`/`moveGuide` clamp to `0..dim`; `drawEditor` draws guides AND the cell grid at the far edge inside the canvas (`dim·s−0.5` — the outermost grid lines were previously invisible); `guidelineAt` hit-tests at the drawn position (edge guides stay grabbable); `fontFromBlob` sanitizes offsets into `[0, dim]`. QA math already handled edge offsets correctly (pinned now); `resizeFont` already clamps to `[0, newDim]`. DECISIONS #86. **Tests:** +4 → 242/242; stub canvas ctx now records `moveTo`/`lineTo` (`ctx.path`) for position asserts. **Browser-verify (user):** add/drag a guide to the very bottom/right edge — it should stick there, stay visible, and still be grabbable; the cell's outer border lines are now visible.
+
 ## Plan — this round (user request 2026-11-25, easiest → hardest)
 
 > The previous round's plan ([X]–[Z.4], [AA], [AA.1], [P], [Q], [S], [T], [O.1]–[O.8]) is fully **done** — see the Completed section above.
 
-### [AB] Guides can sit on the far edge (offset 0..dim) — 0.27.5
+### [AB] Guides can sit on the far edge (offset 0..dim) — **done** (2026-11-25; see Completed + DECISIONS #86) → 0.27.5
 User: “I found an OBOE bug with the guides — they should actually be able to go to the size + 1 as max position — if I want to put the guide on the edge… it is possible to go to 0, making the guide show on the 0-edge of the glyph; but it's not possible to go to the other edge of the glyph.” (Clarified: 1-indexed slip — **0..dim** inclusive is correct.)
 - A guide offset is a grid boundary BETWEEN pixels: `0` = top/left edge of the cell, `dim` = bottom/right edge. Both ends must be reachable; today the app clamps to `0..dim-1` and a line at `off=dim` would draw off-canvas (`dim·s+0.5`), so the far edge was unreachable.
 - Fix (app.js): `addGuide`/`moveGuide` clamp to `0..dim`; `drawEditor` draws guides AND the cell grid at the far edge INSIDE the canvas (`dim·s−0.5`); `guidelineAt` hit-tests at the drawn position (so an edge guide still drags cleanly).

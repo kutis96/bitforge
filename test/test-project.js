@@ -44,6 +44,25 @@ test("project: fontFromBlob sanitizes bad data", function () {
   assert(!f.silences["bogus"], "unknown check id dropped");
 });
 
+test("project: fontFromBlob clamps guide offsets into [0, dim] [AB]", function () {
+  var f = BF.fontFromBlob({
+    w: 6, h: 4,
+    g: [
+      { o: "h", off: 4, label: "desc" },    // bottom edge — valid, kept
+      { o: "h", off: 9, label: "waypast" }, // clamps to height
+      { o: "h", off: -2, label: "neg" },    // clamps to 0
+      { o: "v", off: 6, label: "R" },       // right edge — valid, kept
+      { o: "v", off: 42, label: "far" }     // clamps to width
+    ]
+  }, CHECK_IDS);
+  assertEqual(f.guidelines.length, 5, "integer guides are clamped, not dropped");
+  assertEqual(f.guidelines[0].off, 4, "h off = height kept");
+  assertEqual(f.guidelines[1].off, 4, "h off 9 clamped to height");
+  assertEqual(f.guidelines[2].off, 0, "h off -2 clamped to 0");
+  assertEqual(f.guidelines[3].off, 6, "v off = width kept");
+  assertEqual(f.guidelines[4].off, 6, "v off 42 clamped to width");
+});
+
 test("project: fontFromBlob drops silences when no known-check list given", function () {
   var f = BF.fontFromBlob({ w: 6, h: 4, si: { edge: { 3: true } } }, null);
   assert(f, "font still built");

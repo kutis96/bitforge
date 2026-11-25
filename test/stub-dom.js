@@ -16,8 +16,11 @@
       // fillStyle of every fillRect, in call order (DECISIONS #79 tests assert
       // the theme-aware glyph ink drawn on the editor/selector canvases).
       rects: [],
+      // [x, y] of every moveTo/lineTo, in call order (DECISIONS #86 tests
+      // assert WHERE lines are drawn, e.g. a guide at the far cell edge).
+      path: [],
       fillRect: function (x, y, w, h) { this.rects.push(this.fillStyle); }, strokeRect: function () {}, clearRect: function () {},
-      beginPath: function () {}, moveTo: function () {}, lineTo: function () {},
+      beginPath: function () {}, moveTo: function (x, y) { this.path.push([x, y]); }, lineTo: function (x, y) { this.path.push([x, y]); },
       stroke: function () {}, fill: function () {}, drawImage: function () {},
       save: function () {}, restore: function () {}, setLineDash: function () {},
       getImageData: function () { return { data: [] }; },

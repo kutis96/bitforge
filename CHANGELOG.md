@@ -44,6 +44,14 @@ Rules:
 - Run `./test/run-tests.sh` before committing — the changelog data-sanity
   test is the safety net.
 
+## 0.27.5 (2026-11-25)
+
+- Editor guidelines now reach both cell edges: a guide's position is valid from
+  `0` (the top/left edge of the glyph) to the full cell size (the bottom/right
+  edge). Drag an unlocked guide to the very edge and it sticks there instead
+  of one pixel short. The editor's outermost grid lines are drawn again — they
+  used to be rendered off-canvas and invisible.
+
 ## 0.27.4 (2026-11-25)
 
 - The default sample is now **spcct16** — spacecat's hand-drawn, full-size,

@@ -788,9 +788,12 @@
     var tc = themeColors();
     setCanvasSize(c, f.width * s, f.height * s);
     ctx.fillStyle = tc.bg; ctx.fillRect(0, 0, c.width, c.height);
+    // Grid lines sit on grid boundaries (between pixels). The far-edge boundary
+    // (off = dim) draws INSIDE the canvas at dim*s-0.5 — dim*s+0.5 would be
+    // off-canvas and invisible (DECISIONS #86).
     ctx.strokeStyle = tc.grid; ctx.lineWidth = 1; ctx.beginPath();
-    for (var gx = 0; gx <= f.width; gx++) { ctx.moveTo(gx * s + 0.5, 0); ctx.lineTo(gx * s + 0.5, c.height); }
-    for (var gy = 0; gy <= f.height; gy++) { ctx.moveTo(0, gy * s + 0.5); ctx.lineTo(c.width, gy * s + 0.5); }
+    for (var gx = 0; gx <= f.width; gx++) { var glx = Math.min(gx * s, c.width - 1) + 0.5; ctx.moveTo(glx, 0); ctx.lineTo(glx, c.height); }
+    for (var gy = 0; gy <= f.height; gy++) { var gly = Math.min(gy * s, c.height - 1) + 0.5; ctx.moveTo(0, gly); ctx.lineTo(c.width, gly); }
     ctx.stroke();
     // reference glyph underlay (Shift-click in the sidebar), behind the ink
     if (state.ref != null && state.ref !== state.selected) {
@@ -801,12 +804,15 @@
       for (var x = 0; x < f.width; x++)
         if (BF.getPixel(f, state.selected, x, y)) ctx.fillRect(x * s, y * s, s, s);
     // guidelines (per-font, shared; drawn on top so always visible)
+    // A guide's offset is a grid boundary BETWEEN pixels: 0 = the near edge of
+    // the cell, dim = the far edge (DECISIONS #86) — both valid positions. The
+    // far edge draws inside the canvas (dim*s-0.5), like the grid above.
     var gs = f.guidelines;
     for (var gi = 0; gi < gs.length; gi++) {
       var g = gs[gi];
       ctx.strokeStyle = g.color; ctx.lineWidth = 1; ctx.beginPath();
-      if (g.o === "h") { var gy2 = g.off * s + 0.5; ctx.moveTo(0, gy2); ctx.lineTo(c.width, gy2); }
-      else { var gx2 = g.off * s + 0.5; ctx.moveTo(gx2, 0); ctx.lineTo(gx2, c.height); }
+      if (g.o === "h") { var gy2 = Math.min(g.off * s, c.height - 1) + 0.5; ctx.moveTo(0, gy2); ctx.lineTo(c.width, gy2); }
+      else { var gx2 = Math.min(g.off * s, c.width - 1) + 0.5; ctx.moveTo(gx2, 0); ctx.lineTo(gx2, c.height); }
       ctx.stroke();
     }
     // selection (or the in-progress marquee) — over everything (DECISIONS #75)
@@ -953,8 +959,10 @@
   function addGuide(key) {
     var p = GUIDE_PRESETS[key];
     if (!p) return;
+    // Valid range is 0..max INCLUSIVE: a guide sits between pixels, so the
+    // far edge (off = max) is a real position (DECISIONS #86).
     var max = p.o === "h" ? state.font.height : state.font.width;
-    state.font.guidelines.push({ o: p.o, off: clamp(p.off(state.font), 0, max - 1), label: p.label, color: p.color });
+    state.font.guidelines.push({ o: p.o, off: clamp(p.off(state.font), 0, max), label: p.label, color: p.color });
     renderGuideList(); drawEditor(); saveLS();
   }
   function deleteGuide(idx) {
@@ -991,7 +999,10 @@
     var gs = f.guidelines;
     for (var i = 0; i < gs.length; i++) {
       var g = gs[i];
-      var d = (g.o === "h") ? Math.abs(dy - g.off * s) : Math.abs(dx - g.off * s);
+      // Hit-test at the DRAWN position (far edge sits at dim*s-0.5, not dim*s+0.5)
+      // so an edge guide stays grabbable (DECISIONS #86).
+      var pos = (g.o === "h") ? Math.min(g.off * s, c.height - 1) : Math.min(g.off * s, c.width - 1);
+      var d = (g.o === "h") ? Math.abs(dy - pos) : Math.abs(dx - pos);
       if (d <= bestD) { bestD = d; best = g; }
     }
     return best;
@@ -1001,7 +1012,8 @@
     var s = editorScale();
     var g = guideDrag.g;
     var v = (g.o === "h") ? Math.round((evt.clientY - r.top) / s) : Math.round((evt.clientX - r.left) / s);
-    v = clamp(v, 0, ((g.o === "h") ? f.height : f.width) - 1);
+    // 0..dim inclusive — the far edge is a valid guide position (DECISIONS #86).
+    v = clamp(v, 0, (g.o === "h") ? f.height : f.width);
     if (v !== g.off) { g.off = v; guideDrag.moved = true; drawEditor(); renderGuideList(); }
   }
 
@@ -2375,6 +2387,7 @@
     globalThis.__stub.app = { state: state, shortcuts: shortcuts, selectGlyph: selectGlyph, toggleKeysCard: toggleKeysCard,
       setStatus: setStatus, qaRefresh: qaRefresh, qaRows: qaComputeRows, qaStale: qaStale, atlasCellAt: atlasCellAt,
       toggleSilence: toggleSilence, qaChecks: qaChecks, guidePresets: GUIDE_PRESETS,
+      addGuide: addGuide, moveGuide: moveGuide, guidelineAt: guidelineAt, drawEditor: drawEditor,
       qaPropValue: qaPropValue, qaPropInputId: qaPropInputId, onQaPropChange: onQaPropChange,
       importBdfText: importBdfText, exportBdf: exportBdf,
       importProjectText: importProjectText, projectExportText: projectExportText, exportProject: exportProject,
