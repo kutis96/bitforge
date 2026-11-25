@@ -22,10 +22,19 @@ if ! command -v python3 >/dev/null 2>&1; then
 fi
 python3 - <<'PY'
 import json
-o = json.load(open("samples/small-and-cozy.bitforge"))
-assert o["app"] == "bitforge" and o["kind"] == "font-project", "sample: not a bitforge project"
-assert (o.get("settings") or {}).get("selCode") == 66, "sample: selCode must be 66 (0x42 'B')"
-print("  ok   sample: shipped .bitforge is valid and opens at 0x42 (DECISIONS #80)")
+# [Z.4] default sample is spcct16 (opens at 'b'); validate every shipped sample.
+manifest = json.load(open("samples/manifest.json"))
+assert isinstance(manifest, list) and manifest, "manifest: non-empty array"
+defaults = [e for e in manifest if e.get("default") is True]
+assert len(defaults) == 1, "manifest: exactly one default sample (got %d)" % len(defaults)
+for e in manifest:
+    o = json.load(open("samples/" + e["file"]))
+    assert o.get("app") == "bitforge" and o.get("kind") == "font-project", "sample %r: not a bitforge project" % e["id"]
+    assert o["font"]["w"] >= 1 and o["font"]["h"] >= 1, "sample %r: bad dims" % e["id"]
+d = defaults[0]
+o = json.load(open("samples/" + d["file"]))
+assert (o.get("settings") or {}).get("selCode") == 98, "default sample: selCode must be 98 (0x62 'b')"
+print("  ok   samples: %d shipped .bitforge(s) valid; default '%s' opens at 0x62 (DECISIONS #80)" % (len(manifest), d["id"]))
 PY
 [ $? -eq 0 ] || exit 1
 

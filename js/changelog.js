@@ -14,6 +14,9 @@
  * (date "" = pre-dated history, not shown in the UI)
  */
 var BF_CHANGELOG = [
+  { version: "0.27.4", date: "2026-11-25", changes: [
+    "The default sample is now **spcct16** \u2014 spacecat's hand-drawn, full-size, cozy 8\u00d716 face (short descenders) for the yet-unfinished spcct16 FPGA-based computer, slightly modified for Bitforge. It loads on first run (when served) and opens on the glyph **b**; **Small & Cozy** remains available as a sample."
+  ] },
   { version: "0.27.3", date: "2026-11-25", changes: [
     "Relabeled the **Open BDF\u2026** and **Export BDF font** badges from **Beta** to **Alpha** (they are not yet tested in other tools); **Export TTF font** and **Dogfood this font** keep their **Beta** badge \u2014 the TTF now passes Chromium's strict OTS validation."
   ] },

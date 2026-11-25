@@ -1,9 +1,15 @@
 [
   {
+    "id": "spcct16",
+    "name": "spcct16",
+    "description": "A full-size, cozy 8×16 face with short descenders, hand-drawn by spacecat. Made for the yet-unfinished spcct16 FPGA-based computer and slightly modified for Bitforge.",
+    "file": "spcct16-demo.bitforge",
+    "default": true
+  },
+  {
     "id": "small-and-cozy",
     "name": "Small & Cozy",
-    "description": "A compact, cozy 8\u00d716 terminal face — spacecat's hand-drawn sample.",
-    "file": "small-and-cozy.bitforge",
-    "default": true
+    "description": "A compact, cozy 8×16 terminal face — spacecat's hand-drawn sample.",
+    "file": "small-and-cozy.bitforge"
   }
 ]

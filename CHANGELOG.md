@@ -44,6 +44,13 @@ Rules:
 - Run `./test/run-tests.sh` before committing — the changelog data-sanity
   test is the safety net.
 
+## 0.27.4 (2026-11-25)
+
+- The default sample is now **spcct16** — spacecat's hand-drawn, full-size,
+  cozy 8×16 face (short descenders) for the yet-unfinished spcct16 FPGA-based
+  computer, slightly modified for Bitforge. It loads on first run (when served)
+  and opens on the glyph **b** (0x62); **Small & Cozy** remains available as a sample.
+
 ## 0.27.3 (2026-11-25)
 
 - Relabeled the **Open BDF…** and **Export BDF font** badges from **Beta** to

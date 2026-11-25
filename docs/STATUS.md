@@ -57,6 +57,7 @@
 - [x] **[AA.1] Changelog markdown rendering** (2026-11-24): `BF.mdLite` (pure, escape-first) renders the limited subset — `**bold**` + `inline code` — in the in-app changelog/what's-new modals — 237 tests
 - [x] **[Z.2] TTF OTS compliance** (2026-11-25): `js/ttf.js` now passes Chromium's strict **OTS** (table-directory search/range ×16 + tags ascending, `OS/2` v4/96 B, cmap `[0xFFFF,0xFFFF]` terminator, `fsSelection` 0x40) — fixed the Windows/Chromium export; the one failing test was a **test-side** reservedPad offset bug (builder was correct); `tools/verify-ttf.py` gained a hard `check_sfnt_structure()` in both modes; verified clean by a real OTS build + fontTools cross-check — 238 tests
 - [x] **[Z.3] BDF badges → Alpha** (2026-11-25): relabeled **Open BDF…** / **Export BDF font** badges **Beta → Alpha** (untested in other tools); **Export TTF font** + **Dogfood this font** keep **Beta** (TTF now OTS-clean, pending confirmation in proper font-authoring tools) — 238 tests
+- [x] **[Z.4] Default sample → spcct16** (2026-11-25): added **`spcct16-demo.bitforge`** (spacecat's hand-drawn spcct16 face) to `samples/` as the new **default** (Small & Cozy stays, no longer default); opens on glyph **b** (0x62); `run-tests.sh` sample check now validates the manifest generically — 238 tests
 - [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
 Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–G) are smoke-tested headlessly and need browser verification for visuals.
@@ -103,7 +104,8 @@ Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–
 | 0.27.0 | [AA] QA check properties (edge-ink ignoreEdges mask, per-font `checkProps`) |
 | 0.27.1 | [AA.1] Changelog markdown rendering (`BF.mdLite`: **bold** + `inline code`) |
 | 0.27.2 | [Z.2] TTF OTS compliance (OTS-clean for Windows/Chromium) |
-| **0.27.3** (current) | [Z.3] BDF badges → Alpha (TTF/Dogfood keep Beta) |
+| 0.27.3 | [Z.3] BDF badges → Alpha (TTF/Dogfood keep Beta) |
+| **0.27.4** (current) | [Z.4] Default sample → spcct16 (opens on 'b'; Small & Cozy stays) |
 
 **Lettering note (2026-11-15, chunk M):** chunk letters drifted at some point (the I-wave landed after L); they now follow list position. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Git commit subjects still use the old letters.
 
@@ -521,6 +523,13 @@ User: Export TTF is broken on Windows/Chromium (OTS: bad table-directory searchR
 
 ### [Z.3] BDF badges → Alpha — **done** (2026-11-25; 0.27.3)
 User: keep the badges, but relabel the BDF import/export as **Alpha** (not yet tested in other tools) while TTF genuinely works now. `index.html` badge text on **Open BDF…** + **Export BDF font** changed `Beta → Alpha`; **Export TTF font** + **Dogfood this font** keep **Beta**. The badge class (`.mi-badge`) is content-agnostic and no test/CSS depends on the literal text, so it's a two-word edit. See DECISIONS #82 ([Z.3] follow-up). **Tests:** 238/238 (version pin + changelog sanity only).
+
+### [Z.4] Default sample → spcct16 — **done** (2026-11-25; 0.27.4)
+User: make the attached spcct16 face the default-loaded sample (shipped as **`spcct16-demo.bitforge`**), selected glyph **b** (0x62); blurb should note it's spacecat's hand-drawn spcct16 face (this version slightly modified to show Bitforge's capabilities). 
+- **`samples/`** gained `spcct16-demo.bitforge` (the user's file, renamed, with internal name `spcct16-demo`, then a surgical `"selCode": 121 → 98` edit — preserves the app's exact serialization).
+- **`samples/manifest.json`:** new `spcct16` entry with `default: true` + the requested blurb; Small & Cozy dropped the `default` flag (still listed/available).
+- **`test/run-tests.sh`:** the shipped-sample check now reads the **manifest** and asserts exactly one default, every listed `.bitforge` is a valid project, and the default opens at **0x62** (was hardcoded small-and-cozy @ 0x42).
+- No code change to the sample pipeline — the headless tests use a fake manifest, so the real folder/manifest are the source of truth. See DECISIONS #78 ([Z.4] follow-up). **Tests:** 238/238.
 
 **[N] QA checks are fully done** (N.1 + N.2 + N.3 — both deferred checks #46/#47 shipped with per-glyph silencing).
 
