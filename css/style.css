@@ -231,6 +231,11 @@ input, textarea { background: var(--field-bg); color: var(--ink); }
 .tools .selinfo { font-size: 11px; color: var(--muted); margin-right: 2px; }
 .panel-head label { font-size: 13px; display: inline-flex; gap: 6px; align-items: center; }
 .panel-head input[type="number"] { width: 60px; font: inherit; padding: 2px 4px; border: 1px solid var(--line-strong); border-radius: 3px; }
+/* Nonsense-generator icon buttons (chunk [AD], DECISIONS #90): compact icon-only
+   buttons in the Preview head; the die+pen / die+code SVGs follow the theme ink. */
+.genbtns { display: inline-flex; gap: 6px; }
+button.iconbtn { padding: 3px 5px; display: inline-flex; align-items: center; justify-content: center; line-height: 0; }
+button.iconbtn svg { display: block; }
 .spacer { flex: 1; }
 
 /* ---------- canvas surfaces ---------- */

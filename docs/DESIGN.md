@@ -69,7 +69,7 @@ Black-on-white, monospace UI, terminal-tool aesthetic. **No green/amber.**
 
 ## Modules
 
-The code is split into two files: **`js/core.js`** (pure, DOM-free, exposes global `BF`, unit-testable under `jsc`) and **`js/app.js`** (DOM wiring: canvas, events, file ops). Only `core.js` is covered by headless tests.
+Pure, DOM-free logic lives in **`js/core.js`** (global `BF`) plus a few standalone pure modules — **`js/ttf.js`** (global `BF_TTF`, TrueType builder), **`js/nonsense.js`** (global `BF_NS`, preview sample-text generators, chunk [AD]), and **`js/changelog.js`** (`BF_CHANGELOG` data). All are unit-tested under `jsc`. **`js/app.js`** holds the DOM wiring (canvas, events, file ops) and is verified in a browser.
 
 | Module | Responsibility |
 |--------|----------------|
@@ -81,6 +81,7 @@ The code is split into two files: **`js/core.js`** (pure, DOM-free, exposes glob
 | pngio    | PNG import (atlas→Font) and export (Font→PNG via `<canvas>`) |
 | bdfio    | BDF import (first face) and export (Font→BDF, 256 chars) |
 | verilog  | Font → `$readmemb` binary text |
+| nonsense | Preview sample-text generators (`BF_NS.prose(rng)` / `BF_NS.code(rng)`), injectable rng, pure + deterministic (chunk [AD], DECISIONS #90) |
 | qa       | glyph status, stale-aware reports table, extensible check registry |
 | ui       | tab switching, control wiring, toasts, small DOM helpers |
 | main     | bootstrap, app state, file ops, localStorage persistence |
@@ -120,6 +121,7 @@ The code is split into two files: **`js/core.js`** (pure, DOM-free, exposes glob
 - **Effects on the atlas:** the Atlas tab renders every glyph with the *current* bold/slant settings (same state as the Preview tab — no separate controls). While slant is on, extra horizontal spacing is added between columns so slant spill stays legible.
 - **Inverted preview (theme-relative since DECISIONS #87):** the preview surfaces (text sample, atlas) default to **black-on-white in the light theme** and **white-on-black in the dark theme**; the *Inverted* toggle flips them **relative to the current theme** (light: on = white-on-black; dark: on = black-on-white) — and in Auto it follows live system changes, since `applyTheme()` redraws on scheme change. The editor and sidebar selector stay on their theme palettes (editing clarity, pixel-ink mental model).
 - **Reference glyph underlay:** when a reference glyph is set (Shift-click in the sidebar), the Edit tab draws it **behind** the active glyph in light gray, so variants can be shaped against a base.
+- **Sample-text generators (chunk [AD], DECISIONS #90):** two dice-icon buttons in the Preview head (die + pen, die + `</>`) insert generated **nonsense prose** or **plausible JS code** at the cursor. The pure generators are `BF_NS.prose(rng)` / `BF_NS.code(rng)` in `js/nonsense.js` (injectable rng ⇒ deterministic under `jsc`); the app passes `Math.random`. Insertion is `genInsert()` (replace a selection, or append with one blank line), sharing `commitInsert()` with click-to-add's `insertGlyphSeq()`.
 
 ## Preview text markup
 

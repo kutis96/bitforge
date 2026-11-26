@@ -4,6 +4,7 @@
 load("js/core.js");
 load("js/changelog.js"); // BF_CHANGELOG data (tested in test-changelog.js)
 load("js/ttf.js");       // BF_TTF — pure TTF builder (tested in test-ttf.js, used by app.js dogfooding)
+load("js/nonsense.js");  // BF_NS — pure nonsense prose/code generators (tested in test-nonsense.js; chunk [AD])
 load("test/harness.js");
 
 // Pure-logic modules
@@ -37,5 +38,6 @@ load("test/test-theme.js");
 load("test/test-preview.js");
 load("test/test-selcode.js");
 load("test/test-dogfood.js");
+load("test/test-nonsense.js"); // [AD] generators (pure) + Preview insert wiring (DOM seam)
 
 __runAll();

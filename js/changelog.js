@@ -14,6 +14,10 @@
  * (date "" = pre-dated history, not shown in the UI)
  */
 var BF_CHANGELOG = [
+  { version: "0.28.0", date: "2026-11-26", changes: [
+    "The **Preview** tab gained two **dice buttons** (die + pen, die + code) that generate sample text at the cursor: **nonsense prose** — grammatical English made of nonsense words (questions, exclamations, numbers, bracketed asides) — and **plausible code** — a small JavaScript snippet. A quick way to judge a face on real-shaped text without typing anything."
+  , "Generated text drops in exactly like typing: it replaces a selection, or appends with a blank line before it when there's already text (cursor lands right after)."
+  ] },
   { version: "0.27.8", date: "2026-11-26", changes: [
     "The **New font** dialog now has a **Name** field — name the face as you create it (blank falls back to `font`, the same rule as the Properties dialog; the name flows into the export filenames and the BDF header). The create toast shows the name when given."
   , "Fixed a long-standing spacing issue: the **Changelog** and the startup **What's new** modal's button row now has the same margin as the other dialogs' buttons (it hugged the modal's edge)."

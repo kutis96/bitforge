@@ -44,6 +44,17 @@ Rules:
 - Run `./test/run-tests.sh` before committing — the changelog data-sanity
   test is the safety net.
 
+## 0.28.0 (2026-11-26)
+
+- The **Preview** tab gained two **dice buttons** (die + pen, die + code) that
+  generate sample text at the cursor: **nonsense prose** — grammatical English
+  made of nonsense words (questions, exclamations, numbers, bracketed asides) —
+  and **plausible code** — a small JavaScript snippet. A quick way to judge a
+  face on real-shaped text without typing anything.
+- Generated text drops in exactly like typing: it replaces a selection, or
+  appends with a blank line before it when there's already text (cursor lands
+  right after).
+
 ## 0.27.8 (2026-11-26)
 
 - The **New font** dialog now has a **Name** field — name the face as you

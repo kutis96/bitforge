@@ -159,6 +159,29 @@
           <label title="Long lines wrap to fit the panel; untick for one long line with scrollbars"><input id="pv-wrap" type="checkbox" checked> wrap</label>
           <label title="Show or hide the text box (and its markup note) so the render stands alone"><input id="pv-showtext" type="checkbox" checked> text box</label>
           <label title="When on, double-clicking a glyph in the left selector inserts its &bsol;uXX at the cursor here (Preview tab only)"><input id="pv-insert" type="checkbox"> click to add</label>
+          <span class="genbtns" title="Generate sample text at the cursor: nonsense prose, or plausible code">
+            <button id="pv-gen-prose" type="button" class="iconbtn" title="Generate nonsense prose — grammatical English made of nonsense words" aria-label="Generate nonsense prose">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="2" y="2" width="12" height="12" rx="2.5"/>
+                <circle cx="5.3" cy="5.3" r="1.2" fill="currentColor" stroke="none"/>
+                <circle cx="8" cy="8" r="1.2" fill="currentColor" stroke="none"/>
+                <circle cx="10.7" cy="10.7" r="1.2" fill="currentColor" stroke="none"/>
+                <line x1="16" y1="21" x2="21.5" y2="15.5"/>
+                <circle cx="15.5" cy="21.5" r="1.4" fill="currentColor" stroke="none"/>
+              </svg>
+            </button>
+            <button id="pv-gen-code" type="button" class="iconbtn" title="Generate plausible code — a small JavaScript snippet" aria-label="Generate plausible code">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="2" y="2" width="12" height="12" rx="2.5"/>
+                <circle cx="5.3" cy="5.3" r="1.2" fill="currentColor" stroke="none"/>
+                <circle cx="8" cy="8" r="1.2" fill="currentColor" stroke="none"/>
+                <circle cx="10.7" cy="10.7" r="1.2" fill="currentColor" stroke="none"/>
+                <path d="M15.5 15.5 L12.5 18 L15.5 20.5"/>
+                <path d="M20 15.5 L23 18 L20 20.5"/>
+                <line x1="21" y1="15" x2="17" y2="21"/>
+              </svg>
+            </button>
+          </span>
           <span class="spacer"></span>
           <label title="Invert the preview surfaces RELATIVE to the current theme — light theme: white on black, dark theme: black on white. Exports stay black on white."><input id="pv-inverted" type="checkbox"> inverted</label>
         </div>
@@ -325,6 +348,7 @@
   <script src="js/core.js"></script>
   <script src="js/changelog.js"></script>
   <script src="js/ttf.js"></script>
+  <script src="js/nonsense.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

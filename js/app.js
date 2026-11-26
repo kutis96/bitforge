@@ -1946,22 +1946,44 @@
     settingsSet("pvInsert", v);
   }
 
+  // Write `ins` at selection [s,e) of textarea t: replace the selection, move
+  // the cursor just after the insert, persist the pvText setting, and redraw.
+  // Shared by click-to-add (\uXX) and the nonsense generators (DECISIONS #90).
+  function commitInsert(t, s, e, ins) {
+    t.value = t.value.slice(0, s) + ins + t.value.slice(e);
+    var pos = s + ins.length;
+    try { t.focus(); t.setSelectionRange(pos, pos); } catch (err) { /* stub: no selection API */ }
+    settingsSet("pvText", t.value);
+    drawPvText();
+  }
+  function selStartEnd(t) {
+    var len = t.value.length;
+    var s = (typeof t.selectionStart === "number" && t.selectionStart >= 0) ? Math.min(t.selectionStart, len) : len;
+    var e = (typeof t.selectionEnd === "number" && t.selectionEnd >= 0) ? Math.min(t.selectionEnd, len) : s;
+    return [s, e];
+  }
+
   // Insert a \uXX sequence at the preview text box's cursor (DECISIONS #87):
-  // replaces a selection, appends at the end otherwise; the cursor lands after
-  // the insert. The setting + render follow, exactly like typing.
+  // replaces a selection, appends at the end otherwise; the cursor lands after.
   function insertGlyphSeq(code) {
     var t = el.pvText;
     var h = (code & 0xff).toString(16).toUpperCase();
     if (h.length < 2) h = "0" + h;
-    var seq = "\\u" + h;
-    var len = t.value.length;
-    var s = (typeof t.selectionStart === "number" && t.selectionStart >= 0) ? Math.min(t.selectionStart, len) : len;
-    var e = (typeof t.selectionEnd === "number" && t.selectionEnd >= 0) ? Math.min(t.selectionEnd, len) : s;
-    t.value = t.value.slice(0, s) + seq + t.value.slice(e);
-    var pos = s + seq.length;
-    try { t.focus(); t.setSelectionRange(pos, pos); } catch (err) { /* stub: no selection API */ }
-    settingsSet("pvText", t.value);
-    drawPvText();
+    var se = selStartEnd(t);
+    commitInsert(t, se[0], se[1], "\\u" + h);
+  }
+
+  // Nonsense-text generators (DECISIONS #90, chunk [AD]): insert a block of
+  // generated prose/code at the cursor. Replaces a selection; when appending
+  // to existing text, puts one blank line before it. Cursor lands after.
+  function genInsert(text) {
+    var t = el.pvText;
+    var se = selStartEnd(t);
+    var s = se[0], e = se[1];
+    var ins = text;
+    if (s === e && t.value.length > 0)
+      ins = (/\n$/.test(t.value) ? "\n" : "\n\n") + text;
+    commitInsert(t, s, e, ins);
   }
   function setBaseline(v) {
     state.baseline = clamp(parseInt(v, 10), 0, state.font.height - 1);
@@ -2219,6 +2241,7 @@
       atBold: $("at-bold"), atItalic: $("at-italic"), atBaseline: $("at-baseline"), atInverted: $("at-inverted"),
       pvText: $("pv-text"), pvTextCanvas: $("pv-text-canvas"),
       pvWrap: $("pv-wrap"), pvShowText: $("pv-showtext"), pvInsert: $("pv-insert"), pvMarkupNote: $("pv-markup-note"),
+      pvGenProse: $("pv-gen-prose"), pvGenCode: $("pv-gen-code"),
       atlas: $("atlas"), toast: $("toast"),
       keysCard: $("keys-card"), keysList: $("keys-list"),
       btnKeys: $("btn-keys"), btnKeysClose: $("btn-keys-close"),
@@ -2463,6 +2486,13 @@
     bindToggle("pvWrap", setPvWrap);
     bindToggle("pvShowText", setPvShowText);
     bindToggle("pvInsert", setPvInsert);
+
+    // Nonsense generators (DECISIONS #90, chunk [AD]): two dice-icon buttons in
+    // the Preview head. Each generates fresh text (Math.random) and inserts it
+    // at the cursor. Pure generators live in js/nonsense.js (global BF_NS).
+    el.pvGenProse.addEventListener("click", function () { genInsert(BF_NS.prose(Math.random)); });
+    el.pvGenCode.addEventListener("click", function () { genInsert(BF_NS.code(Math.random)); });
+
     function bindBaselineInput(id) { el[id].addEventListener("input", function () { setBaseline(this.value); }); }
     bindBaselineInput("pvBaseline"); bindBaselineInput("atBaseline");
     el.pvText.addEventListener("input", function () { settingsSet("pvText", this.value); drawPvText(); });
@@ -2590,6 +2620,7 @@
       pvSurfaceDark: pvSurfaceDark, inkColor: inkColor, bgColor: bgColor,
       setInverted: setInverted, setPvShowText: setPvShowText, syncPvVisibility: syncPvVisibility,
       setPvWrap: setPvWrap, setPvInsert: setPvInsert, insertGlyphSeq: insertGlyphSeq,
+      genInsert: genInsert, commitInsert: commitInsert, selStartEnd: selStartEnd,
       drawPvText: drawPvText, drawAtlas: drawAtlas,
       exportTtf: exportTtf,
       dogfoodCSS: dogfoodCSS, applyDogfood: applyDogfood, toggleDogfood: toggleDogfood,
