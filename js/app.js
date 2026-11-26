@@ -93,6 +93,7 @@
     el.newResult.textContent = v.ok ? "\u2192 " + d.w + "\u00d7" + d.h : "invalid \u2014 " + v.error;
   }
   function openNewModal() {
+    el.newName.value = state.font ? state.font.name : "font";
     el.newW.value = String(state.font ? state.font.width : 8);
     el.newH.value = String(state.font ? state.font.height : 16);
     newRender();
@@ -104,9 +105,12 @@
     var d = newDims();
     var v = BF.validateDims(d.w, d.h);
     if (!v.ok) { toast(v.error, true); return; }
-    setFont(BF.makeFont(d.w, d.h));
+    var f = BF.makeFont(d.w, d.h);
+    var nm = BF.sanitizeFontName(el.newName.value);
+    if (nm) f.name = nm; // empty/invalid -> makeFont's default "font" (same rule as Properties, DECISIONS #70)
+    setFont(f);
     closeNewModal();
-    toast("New " + d.w + "\u00d7" + d.h + " font");
+    toast("New " + d.w + "\u00d7" + d.h + " font" + (nm ? ' "' + nm + '"' : ""));
   }
 
   // ---------- persistence (localStorage) ----------
@@ -2200,7 +2204,7 @@
       miResize: $("mi-resize"), rzModal: $("rz-modal"), rzClose: $("rz-close"), rzResult: $("rz-result"),
       rzWarn: $("rz-warn"), rzTop: $("rz-top"), rzBottom: $("rz-bottom"), rzLeft: $("rz-left"),
       rzRight: $("rz-right"), rzApply: $("rz-apply"), rzCancel: $("rz-cancel"),
-      newModal: $("new-modal"), newClose: $("new-close"), newW: $("new-w"), newH: $("new-h"),
+      newModal: $("new-modal"), newClose: $("new-close"), newName: $("new-name"), newW: $("new-w"), newH: $("new-h"),
       newResult: $("new-result"), newCreate: $("new-create"), newCancel: $("new-cancel"),
       cpModal: $("cp-modal"), cpClose: $("cp-close"), cpTitle: $("cp-title"), cpNote: $("cp-note"),
       cpInput: $("cp-input"), cpResult: $("cp-result"), cpOk: $("cp-ok"), cpCancel: $("cp-cancel"),

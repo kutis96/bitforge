@@ -648,7 +648,7 @@ test("dom: mousedown on a menu item must NOT close the menu (real-browser click 
 
 test("dom: About modal head + browser tab show the app version (DECISIONS #56)", function () {
   assert(/^\d+\.\d+\.\d+$/.test(BF.VERSION), "BF.VERSION is semver-ish: " + BF.VERSION);
-  assertEqual(BF.VERSION, "0.27.7", "pinned version — bump this test when you bump the app");
+  assertEqual(BF.VERSION, "0.27.8", "pinned version — bump this test when you bump the app");
   var els = globalThis.__stub.els;
   assertEqual(els["about-title"].textContent, "bitforge " + BF.VERSION, "modal head shows name + version");
   assertEqual(document.title, "bitforge " + BF.VERSION, "browser tab shows name + version");
@@ -1418,7 +1418,7 @@ test("dom: addGuide clamps presets into 0..dim inclusive", function () {
   }
 });
 
-test("dom: new-font modal — one form for width+height, live readout, create/cancel (chunk [AE])", function () {
+test("dom: new-font modal — one form (name + width + height), live readout, create/cancel (chunk [AE]; name field [AF])", function () {
   var app = globalThis.__stub.app;
   var els = globalThis.__stub.els;
   var before = app.state.font;
@@ -1428,6 +1428,7 @@ test("dom: new-font modal — one form for width+height, live readout, create/ca
   assertEqual(els["new-modal"].hidden, false, "modal open");
   assertEqual(els["new-w"].value, "8", "prefilled width");
   assertEqual(els["new-h"].value, "16", "prefilled height");
+  assertEqual(els["new-name"].value, "font", "prefilled name (current font's name)");
   assertEqual(els["new-result"].textContent, "\u2192 8\u00d716", "live readout 8\u00d716");
 
   // Live readout follows the inputs; out-of-range is flagged inline.
@@ -1450,21 +1451,27 @@ test("dom: new-font modal — one form for width+height, live readout, create/ca
   assertEqual(els["new-modal"].hidden, true, "cancel closed the modal");
   assertEqual(app.state.font, before, "cancel left the font alone");
 
-  // Valid Create replaces the font.
+  // Valid Create replaces the font; a name is applied when given (chunk [AF]).
   app.openNewModal();
   els["new-w"].value = "12"; els["new-h"].value = "24";
+  els["new-name"].value = "ae-test";
   app.createNewFont();
   assertEqual(els["new-modal"].hidden, true, "create closed the modal");
   assert(app.state.font !== before, "create replaced the font object");
   assertEqual(app.state.font.width, 12, "new width 12");
   assertEqual(app.state.font.height, 24, "new height 24");
-  assertEqual(app.getLastToast(), "New 12\u00d724 font", "create toast");
+  assertEqual(app.state.font.name, "ae-test", "name applied at create");
+  assertEqual(app.getLastToast(), 'New 12\u00d724 font "ae-test"', "create toast includes the name");
 
-  // Restore 8x16 for the test files that run after this one (shared app instance).
+  // Restore 8x16 + the default name for the test files that run after this one (shared app instance).
   app.openNewModal();
   assertEqual(els["new-w"].value, "12", "prefill follows the CURRENT font (12)");
+  assertEqual(els["new-name"].value, "ae-test", "name prefill follows the CURRENT font");
   els["new-w"].value = "8"; els["new-h"].value = "16";
+  els["new-name"].value = ""; // blank name -> default "font" (same rule as Properties, DECISIONS #70)
   app.createNewFont();
   assertEqual(app.state.font.width, 8, "restored width 8");
   assertEqual(app.state.font.height, 16, "restored height 16");
+  assertEqual(app.state.font.name, "font", "blank name fell back to default");
+  assertEqual(app.getLastToast(), "New 8\u00d716 font", "blank-name create toast omits the name");
 });

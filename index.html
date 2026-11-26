@@ -275,7 +275,9 @@
     <div class="modal" role="dialog" aria-modal="true" aria-label="New font">
       <div class="modal-head"><b>New font</b><button id="new-close" type="button" title="Close">&times;</button></div>
       <div class="modal-body">
-        <p class="muted">Start a new blank font &mdash; unsaved changes to the current one are lost. Size in pixels per glyph (1&ndash;1024).</p>
+        <p class="muted">Start a new blank font &mdash; unsaved changes to the current one are lost. Size in pixels per glyph (1&ndash;1024). The name is optional; blank falls back to <code>font</code>.</p>
+        <label for="new-name">Name</label>
+        <input id="new-name" type="text" maxlength="64" placeholder="font" spellcheck="false" autocomplete="off">
         <div class="form-grid">
           <label>Width<input id="new-w" type="number" value="8" min="1" max="1024" step="1"></label>
           <label>Height<input id="new-h" type="number" value="16" min="1" max="1024" step="1"></label>

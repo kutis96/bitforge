@@ -44,6 +44,16 @@ Rules:
 - Run `./test/run-tests.sh` before committing — the changelog data-sanity
   test is the safety net.
 
+## 0.27.8 (2026-11-26)
+
+- The **New font** dialog now has a **Name** field — name the face as you
+  create it (blank falls back to `font`, the same rule as the Properties
+  dialog; the name flows into the export filenames and the BDF header).
+  The create toast shows the name when given.
+- Fixed a long-standing spacing issue: the **Changelog** and the startup
+  **What's new** modal's button row now has the same margin as the other
+  dialogs' buttons (it hugged the modal's edge).
+
 ## 0.27.7 (2026-11-26)
 
 - No more browser popups: every “type a value” and “are you sure?” dialog is
