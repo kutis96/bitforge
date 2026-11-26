@@ -64,7 +64,7 @@ test("selcode: exported project text carries the current selCode", function () {
   var saved = bfSelSave(), oldSel = app.state.selected;
   try {
     app.selectGlyph(79);
-    var o = JSON.parse(app.projectExportText());
+    var o = JSON.parse(app.projectExportText("full")); // selCode rides the full (and sample) exports (DECISIONS #91)
     assert(o && o.settings, "export has a settings object");
     assertEqual(o.settings.selCode, 79, "selCode rides the .bitforge export");
   } finally { bfSelUndo(app, saved, oldSel, null); }

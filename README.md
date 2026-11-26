@@ -16,7 +16,7 @@ Pure vanilla JS: no build, no dependencies, no server. Open `index.html` in a br
 - **Atlas view** — the whole face at a selectable scale, with bold/slant/inverted; click a cell to select it, right-click to set its status.
 - **Glyph status** — mark glyphs *unfinished / wip / done*; the selector and atlas tint them. Pump through a face with `D` (cycle status) and `Shift+D` (mark done, move to next).
 - **QA checks** — duplicate glyphs, edge-touching ink, guideline violations, empty printable glyphs; per-glyph *silencing* for expected cases (box drawing, …), per-font check properties (the edge-ink check's **ignore** list — edges your font reaches on purpose), and a stale-aware report.
-- **Import/export** — PNG atlas (file or clipboard), BDF, a real **TrueType (`.ttf`)** font (beta), binary Verilog `$readmemb` ROM text, and a `.bitforge` project file carrying the work-in-progress state (guidelines, status, silences, settings).
+- **Import/export** — PNG atlas (file or clipboard), BDF, a real **TrueType (`.ttf`)** font (beta), binary Verilog `$readmemb` ROM text, and a `.bitforge` project file carrying the work-in-progress state — **clean** (the font source, no view prefs), **sample** (clean + start glyph + demo text) or **full** (everything, as before).
 - **Dogfooding (beta)** — App → **Dogfood this font** renders bitforge's own interface *in the font you're editing*, live as you draw. Blank characters fall back to the system font per character; the menu bar itself always stays on the system font, so the toggle is always reachable.
 - **Keyboard-driven** — glyph navigation, file ops, status pumping, tools; press `?` in the app for the shortcut reference (rendered from the live binding registry, so it can't drift).
 
@@ -54,6 +54,8 @@ python3 tools/verify-ttf.py yourfont.ttf          # or a .bitforge project
 
 ### `.bitforge` project file
 A JSON snapshot for work in progress: the font plus the things a PNG can't carry — editor guidelines, per-glyph status, QA silences, and app settings. The PNG remains the primary interchange for *finished* fonts.
+
+Exports come in three curated modes: **clean** (the font source only — no personal view prefs, so shared files diff cleanly), **sample** (clean + start glyph + preview demo text, via the *Sample presentation (clean export)* toggle) and **full** (everything, the old behavior). Import is unchanged across all three — a setting missing from the file simply keeps your current value. The full format reference, including the property→mode matrix, lives in [docs/FILE-FORMAT.md](docs/FILE-FORMAT.md).
 
 ## Preview markup
 

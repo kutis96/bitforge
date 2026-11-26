@@ -14,6 +14,11 @@
  * (date "" = pre-dated history, not shown in the UI)
  */
 var BF_CHANGELOG = [
+  { version: "0.29.0", date: "2026-11-26", changes: [
+    "The `.bitforge` project export is now curated: **Export project (clean)** (`Alt+Shift+P`) writes the font source only — data, name, guidelines, status, QA silences, check props — without personal view prefs, so shared files diff cleanly. **Export project (full)** (`Alt+Shift+F`) keeps everything, as before."
+  , "A **Sample presentation (clean export)** toggle in the Project menu adds the start glyph + preview demo text to a clean export — for sharing a face as a ready-to-open sample."
+  , "Opening `.bitforge` files works exactly as before — clean and sample files simply leave your personal view settings untouched."
+  ] },
   { version: "0.28.0", date: "2026-11-26", changes: [
     "The **Preview** tab gained two **dice buttons** (die + pen, die + code) that generate sample text at the cursor: **nonsense prose** — grammatical English made of nonsense words (questions, exclamations, numbers, bracketed asides) — and **plausible code** — a small JavaScript snippet. A quick way to judge a face on real-shaped text without typing anything."
   , "Generated text drops in exactly like typing: it replaces a selection, or appends with a blank line before it when there's already text (cursor lands right after)."

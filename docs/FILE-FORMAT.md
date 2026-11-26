@@ -5,10 +5,9 @@ project file** is documented in full here (it's the work-in-progress snapshot an
 the one with the many terse property names); the interchange/export formats are
 summarized and cross-linked to where their rules are locked.
 
-> **Status note:** the *export modes* section below (clean / sample / full) is a
-> **proposal** from the 2026-11-26 ideas round — the format itself (v1) and its
-> reading rules are the current, shipping behavior. The mode split is a
-> write-side curation; it changes nothing about how files are read (see
+> **Status note:** the *export modes* section below (clean / sample / full) is
+> **implemented** (0.29.0, DECISIONS #91) — the mode split is a write-side
+> curation; it changes nothing about how files are read (see
 > [Backwards compatibility](#backwards-compatibility)).
 
 ---
@@ -39,7 +38,7 @@ serializer, `BF.fontToBlob` / `BF.fontFromBlob`).
 
 ### Property matrix (searchable index)
 
-`clean` / `sample` / `full` = the three proposed export modes (see
+`clean` / `sample` / `full` = the three export modes (0.29.0; see
 [Export modes](#export-modes-clean-sample-full)). **✓** = property is written;
 **–** = omitted (on import, an omitted property keeps the app's current value or
 its default).
@@ -54,7 +53,7 @@ its default).
 | `s` | font | per-glyph status (unf/wip/done) | ✓ | ✓ | ✓ | [#s](#s) |
 | `si` | font | per-glyph QA silences | ✓ | ✓ | ✓ | [#si](#si) |
 | `cp` | font | per-check QA properties | ✓ | ✓ | ✓ | [#cp](#cp) |
-| `r` | font | reference glyph (proposed, new) | ✓ | ✓ | ✓ | [#r](#r) |
+| `r` | font | reference glyph (**proposed** — not yet in the blob) | ✓¹ | ✓¹ | ✓¹ | [#r](#r) |
 | `selCode` | settings | start/last-selected glyph | – | ✓ | ✓ | [#selcode](#selcode) |
 | `pvText` | settings | preview sample text | – | ✓ | ✓ | [#pvtext](#pvtext) |
 | `pngBg` | settings | last PNG export background | – | – | ✓ | [#pngbg](#pngbg) |
@@ -70,6 +69,11 @@ its default).
 | `pvShowText` | settings | show the preview text box | – | – | ✓ | [#pvshowtext](#pvshowtext) |
 | `pvWrap` | settings | preview soft-wrap | – | – | ✓ | [#pvwrap](#pvwrap) |
 | `pvInsert` | settings | click-to-add glyph | – | – | ✓ | [#pvinsert](#pvinsert) |
+
+¹ **`r`** is still *proposed* (not yet written — the reference glyph is
+session-only today): ✓ means “included in all three modes **once it exists**” —
+the exporter serializes the whole font blob, so it would ride along automatically.
+See [#r](#r).
 
 ### Property details
 
@@ -158,23 +162,30 @@ row + scrollbars). A view pref. (DECISIONS #87)
 <a name="pvinsert"></a>**`pvInsert`** — Preview: **click-to-add** (double-click a
 selector glyph to insert its `\uXX`). A view pref. (DECISIONS #87)
 
-### Export modes (clean / sample / full)
+### Export modes (clean / sample / full) — implemented in 0.29.0 (DECISIONS #91)
 
-**Proposed** (ideas round, 2026-11-26). The `.bitforge` is treated as **source
-code**: by default it should carry the font + its design state, not a grab-bag of
-ephemeral view prefs (which create noisy diffs). The export picks which properties
-to write:
+The `.bitforge` is treated as **source code**: by default it should carry the
+font + its design state, not a grab-bag of ephemeral view prefs (which create
+noisy diffs). The export picks which properties to write:
 
-- **clean** — the shareable **font source**: the `font` blob (`w,h,d,n,g,s,si,cp,r`)
-  only. The **source-control** default (`Alt+Shift+P`).
+- **clean** — the shareable **font source**: the `font` blob (`w,h,d,n,g,s,si,cp`)
+  only, **no `settings` key**. The **source-control** default —
+  **Export project (clean)…** (`Alt+Shift+P`).
 - **sample** — clean **+** the sample-presentation settings (`selCode`, `pvText`).
-  For sample files. Exposed as a **"include sample presentation"** toggle on the
-  clean export (a third menu item is the alternative).
-- **full** — **everything** (all settings, personal) — the **current** behavior.
+  For sample files. Exposed as the **Sample presentation (clean export)** toggle
+  in the Project menu (`cleanPresentation` setting, default off): with it on, a
+  clean export is exactly a sample.
+- **full** — **everything** (all 16 settings, personal) — the pre-0.29.0
+  behavior — **Export project (full)…** (`Alt+Shift+F`).
 
-**Single source of truth:** an in-app **matrix** (property → which modes include
-it) drives the exporter *and* is what this table documents — one declaration, no
-second literal list (the project's "one list" convention, like `qaChecks` and the
+Both menu items download `<font name>.bitforge`. `projectExportText()` /
+`exportProject()` called **without** a mode default to **clean** (the source
+default); an unknown mode degrades to clean.
+
+**Single source of truth:** `SAMPLE_SETTINGS = ["selCode", "pvText"]` (app.js)
+declares the clean/sample boundary, and `exportProjectSettings(mode)` is the one
+curation point — the matrix above documents that declaration, not a second
+literal list (the project's "one list" convention, like `qaChecks` and the
 shortcut registry).
 
 **Profiles:** a *bounded* extension (a fixed set of property-**group** toggles) is

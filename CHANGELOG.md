@@ -44,6 +44,22 @@ Rules:
 - Run `./test/run-tests.sh` before committing — the changelog data-sanity
   test is the safety net.
 
+## 0.29.0 (2026-11-26)
+
+- The **`.bitforge` project export** is now curated into two modes:
+  **Export project (clean)…** (`Alt+Shift+P`) writes the font *source* only —
+  glyph data, name, guidelines, per-glyph status, QA silences and check
+  props — with no personal view prefs, so shared files stay diff-friendly.
+  **Export project (full)…** (`Alt+Shift+F`) writes everything (all
+  settings), exactly as before.
+- A **Sample presentation (clean export)** toggle in the Project menu adds
+  the *start glyph* and *preview demo text* to a clean export — for sharing a
+  face as a ready-to-open sample. The toggle state is a personal preference
+  (persisted with your settings; off by default).
+- **Opening `.bitforge` files is unchanged**: clean and sample files simply
+  leave your personal view settings as they are (a missing setting keeps its
+  current value).
+
 ## 0.28.0 (2026-11-26)
 
 - The **Preview** tab gained two **dice buttons** (die + pen, die + code) that

@@ -39,5 +39,6 @@ load("test/test-preview.js");
 load("test/test-selcode.js");
 load("test/test-dogfood.js");
 load("test/test-nonsense.js"); // [AD] generators (pure) + Preview insert wiring (DOM seam)
+load("test/test-exportmodes.js"); // [next] .bitforge export modes (clean/sample/full, DECISIONS #91)
 
 __runAll();

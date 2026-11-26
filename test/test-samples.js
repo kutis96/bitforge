@@ -27,7 +27,7 @@ function bfSampleWithMarker() {
   var app = globalThis.__stub.app;
   var f = app.state.font;
   BF.setPixel(f, 65, 3, 4, 1);            // pure core mutation — no app side effects
-  var text = app.projectExportText();
+  var text = app.projectExportText("sample"); // sample files use the sample mode (DECISIONS #91)
   BF.setPixel(f, 65, 3, 4, 0);
   return text;
 }
@@ -51,7 +51,7 @@ test("samples: file:// — not served ⇒ picker hidden, no samples, blank start
 
 test("samples: buildSamples — validates, skips bad entries, keeps the good ones (pure)", function () {
   var app = globalThis.__stub.app;
-  var good = app.projectExportText();
+  var good = app.projectExportText("sample"); // sample files use the sample mode (DECISIONS #91)
   var manifest = [
     { id: "good", name: "Good", file: "good.bitforge", default: true },
     { id: "no-file", name: "NoFile" },                      // no file  -> skipped

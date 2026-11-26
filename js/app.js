@@ -153,7 +153,8 @@
     dogfood: false,        // render the UI in the font being edited (DECISIONS #82)
     pvShowText: true,      // Preview: show the text box + markup note (DECISIONS #87)
     pvWrap: true,          // Preview: soft-wrap long lines; false = one long row + scrollbars (DECISIONS #87)
-    pvInsert: false        // Preview: double-click a selector glyph to insert its \uXX (DECISIONS #87)
+    pvInsert: false,       // Preview: double-click a selector glyph to insert its \uXX (DECISIONS #87)
+    cleanPresentation: false // .bitforge: include the sample presentation (selCode + pvText) in a CLEAN export (DECISIONS #91)
   };
   var settingsCache = null;
   function loadSettings() {
@@ -1613,16 +1614,45 @@
     downloadBlob(new Blob([bytes], { type: "font/ttf" }), BF.filenameBase(state.font.name) + ".ttf");
   }
 
-  // ---------- project file (.bitforge) — DECISIONS #64 ----------
+  // ---------- project file (.bitforge) — DECISIONS #64, #91 ----------
   // WIP snapshot: font (data + guidelines + status + silences) + settings.
   // PNG stays the primary interchange format for finalized fonts; this is
   // what carries the things a PNG can't (guidelines/status/silences/text).
   var PROJECT_EXT = ".bitforge";
-  function projectExportText() {
-    return JSON.stringify(BF.projectToObj(state.font, settingsCache), null, 2);
+  // Export modes (DECISIONS #91): which settings a .bitforge carries.
+  //   clean  — NO settings: the font blob only, the shareable "source code"
+  //   sample — clean + the sample-presentation settings (start glyph + demo text)
+  //   full   — every setting (personal view prefs) — the pre-#91 behavior
+  // SAMPLE_SETTINGS is the single declaration of the clean/sample boundary
+  // (the "one list" convention; documented in docs/FILE-FORMAT.md). A clean
+  // export with the "sample presentation" toggle on is exactly `sample`.
+  var SAMPLE_SETTINGS = ["selCode", "pvText"];
+  function exportProjectSettings(mode) {
+    if (mode === "full") return settingsCache;
+    if (mode === "sample" || (mode === "clean" && settingsGet("cleanPresentation"))) {
+      var o = {};
+      for (var i = 0; i < SAMPLE_SETTINGS.length; i++)
+        o[SAMPLE_SETTINGS[i]] = settingsCache[SAMPLE_SETTINGS[i]];
+      return o;
+    }
+    return undefined; // clean: the file has no settings key at all
   }
-  function exportProject() {
-    downloadText(projectExportText(), BF.filenameBase(state.font.name) + PROJECT_EXT);
+  function projectExportText(mode) {
+    if (mode !== "clean" && mode !== "sample" && mode !== "full") mode = "clean";
+    return JSON.stringify(BF.projectToObj(state.font, exportProjectSettings(mode)), null, 2);
+  }
+  function exportProject(mode) {
+    downloadText(projectExportText(mode), BF.filenameBase(state.font.name) + PROJECT_EXT);
+  }
+  // "Sample presentation (clean export)" menu toggle — a personal pref through
+  // the settings API (DECISIONS #40), default OFF: a clean export is clean.
+  function setCleanPresentation(v) {
+    settingsSet("cleanPresentation", !!v);
+    syncCleanPresentationMenu();
+  }
+  function syncCleanPresentationMenu() {
+    var b = el.miCleanPresentation;
+    if (b && b.classList) b.classList.toggle("active", !!settingsGet("cleanPresentation"));
   }
   function onOpenProjectClick() { el.fileProject.click(); }
   function onProjectFile(evt) {
@@ -1701,6 +1731,7 @@
     redrawAll();
     applyTheme(); // the import may have carried a different `theme` (DECISIONS #79)
     applyDogfood(); // …or a different dogfood state (DECISIONS #82)
+    syncCleanPresentationMenu(); // …or the clean-export presentation toggle (DECISIONS #91)
     // DECISIONS #80: an imported selCode re-selects the remembered glyph; a file
     // without the key (older projects) leaves the current selection untouched.
     if (o.hasOwnProperty("selCode")) selectGlyph(settingsGet("selCode") | 0);
@@ -2209,7 +2240,8 @@
       aboutTitle: $("about-title"), aboutModal: $("about-modal"), aboutClose: $("about-close"),
       miNew: $("mi-new"), miOpenPng: $("mi-open-png"), miOpenBdf: $("mi-open-bdf"), miOpenProject: $("mi-open-project"), miLoadSample: $("mi-load-sample"), miImportPngClip: $("mi-import-png-clip"),
       miExportPngSolid: $("mi-export-png-solid"), miExportPngTransparent: $("mi-export-png-transparent"), miCopyPngClip: $("mi-copy-png-clip"),
-      miExportBdf: $("mi-export-bdf"), miExportTtf: $("mi-export-ttf"), miExportVerilog: $("mi-export-verilog"), miExportProject: $("mi-export-project"),
+      miExportBdf: $("mi-export-bdf"), miExportTtf: $("mi-export-ttf"), miExportVerilog: $("mi-export-verilog"),
+      miCleanPresentation: $("mi-clean-presentation"), miExportProjectClean: $("mi-export-project-clean"), miExportProjectFull: $("mi-export-project-full"),
       miDogfood: $("mi-dogfood"),
       miUndo: $("mi-undo"), miRedo: $("mi-redo"), miProps: $("mi-props"), miClearGlyph: $("mi-clear-glyph"), miCopyGlyph: $("mi-copy-glyph"),
       miMirrorH: $("mi-mirror-h"), miMirrorV: $("mi-mirror-v"), miCopyTo: $("mi-copy-to"),
@@ -2318,7 +2350,9 @@
     menuItem("miCopyPngClip", copyPngToClipboard);
     menuItem("miExportBdf", exportBdf);
     menuItem("miExportTtf", exportTtf);
-    menuItem("miExportProject", exportProject);
+    menuItem("miCleanPresentation", function () { setCleanPresentation(!settingsGet("cleanPresentation")); });
+    menuItem("miExportProjectClean", function () { exportProject("clean"); });
+    menuItem("miExportProjectFull", function () { exportProject("full"); });
     menuItem("miExportVerilog", exportVerilog);
     menuItem("miUndo", undo);
     menuItem("miRedo", redo);
@@ -2526,7 +2560,8 @@
     shortcuts.register({ combo: "Ctrl+Shift+s", description: "Export Verilog ROM", handler: exportVerilog });
     shortcuts.register({ combo: "Alt+Shift+s", description: "Export BDF font", handler: exportBdf });
     shortcuts.register({ combo: "Alt+Shift+t", description: "Export TTF font", handler: exportTtf });
-    shortcuts.register({ combo: "Alt+Shift+p", description: "Export project file", handler: exportProject });
+    shortcuts.register({ combo: "Alt+Shift+p", description: "Export project file (clean)", handler: function () { exportProject("clean"); } });
+    shortcuts.register({ combo: "Alt+Shift+f", description: "Export project file (full)", handler: function () { exportProject("full"); } });
     shortcuts.register({ combo: "Alt+Shift+c", description: "Copy PNG atlas to clipboard", handler: copyPngToClipboard });
     shortcuts.register({ combo: "e", description: "Show the Edit tab", handler: function () { setActiveTab("edit"); } });
     shortcuts.register({ combo: "p", description: "Show the Preview tab", handler: function () { setActiveTab("preview"); } });
@@ -2577,6 +2612,7 @@
     // resolve the theme setting, tag <html>, and re-skin the canvases.
     watchSystemTheme();
     applyTheme();
+    syncCleanPresentationMenu(); // menu check state from the loaded setting (DECISIONS #91)
 
     // Changelog (DECISIONS #73): remember this run's version, and if the
     // user is on a newer bitforge than before, show what has changed since
@@ -2600,6 +2636,8 @@
       qaPropValue: qaPropValue, qaPropInputId: qaPropInputId, onQaPropChange: onQaPropChange,
       importBdfText: importBdfText, exportBdf: exportBdf,
       importProjectText: importProjectText, projectExportText: projectExportText, exportProject: exportProject,
+      exportProjectSettings: exportProjectSettings, setCleanPresentation: setCleanPresentation,
+      syncCleanPresentationMenu: syncCleanPresentationMenu,
       copyPngToClipboard: copyPngToClipboard, importPngFromClipboard: importPngFromClipboard,
       copyGlyph: copyGlyphToClipboard, glyphCanvas: glyphCanvas, applyResize: applyResize,
       mirrorAction: mirrorAction, copyToCodepointAction: copyToCodepointAction, parseCodeInput: parseCodeInput,
