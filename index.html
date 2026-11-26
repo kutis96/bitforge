@@ -156,7 +156,11 @@
         <div class="panel-head">
           <label>Scale <input id="pv-scale" type="range" min="1" max="16" value="8"></label>
           <label>baseline <input id="pv-baseline" type="number" min="0" step="1" value="5"></label>
-          <label title="Preview surfaces only (white on black); the editor stays black on white"><input id="pv-inverted" type="checkbox"> inverted</label>
+          <label title="Long lines wrap to fit the panel; untick for one long line with scrollbars"><input id="pv-wrap" type="checkbox" checked> wrap</label>
+          <label title="Show or hide the text box (and its markup note) so the render stands alone"><input id="pv-showtext" type="checkbox" checked> text box</label>
+          <label title="When on, double-clicking a glyph in the left selector inserts its &bsol;uXX at the cursor here (Preview tab only)"><input id="pv-insert" type="checkbox"> click to add</label>
+          <span class="spacer"></span>
+          <label title="Invert the preview surfaces RELATIVE to the current theme — light theme: white on black, dark theme: black on white. Exports stay black on white."><input id="pv-inverted" type="checkbox"> inverted</label>
         </div>
         <div class="textcol">
           <textarea id="pv-text" spellcheck="false"

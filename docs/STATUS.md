@@ -59,7 +59,7 @@
 - [x] **[Z.3] BDF badges → Alpha** (2026-11-25): relabeled **Open BDF…** / **Export BDF font** badges **Beta → Alpha** (untested in other tools); **Export TTF font** + **Dogfood this font** keep **Beta** (TTF now OTS-clean, pending confirmation in proper font-authoring tools) — 238 tests
 - [x] **[Z.4] Default sample → spcct16** (2026-11-25): added **`spcct16-demo.bitforge`** (spacecat's hand-drawn spcct16 face) to `samples/` as the new **default** (Small & Cozy stays, no longer default); opens on glyph **b** (0x62); `run-tests.sh` sample check now validates the manifest generically — 238 tests
 - [x] **[AB] Guides can sit on the cell edge** (2026-11-25): guide offsets valid over **0..dim inclusive** (both cell edges reachable); far edge draws inside the canvas; blob sanitizes offsets; QA math pinned — 242 tests
-- [ ] **[AC] Preview tab enhancements** (planned — see Plan below)
+- [x] **[AC] Preview tab enhancements** (2026-11-25): **wrap** / **text box** / **click to add** checkboxes + **theme-relative Inverted** (default surface follows the theme; flipped relative to it; Atlas tints follow; exports untouched) — 247 tests
 - [ ] **[AD] Nonsense text generators** (planned — see Plan below)
 - [ ] **[O] polish** — catch-all (edge cases, cosmetic)
 
@@ -109,7 +109,8 @@ Pure-logic chunks (A–E) are fully unit-tested headlessly; the DOM chunks (F–
 | 0.27.2 | [Z.2] TTF OTS compliance (OTS-clean for Windows/Chromium) |
 | 0.27.3 | [Z.3] BDF badges → Alpha (TTF/Dogfood keep Beta) |
 | 0.27.4 | [Z.4] Default sample → spcct16 (opens on 'b'; Small & Cozy stays) |
-| **0.27.5** (current) | [AB] Guides can sit on the cell edge (offset 0..dim) |
+| 0.27.5 | [AB] Guides can sit on the cell edge (offset 0..dim) |
+| **0.27.6** (current) | [AC] Preview tab enhancements (wrap / text box / click-to-add / theme-relative Inverted) |
 
 **Lettering note (2026-11-15, chunk M):** chunk letters drifted at some point (the I-wave landed after L); they now follow list position. Old → new: **J→I, K→J, L→K, I.1–I.8→L.1–L.8, old [M] (deferred QA) → [N], old [I] (polish) → [O]**. Git commit subjects still use the old letters.
 
@@ -496,6 +497,9 @@ Fixed 5 OTS-strict bugs (table-directory formula ×16 + tag order, `OS/2` v4, cm
 ### [AB] Guides can sit on the cell edge (`js/app.js` + `js/core.js` + `test/` + docs, 2026-11-25)
 User-reported OBOE: guides couldn't reach the far cell edge (clamped to `dim-1`; a line at `off=dim` drew off-canvas). A guide offset is a grid boundary BETWEEN pixels, so **0..dim inclusive** are all real positions. `addGuide`/`moveGuide` clamp to `0..dim`; `drawEditor` draws guides AND the cell grid at the far edge inside the canvas (`dim·s−0.5` — the outermost grid lines were previously invisible); `guidelineAt` hit-tests at the drawn position (edge guides stay grabbable); `fontFromBlob` sanitizes offsets into `[0, dim]`. QA math already handled edge offsets correctly (pinned now); `resizeFont` already clamps to `[0, newDim]`. DECISIONS #86. **Tests:** +4 → 242/242; stub canvas ctx now records `moveTo`/`lineTo` (`ctx.path`) for position asserts. **Browser-verify (user):** add/drag a guide to the very bottom/right edge — it should stick there, stay visible, and still be grabbable; the cell's outer border lines are now visible.
 
+### [AC] Preview tab enhancements (`js/app.js` + `index.html` + `css/style.css` + `test/` + docs, 2026-11-25)
+Four Preview-head controls, all settings-API entries (persisted + ride `.bitforge`): **wrap** (`pvWrap`, default on = soft-wrap; off = one long row, `.canvas-wrap` scrollbars take over — `maxCols` = Infinity) · **text box** (`pvShowText`, default on; off hides the textarea + markup note, `[hidden]` CSS guard) · **click to add** (`pvInsert`, default off; Preview-tab-only selector double-click inserts `\uXX` at the cursor via `insertGlyphSeq()`, selection-replacing, click still selects) · **theme-relative Inverted** (amends #79: `pvSurfaceDark()` = dark theme XOR inverted — light default black-on-white, dark default white-on-black, flipped relative to the theme; Atlas status tints + grid follow; **exports stay fixed black ink**). DECISIONS #87 + #79 amendment. **Tests:** +5 → 247/247 (test-theme.js surface matrix incl. rendered-fill assert; new `test/test-preview.js`: defaults, wrap geometry, text-box toggle, click-to-add insert/replace/gates). **Browser-verify (user):** dark theme ⇒ preview + atlas default white-on-black, Inverted flips them; text box hides input + note; wrap off scrolls; double-click a selector glyph on the Preview tab with click-to-add on ⇒ `\uXX` lands at the cursor.
+
 ## Plan — this round (user request 2026-11-25, easiest → hardest)
 
 > The previous round's plan ([X]–[Z.4], [AA], [AA.1], [P], [Q], [S], [T], [O.1]–[O.8]) is fully **done** — see the Completed section above.
@@ -508,7 +512,7 @@ User: “I found an OBOE bug with the guides — they should actually be able to
 - The QA guideline-violation math already handles `off=0`/`off=dim` correctly (no ink can lie past a cell edge) — pin that with tests.
 - `resizeFont` already clamps shifted guides to `[0, newDim]` — consistent with the new range, no change.
 
-### [AC] Preview tab enhancements — 0.27.6
+### [AC] Preview tab enhancements — **done** (2026-11-25; see Completed + DECISIONS #87) → 0.27.6
 User: “add a checkbox to hide the big textbox for writing the demo text, so that the render is nice and visible… add a checkbox to switch between the current, line-breaking version of the preview, or a non-breaking version with scrollbars. Also… the current 'inverted' checkbox should be relative to the current theme — so for the light theme, black on white should be default and white on black inverted; for the dark theme it should be the other way around. If we are to implement it, it must also work even when the theme is auto. It would also be neat to have a feature that would insert the selected glyph … on the current … cursor position in the text (as a \uXX sequence) — perhaps on doubleclick in the left panel selector (but only when Preview is active). We could further have this gated behind a 'click to add' checkbox above the preview.”
 - **Text box on/off** (`pvShowText` setting, default ON): a checkbox in the Preview head hides the textarea + markup note so the render stands alone. (CSS `[hidden]`-vs-`display` guard added per the documented [T.1] trap.)
 - **Wrap on/off** (`pvWrap` setting, default ON = the current soft-wrap): OFF = no soft-wrap; the canvas can grow past the panel and the existing `.canvas-wrap { overflow: auto }` supplies the scrollbars.

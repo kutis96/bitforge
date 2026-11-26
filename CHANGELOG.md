@@ -44,6 +44,18 @@ Rules:
 - Run `./test/run-tests.sh` before committing — the changelog data-sanity
   test is the safety net.
 
+## 0.27.6 (2026-11-25)
+
+- The Preview tab head grew four controls: **wrap** (off = one long line with
+  scrollbars instead of soft-wrapping), **text box** (hide the input so the
+  render stands alone), **click to add** (double-click a glyph in the left
+  selector to insert its `\uXX` at the cursor), and a reworked **inverted**.
+- **Inverted is now relative to the theme:** in the light theme the preview
+  defaults to black-on-white (as before); in the dark theme it defaults to
+  white-on-black, and Inverted flips it to black-on-white. In Auto it follows
+  your system's live light/dark switch. Exports (PNG / BDF / Verilog / TTF) are
+  unaffected and stay black ink.
+
 ## 0.27.5 (2026-11-25)
 
 - Editor guidelines now reach both cell edges: a guide's position is valid from

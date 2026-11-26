@@ -260,6 +260,9 @@ input, textarea { background: var(--field-bg); color: var(--ink); }
   border-radius: 3px;
   padding: 6px;
 }
+/* "text box" toggle (DECISIONS #87): the [hidden] attribute must win over any
+   display rule — the documented [T.1] selbar trap. */
+#pv-text[hidden], .markup-note[hidden] { display: none; }
 
 /* ---------- guidelines controls ---------- */
 .guides {

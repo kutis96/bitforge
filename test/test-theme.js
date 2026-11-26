@@ -99,6 +99,43 @@ test("theme: a .bitforge import carrying theme=dark is applied (DECISIONS #79)",
   }
 });
 
+test("theme: preview surfaces — inverted is relative to the theme (DECISIONS #87)", function () {
+  var app = globalThis.__stub.app;
+  var savedSetting = bfThemeSave();
+  var savedInverted = app.settingsGet("inverted");
+  try {
+    // Light theme: default black-on-white; inverted = white-on-black.
+    app.chooseTheme("light");
+    app.setInverted(false);
+    assertEqual(app.pvSurfaceDark(), false, "light + default -> light surface");
+    assertEqual(app.inkColor(), "#111", "light: black ink");
+    assertEqual(app.bgColor(), "#fff", "light: white bg");
+    app.setInverted(true);
+    assertEqual(app.inkColor(), "#eee", "light inverted: light ink");
+    assertEqual(app.bgColor(), "#111", "light inverted: dark bg");
+    // Dark theme: default white-on-black; inverted flips back to black-on-white.
+    app.chooseTheme("dark");
+    app.setInverted(false);
+    assertEqual(app.pvSurfaceDark(), true, "dark + default -> dark surface");
+    assertEqual(app.inkColor(), "#eee", "dark: light ink by default");
+    assertEqual(app.bgColor(), "#111", "dark: dark bg by default");
+    app.setInverted(true);
+    assertEqual(app.inkColor(), "#111", "dark inverted: black ink");
+    assertEqual(app.bgColor(), "#fff", "dark inverted: white bg");
+    // The rendered surface actually follows (bg fill of the preview canvas).
+    var els = globalThis.__stub.els;
+    els["pv-text"].value = "x";
+    var ctx = els["pv-text-canvas"]._ctx;
+    var n0 = ctx.rects.length;
+    app.drawPvText();
+    assert(ctx.rects.slice(n0).indexOf("#fff") >= 0, "dark + inverted fills the light bg (#fff)");
+  } finally {
+    app.setInverted(savedInverted);
+    bfThemeRestore(savedSetting);
+    app.applyTheme();
+  }
+});
+
 test("theme: selector mini-glyph ink follows the theme (DECISIONS #79)", function () {
   // Regression: the selector called drawGlyphTo() with no color, inheriting
   // its #111 default — black mini-glyphs, unreadable on the dark background.

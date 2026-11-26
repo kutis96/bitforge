@@ -129,7 +129,10 @@
     pasteMode: "merge",    // "merge" | "replace" — blend for dragged selections (DECISIONS #76)
     theme: "auto",         // "light" | "dark" | "auto" — auto follows the system (DECISIONS #79)
     selCode: 0,            // last selected glyph (0–255) — restored on load & import (DECISIONS #80)
-    dogfood: false         // render the UI in the font being edited (DECISIONS #82)
+    dogfood: false,        // render the UI in the font being edited (DECISIONS #82)
+    pvShowText: true,      // Preview: show the text box + markup note (DECISIONS #87)
+    pvWrap: true,          // Preview: soft-wrap long lines; false = one long row + scrollbars (DECISIONS #87)
+    pvInsert: false        // Preview: double-click a selector glyph to insert its \uXX (DECISIONS #87)
   };
   var settingsCache = null;
   function loadSettings() {
@@ -649,11 +652,15 @@
     return { min: min, max: max };
   }
 
-  // Ink + background colors for the preview surfaces (inverted = white on black,
-  // how the font will look in a real terminal). Deliberately NOT theme-aware:
-  // the "inverted" checkbox is the single switch for those surfaces (DECISIONS #79).
-  function inkColor() { return state.inverted ? "#eee" : "#111"; }
-  function bgColor() { return state.inverted ? "#111" : "#fff"; }
+  // Ink + background colors for the preview surfaces (Preview + Atlas render
+  // canvases). THEME-RELATIVE (DECISIONS #87, amending #79): the DEFAULT surface
+  // is black-on-white in the light theme and white-on-black in the dark theme;
+  // the "inverted" checkbox flips relative to the resolved theme (works in Auto —
+  // applyTheme() redraws on system-scheme change). Exports are NEVER themed:
+  // the PNG/BDF/Verilog/TTF paths use fixed black ink by design.
+  function pvSurfaceDark() { return (state.theme === "dark") !== state.inverted; }
+  function inkColor() { return pvSurfaceDark() ? "#eee" : "#111"; }
+  function bgColor() { return pvSurfaceDark() ? "#111" : "#fff"; }
 
   // ---------- theme (DECISIONS #79) ----------
   // `theme` is a persisted setting: "light" | "dark" | "auto" (default "auto").
@@ -862,7 +869,9 @@
     var s = state.scale;
     var wrap = el.pvTextCanvas.parentElement;
     var parentW = (wrap && wrap.clientWidth) || 400;
-    var maxCols = clamp(Math.floor((parentW - 32) / (f.width * s)), 4, 128);
+    // Soft-wrap is opt-OUT (DECISIONS #87): OFF = one long row, and the existing
+    // `.canvas-wrap { overflow: auto }` supplies the scrollbars.
+    var maxCols = settingsGet("pvWrap") ? clamp(Math.floor((parentW - 32) / (f.width * s)), 4, 128) : Infinity;
     // Newlines are break tokens from the parser (DECISIONS #63): every `nl`
     // item starts a new display row (empty lines render as empty rows) and
     // the markup state is NOT reset, so *bold* can span lines. maxCols still
@@ -872,7 +881,7 @@
     for (var i = 0; i < items.length; i++) {
       if (items[i].nl) { rows.push([]); continue; }
       var row = rows[rows.length - 1];
-      if (row.length >= maxCols) { row = []; rows.push(row); }
+      if (row.length >= maxCols) { row = []; rows.push(row); } // soft-wrap (off: maxCols = Infinity)
       row.push(items[i]);
     }
     var cols = 0;
@@ -911,12 +920,12 @@
     for (var code = 0; code < 256; code++) {
       var col = code % 16, row = (code / 16) | 0;
       var cx = (pad + col * colW) * s, cy = row * f.height * s;
-      var tint = statusTint(f.status[code], state.inverted);
+      var tint = statusTint(f.status[code], pvSurfaceDark()); // theme-relative (DECISIONS #87)
       if (tint) { ctx.fillStyle = tint; ctx.fillRect(cx, cy, f.width * s, f.height * s); }
       drawGlyphTo(ctx, code, cx, cy, s,
         { bold: state.bold, italic: state.italic, baseline: state.baseline, color: inkColor() });
     }
-    ctx.strokeStyle = state.inverted ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"; ctx.lineWidth = 1; ctx.beginPath();
+    ctx.strokeStyle = pvSurfaceDark() ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"; ctx.lineWidth = 1; ctx.beginPath();
     for (var i = 0; i <= 16; i++) {
       var gx = (pad + i * colW) * s + 0.5; ctx.moveTo(gx, 0); ctx.lineTo(gx, c.height);
       var gy = i * f.height * s + 0.5; ctx.moveTo(0, gy); ctx.lineTo(c.width, gy);
@@ -1831,6 +1840,46 @@
   function setBold(v) { state.bold = v; settingsSet("pvBold", v); syncRenderControls(); drawPvText(); drawAtlas(); }
   function setItalic(v) { state.italic = v; settingsSet("pvItalic", v); syncRenderControls(); drawPvText(); drawAtlas(); }
   function setInverted(v) { state.inverted = v; settingsSet("inverted", v); syncRenderControls(); drawPvText(); drawAtlas(); }
+
+  // ---------- preview head controls (DECISIONS #87) ----------
+  // Text box on/off: hide the textarea + markup note so the render stands alone.
+  function setPvShowText(v) {
+    settingsSet("pvShowText", v);
+    syncPvVisibility();
+  }
+  function syncPvVisibility() {
+    if (!el.pvText || !el.pvMarkupNote) return; // before init
+    var show = !!settingsGet("pvShowText");
+    el.pvText.hidden = !show;
+    el.pvMarkupNote.hidden = !show;
+  }
+  // Wrap on/off: OFF disables soft-wrap (one long row; the canvas-wrap scrollbars take over).
+  function setPvWrap(v) {
+    settingsSet("pvWrap", v);
+    drawPvText();
+  }
+  // Click-to-add: gate for selector double-click insertion (the handler reads it live).
+  function setPvInsert(v) {
+    settingsSet("pvInsert", v);
+  }
+
+  // Insert a \uXX sequence at the preview text box's cursor (DECISIONS #87):
+  // replaces a selection, appends at the end otherwise; the cursor lands after
+  // the insert. The setting + render follow, exactly like typing.
+  function insertGlyphSeq(code) {
+    var t = el.pvText;
+    var h = (code & 0xff).toString(16).toUpperCase();
+    if (h.length < 2) h = "0" + h;
+    var seq = "\\u" + h;
+    var len = t.value.length;
+    var s = (typeof t.selectionStart === "number" && t.selectionStart >= 0) ? Math.min(t.selectionStart, len) : len;
+    var e = (typeof t.selectionEnd === "number" && t.selectionEnd >= 0) ? Math.min(t.selectionEnd, len) : s;
+    t.value = t.value.slice(0, s) + seq + t.value.slice(e);
+    var pos = s + seq.length;
+    try { t.focus(); t.setSelectionRange(pos, pos); } catch (err) { /* stub: no selection API */ }
+    settingsSet("pvText", t.value);
+    drawPvText();
+  }
   function setBaseline(v) {
     state.baseline = clamp(parseInt(v, 10), 0, state.font.height - 1);
     settingsSet("pvBaseline", state.baseline);
@@ -1842,6 +1891,10 @@
     el.pvInverted.checked = state.inverted; el.atInverted.checked = state.inverted;
     el.pvBaseline.value = String(state.baseline); el.atBaseline.value = String(state.baseline);
     el.pvBaseline.max = String(state.font.height - 1); el.atBaseline.max = String(state.font.height - 1);
+    el.pvWrap.checked = !!settingsGet("pvWrap");
+    el.pvShowText.checked = !!settingsGet("pvShowText");
+    el.pvInsert.checked = !!settingsGet("pvInsert");
+    syncPvVisibility();
   }
 
   // ---------- menu bar (DECISIONS #51) ----------
@@ -2052,6 +2105,7 @@
       pvInverted: $("pv-inverted"),
       atBold: $("at-bold"), atItalic: $("at-italic"), atBaseline: $("at-baseline"), atInverted: $("at-inverted"),
       pvText: $("pv-text"), pvTextCanvas: $("pv-text-canvas"),
+      pvWrap: $("pv-wrap"), pvShowText: $("pv-showtext"), pvInsert: $("pv-insert"), pvMarkupNote: $("pv-markup-note"),
       atlas: $("atlas"), toast: $("toast"),
       keysCard: $("keys-card"), keysList: $("keys-list"),
       btnKeys: $("btn-keys"), btnKeysClose: $("btn-keys-close"),
@@ -2254,6 +2308,17 @@
       }
       selectGlyph(code);
     });
+    // Double-click a selector glyph (Preview tab + "click to add" on): insert
+    // its \uXX at the text box's cursor (DECISIONS #87). The preceding click(s)
+    // already selected the glyph, so you get "selected + inserted".
+    el.selector.addEventListener("dblclick", function (evt) {
+      if (!settingsGet("pvInsert") || state.activeTab !== "preview") return;
+      var r = this.getBoundingClientRect();
+      var col = Math.floor((evt.clientX - r.left) / 16);
+      var row = Math.floor((evt.clientY - r.top) / 16);
+      if (row < 0 || row > 15 || col < 0 || col > 15) return;
+      insertGlyphSeq(row * 16 + col);
+    });
 
     // atlas: left-click selects, right-click opens the status menu (suppress the
     // browser context menu)
@@ -2284,6 +2349,9 @@
     bindToggle("atBold", setBold);
     bindToggle("atItalic", setItalic);
     bindToggle("pvInverted", setInverted); bindToggle("atInverted", setInverted);
+    bindToggle("pvWrap", setPvWrap);
+    bindToggle("pvShowText", setPvShowText);
+    bindToggle("pvInsert", setPvInsert);
     function bindBaselineInput(id) { el[id].addEventListener("input", function () { setBaseline(this.value); }); }
     bindBaselineInput("pvBaseline"); bindBaselineInput("atBaseline");
     el.pvText.addEventListener("input", function () { settingsSet("pvText", this.value); drawPvText(); });
@@ -2403,6 +2471,10 @@
       resolveTheme: resolveTheme, chooseTheme: chooseTheme, applyTheme: applyTheme,
       watchSystemTheme: watchSystemTheme, redrawAll: redrawAll,
       syncThemeMenu: syncThemeMenu, themeColors: themeColors,
+      pvSurfaceDark: pvSurfaceDark, inkColor: inkColor, bgColor: bgColor,
+      setInverted: setInverted, setPvShowText: setPvShowText, syncPvVisibility: syncPvVisibility,
+      setPvWrap: setPvWrap, setPvInsert: setPvInsert, insertGlyphSeq: insertGlyphSeq,
+      drawPvText: drawPvText, drawAtlas: drawAtlas,
       exportTtf: exportTtf,
       dogfoodCSS: dogfoodCSS, applyDogfood: applyDogfood, toggleDogfood: toggleDogfood,
       syncDogfoodMenu: syncDogfoodMenu, scheduleDogfood: scheduleDogfood,

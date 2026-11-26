@@ -14,6 +14,10 @@
  * (date "" = pre-dated history, not shown in the UI)
  */
 var BF_CHANGELOG = [
+  { version: "0.27.6", date: "2026-11-25", changes: [
+    "The Preview tab head grew four controls: **wrap** (off = one long line with scrollbars instead of soft-wrapping), **text box** (hide the input so the render stands alone), **click to add** (double-click a glyph in the left selector to insert its `\\uXX` at the cursor), and a reworked **inverted**.",
+    "**Inverted is now relative to the theme:** in the light theme the preview defaults to black-on-white (as before); in the dark theme it defaults to white-on-black, and Inverted flips it to black-on-white. In Auto it follows your system's live light/dark switch. Exports (PNG / BDF / Verilog / TTF) are unaffected and stay black ink."
+  ] },
   { version: "0.27.5", date: "2026-11-25", changes: [
     "Editor guidelines now reach both cell edges: a guide's position is valid from `0` (the top/left edge of the glyph) to the full cell size (the bottom/right edge). Drag an unlocked guide to the very edge and it sticks there instead of one pixel short. The editor's outermost grid lines are drawn again — they used to be rendered off-canvas and invisible."
   ] },
