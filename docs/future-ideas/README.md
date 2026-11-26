@@ -24,15 +24,19 @@ what "doing it" would require.
 | [001](001-grammar-based-nonsense.md) | Grammar-based (SCFG) + length-bounded nonsense text generation | parked |
 | [002](002-region-stamp.md) | Region stamp — copy a rect/row of one glyph, stamp it onto another (or a codepoint range) | parked |
 | [003](003-authored-sample-text.md) | Hand-authored preview text for the sample fonts (e.g. Small & Cozy) | parked |
-| [004](004-svg-export.md) | SVG export / SVG logo render of a sample font | parked |
-| [005](005-glyph-weight.md) | Glyph "weight" readout / face-balance histogram | parked |
-| [006](006-connectivity-qa.md) | Holes & connectivity QA (likely out of scope for bitforge) | parked |
+| 004 | SVG export / SVG logo render of a sample font | dropped |
+| 005 | Glyph "weight" readout / face-balance histogram | dropped |
+| 006 | Holes & connectivity QA (likely out of scope for bitforge) | dropped |
+
+> **004–006 are dropped** — removed due to lack of need / practicality / desirability.
+> Their files were deleted; the names are kept here only as a record.
 
 ## Statuses
 
 - **parked** — interesting, not planned. (default)
 - **under consideration** — the user is weighing doing it; expect it to become a real chunk soon.
 - **done** — implemented; link the chunk + DECISIONS entry, keep the file as a record of the original thinking.
+- **dropped** — removed due to lack of need / practicality / desirability; the idea file is deleted, the name is kept in the index as a record.
 
 ## Template (copy for a new idea)
 

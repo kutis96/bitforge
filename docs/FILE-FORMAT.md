@@ -231,6 +231,5 @@ is the pointer, not the spec.
 - Project-file decision: **DECISIONS #64** · settings API: **#40** · name: **#70** ·
   guidelines: **#28/#86** · check properties: **#83** · theme: **#79** ·
   last-selected glyph: **#80** · dogfooding: **#82** · preview controls: **#87**.
-- Parked ideas that touch these formats: [future-ideas/003](future-ideas/003-authored-sample-text.md)
-  (sample text), [future-ideas/004](future-ideas/004-svg-export.md) (a proposed
-  SVG export).
+- Parked idea that touches these formats: [future-ideas/003](future-ideas/003-authored-sample-text.md)
+  (sample text).
