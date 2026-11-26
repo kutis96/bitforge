@@ -1,6 +1,6 @@
 /* bitforge — sample fonts (chunk V.1, DECISIONS #78, supersedes #77's embedded registry).
  * Runs last: the async tests temporarily install a fake global fetch/location and
- * restore them (plus localStorage + the confirm stub) in every settle path. */
+ * restore them (plus localStorage) in every settle path. */
 
 function bfFakeFetch(routes) {
   // routes: { "samples/manifest.json": { json: [...] }, "samples/x.bitforge": { text: "…" } }
@@ -20,7 +20,6 @@ function bfRestoreEnv(oldLoc, oldFetch, savedLS) {
   if (oldFetch === undefined) delete globalThis.fetch; else globalThis.fetch = oldFetch;
   if (savedLS != null) globalThis.localStorage.setItem("bitforge.font.v1", savedLS);
   else globalThis.localStorage.removeItem("bitforge.font.v1");
-  globalThis.__stub.setConfirm(true);
 }
 
 // A valid .bitforge project text carrying one marker pixel the live font does NOT have.
@@ -109,15 +108,20 @@ test("samples: served — fetch manifest + file, validate, render, load (async)"
     assertEqual(els["sample-list"].children[0].className, "sample-item", "row styled");
     app.closeSampleModal();
 
-    globalThis.__stub.setConfirm(true);
+    // Chunk [AE]: loadSample asks via the in-app confirm modal (no browser confirm).
     app.loadSample(0);
-    assertEqual(BF.getPixel(app.state.font, 65, 3, 4), 1, "loadSample replaced the font");
+    assertEqual(els["ask-modal"].hidden, false, "load opens the in-app confirm");
+    globalThis.__stub.dispatch("ask-yes", "click", {});
+    assertEqual(els["ask-modal"].hidden, true, "confirm closed the modal");
+    assertEqual(BF.getPixel(app.state.font, 65, 3, 4), 1, "confirmed load replaced the font");
     assert(app.getLastToast().indexOf("Loaded sample T-Sample") === 0, "toast: " + app.getLastToast());
 
     // Cancelled confirm = no-op
     BF.setPixel(app.state.font, 65, 3, 4, 0);
-    globalThis.__stub.setConfirm(false);
     app.loadSample(0);
+    assertEqual(els["ask-modal"].hidden, false, "confirm reopened");
+    globalThis.__stub.dispatch("ask-cancel", "click", {});
+    assertEqual(els["ask-modal"].hidden, true, "cancel closed the modal");
     assertEqual(BF.getPixel(app.state.font, 65, 3, 4), 0, "cancelled confirm leaves the font alone");
   }
   return app.fetchSamples().then(ok, function (e) { bfRestoreEnv(oldLoc, oldFetch, savedLS); throw e; })

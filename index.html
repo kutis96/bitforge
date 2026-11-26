@@ -15,7 +15,7 @@
       <div class="menu" id="menu-project">
         <button type="button" class="menu-btn" id="mb-project">Project</button>
         <div class="menu-items" id="mi-project">
-          <button type="button" id="mi-new" title="New blank font (prompts for width &amp; height)">New font<span class="mi-key">Alt+N</span></button>
+          <button type="button" id="mi-new" title="New blank font (width &amp; height in one dialog)">New font<span class="mi-key">Alt+N</span></button>
           <hr>
           <button type="button" id="mi-open-png" title="Import a PNG atlas (16x16)">Open PNG&#8230;<span class="mi-key">Alt+O</span></button>
           <button type="button" id="mi-open-bdf" title="Import a BDF font (first face)">Open BDF&#8230;<span class="mi-badge">Alpha</span><span class="mi-key">Alt+Shift+O</span></button>
@@ -244,7 +244,7 @@
       <div class="modal-head"><b>Resize cell</b><button id="rz-close" type="button" title="Close">&times;</button></div>
       <div class="modal-body">
         <p class="muted">Add or remove rows/columns at each edge — positive adds, negative removes. Guides and the slant baseline shift with the content.</p>
-        <div class="rz-grid">
+        <div class="form-grid">
           <label>Top<input id="rz-top" type="number" value="0" step="1"></label>
           <label>Bottom<input id="rz-bottom" type="number" value="0" step="1"></label>
           <label>Left<input id="rz-left" type="number" value="0" step="1"></label>
@@ -267,6 +267,53 @@
         <p class="muted">Sample fonts served from the <code>samples/</code> folder. Loading one replaces the current font (its guidelines, glyph statuses and settings come with it).</p>
         <p id="sample-empty" class="muted" hidden>No samples are available here. Samples are served from the <code>samples/</code> folder (listed in <code>samples/manifest.json</code>) and only load when the page is served over http/https &mdash; open it from a web server to see them.</p>
         <div id="sample-list" class="sample-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="new-modal" class="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-label="New font">
+      <div class="modal-head"><b>New font</b><button id="new-close" type="button" title="Close">&times;</button></div>
+      <div class="modal-body">
+        <p class="muted">Start a new blank font &mdash; unsaved changes to the current one are lost. Size in pixels per glyph (1&ndash;1024).</p>
+        <div class="form-grid">
+          <label>Width<input id="new-w" type="number" value="8" min="1" max="1024" step="1"></label>
+          <label>Height<input id="new-h" type="number" value="16" min="1" max="1024" step="1"></label>
+        </div>
+        <p id="new-result">&mdash;</p>
+        <div class="modal-actions">
+          <button id="new-create" type="button">Create</button>
+          <button id="new-cancel" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="cp-modal" class="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Codepoint target">
+      <div class="modal-head"><b id="cp-title">Copy to codepoint&hellip;</b><button id="cp-close" type="button" title="Close">&times;</button></div>
+      <div class="modal-body">
+        <p id="cp-note" class="muted">&mdash;</p>
+        <label for="cp-input">Target codepoint</label>
+        <input id="cp-input" type="text" placeholder="one char, or hex, e.g. 61 or a" spellcheck="false" autocomplete="off">
+        <p id="cp-result">&mdash;</p>
+        <div class="modal-actions">
+          <button id="cp-ok" type="button">OK</button>
+          <button id="cp-cancel" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="ask-modal" class="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Confirm">
+      <div class="modal-head"><b id="ask-title">Confirm</b><button id="ask-close" type="button" title="Close">&times;</button></div>
+      <div class="modal-body">
+        <p id="ask-text">&mdash;</p>
+        <div class="modal-actions">
+          <button id="ask-yes" type="button">OK</button>
+          <button id="ask-cancel" type="button">Cancel</button>
+        </div>
       </div>
     </div>
   </div>

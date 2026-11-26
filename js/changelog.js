@@ -14,6 +14,10 @@
  * (date "" = pre-dated history, not shown in the UI)
  */
 var BF_CHANGELOG = [
+  { version: "0.27.7", date: "2026-11-26", changes: [
+    "No more browser popups: every \"type a value\" and \"are you sure?\" dialog is now part of the app. **New font** (File \u2192 New blank font, `Alt+N`) asks for width and height in **one form** with a live size readout, instead of a chain of popups; **Copy to codepoint** and the selection's **Paste to codepoint** ask for the target codepoint in one dialog (Enter confirms); and opening a project or a sample now asks in-app before replacing the current font. Invalid input is flagged right in the dialog and it stays open until the value is fixed."
+  , "`Esc` now closes the topmost dialog and **keeps your selection** \u2014 before, it could silently clear a selection while a dialog was open."
+  ] },
   { version: "0.27.6", date: "2026-11-25", changes: [
     "The Preview tab head grew four controls: **wrap** (off = one long line with scrollbars instead of soft-wrapping), **text box** (hide the input so the render stands alone), **click to add** (double-click a glyph in the left selector to insert its `\\uXX` at the cursor), and a reworked **inverted**.",
     "**Inverted is now relative to the theme:** in the light theme the preview defaults to black-on-white (as before); in the dark theme it defaults to white-on-black, and Inverted flips it to black-on-white. In Auto it follows your system's live light/dark switch. Exports (PNG / BDF / Verilog / TTF) are unaffected and stay black ink."

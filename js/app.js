@@ -80,16 +80,33 @@
     scheduleDogfood(); // live dogfooding: rebuild the injected face (debounced)
   }
 
-  function newFont() {
-    var w = parseInt(prompt("Glyph width (px):", state.font ? state.font.width : "8"), 10);
-    if (isNaN(w)) return;
-    var h = parseInt(prompt("Glyph height (px):", state.font ? state.font.height : "16"), 10);
-    if (isNaN(h)) return;
-    var v = BF.validateDims(w, h);
+  // New font (DECISIONS #88): one modal form asks for width AND height at
+  // once (the old flow was prompt → prompt → confirm). Same validation as
+  // before (BF.validateDims, 1..1024); Create replaces the current font.
+  function newDims() {
+    return { w: parseInt(el.newW.value, 10), h: parseInt(el.newH.value, 10) };
+  }
+  function newRender() {
+    var d = newDims();
+    if (isNaN(d.w) || isNaN(d.h)) { el.newResult.textContent = "\u2014"; return; }
+    var v = BF.validateDims(d.w, d.h);
+    el.newResult.textContent = v.ok ? "\u2192 " + d.w + "\u00d7" + d.h : "invalid \u2014 " + v.error;
+  }
+  function openNewModal() {
+    el.newW.value = String(state.font ? state.font.width : 8);
+    el.newH.value = String(state.font ? state.font.height : 16);
+    newRender();
+    el.newModal.hidden = false;
+    el.newW.focus();
+  }
+  function closeNewModal() { el.newModal.hidden = true; }
+  function createNewFont() {
+    var d = newDims();
+    var v = BF.validateDims(d.w, d.h);
     if (!v.ok) { toast(v.error, true); return; }
-    if (!confirm("Start a new blank " + w + "×" + h + " font? Unsaved changes are lost.")) return;
-    setFont(BF.makeFont(w, h));
-    toast("New " + w + "×" + h + " font");
+    setFont(BF.makeFont(d.w, d.h));
+    closeNewModal();
+    toast("New " + d.w + "\u00d7" + d.h + " font");
   }
 
   // ---------- persistence (localStorage) ----------
@@ -1153,17 +1170,48 @@
     toast(selLabel() + " mirrored " + (axis === "h" ? "left–right" : "up–down"));
   }
 
-  // Edit → Copy to codepoint… (DECISIONS #74): prompt for the target (same
-  // input grammar as the jump field), duplicate the bitmap there, select it
-  // (the usual follow-up is shaping the new variant). Target status/silences
-  // are untouched; one per-glyph undo step.
-  function copyToCodepointAction() {
+  // ---------- codepoint-target modal (shared, chunk [AE], DECISIONS #88) ----------
+  // Replaces the browser prompt() for BOTH "Copy to codepoint…" and the
+  // selection's "copy to…": one char or hex (the parseCodeInput grammar, same
+  // as the jump field), live result readout, same-codepoint refusal; OK runs
+  // the caller's continuation with the parsed code.
+  var cpFrom = 0, cpOnOk = null;
+  function openCodepointModal(title, note, from, onOk) {
+    cpFrom = from; cpOnOk = onOk;
+    el.cpTitle.textContent = title;
+    el.cpNote.textContent = note;
+    el.cpInput.value = "";
+    cpRender();
+    el.cpModal.hidden = false;
+    el.cpInput.focus();
+  }
+  function closeCodepointModal() { el.cpModal.hidden = true; }
+  function cpRender() {
+    var to = parseCodeInput(el.cpInput.value);
+    if (to === null) {
+      el.cpResult.textContent = el.cpInput.value.trim()
+        ? "invalid \u2014 one char, or hex (e.g. 61 or a)" : "\u2192 ?";
+      return;
+    }
+    if (to === cpFrom) { el.cpResult.textContent = "same codepoint as the source"; return; }
+    var p = printable(to);
+    el.cpResult.textContent = "\u2192 " + hex2(to) + (p ? " \u00b7 " + p : "");
+  }
+  function cpOk() {
+    var to = parseCodeInput(el.cpInput.value);
+    if (to === null) { toast("one char, or hex (e.g. 61 or a)", true); return; }
+    if (to === cpFrom) { toast("That's the same codepoint (" + selLabel() + ")", true); return; }
+    var fn = cpOnOk; cpOnOk = null;
+    closeCodepointModal();
+    if (fn) fn(to);
+  }
+
+  // Glyph → Copy to codepoint… (DECISIONS #74): the modal above asks for the
+  // target; OK duplicates the bitmap there and selects it (the usual
+  // follow-up is shaping the new variant). Target status/silences are
+  // untouched; one per-glyph undo step.
+  function doCopyTo(to) {
     var from = state.selected;
-    var v = prompt("Copy " + selLabel() + " to codepoint (one char or hex, e.g. 61 or a):");
-    if (v === null) return;
-    var to = parseCodeInput(v);
-    if (to === null) { toast("Copy to: one char, or hex (e.g. 61 or a)", true); return; }
-    if (to === from) { toast("That's the same codepoint (" + selLabel() + ")", true); return; }
     state.history.push({ code: to, snap: snapshotGlyph(to) });
     if (state.history.length > 100) state.history.shift();
     BF.copyGlyphTo(state.font, from, to);
@@ -1172,6 +1220,11 @@
     bumpFontVersion();
     selectGlyph(to);
     toast("Copied " + hex2(from) + " \u2192 " + hex2(to));
+  }
+  function copyToCodepointAction() {
+    openCodepointModal("Copy to codepoint\u2026",
+      "Duplicate " + selLabel() + "'s bitmap at another codepoint.",
+      state.selected, doCopyTo);
   }
 
   // ---------- editor tools + selection (DECISIONS #75) ----------
@@ -1293,14 +1346,8 @@
   }
   // Paste the selection (exact pixels, same cell position) into another
   // codepoint — a copy, not a stamp; the target becomes the selection.
-  function selCopyTo() {
-    if (!state.selRect) { toast("Select a region first (S)", true); return; }
+  function selPasteTo(to) {
     var from = state.selected;
-    var v = prompt("Paste " + selLabel() + "'s selection to codepoint (one char or hex, e.g. 61 or a):");
-    if (v === null) return;
-    var to = parseCodeInput(v);
-    if (to === null) { toast("Copy to: one char, or hex (e.g. 61 or a)", true); return; }
-    if (to === from) { toast("That's the same codepoint (" + selLabel() + ")", true); return; }
     var snap = snapshotGlyph(to);
     BF.rectCopy(state.font, from, to, state.selRect);
     state.history.push({ code: to, snap: snap });
@@ -1311,6 +1358,12 @@
     clearSel();
     selectGlyph(to); // selection is per-glyph; the target becomes the selection
     toast("Pasted selection " + hex2(from) + " \u2192 " + hex2(to));
+  }
+  function selCopyTo() {
+    if (!state.selRect) { toast("Select a region first (S)", true); return; }
+    openCodepointModal("Paste selection to\u2026",
+      "Paste " + selLabel() + "'s selection (exact pixels) at another codepoint.",
+      state.selected, selPasteTo);
   }
 
   // Full-font restore (resize undo/redo, DECISIONS #71). The snapshot is
@@ -1582,17 +1635,40 @@
       r.readAsText(file);
     }
   }
-  // Returns true on success; toasts the error and returns false on malformed input.
+  // ---------- ask/confirm modal (shared, chunk [AE], DECISIONS #88) ----------
+  // Replaces the browser confirm() for the two replace-the-font flows
+  // (project import, sample load): title + text + a caller-set yes-label,
+  // yes runs the caller's continuation, cancel/× just closes.
+  var askOnYes = null;
+  function openAskModal(title, text, yesLabel, onYes) {
+    askOnYes = onYes;
+    el.askTitle.textContent = title;
+    el.askText.textContent = text;
+    el.askYes.textContent = yesLabel;
+    el.askModal.hidden = false;
+  }
+  function closeAskModal() { el.askModal.hidden = true; }
+  function askConfirm() {
+    var fn = askOnYes; askOnYes = null;
+    closeAskModal();
+    if (fn) fn();
+  }
+
+  // Returns true when the import is proceeding (the ask modal is open for the
+  // user's Replace/Cancel); toasts the error and returns false on malformed.
   function importProjectText(text, name) {
     var o;
     try { o = JSON.parse(text); }
     catch (e) { toast("Project: not valid JSON", true); return false; }
     var p = BF.objFromProject(o, knownCheckIds());
     if (!p.ok) { toast("Project: " + p.error, true); return false; }
-    if (!confirm("Replace the current font with the one from" + (name ? " " + name : "") + "? The project's settings are applied too.")) return false;
-    setFont(p.font);
-    if (p.settings) applyImportedSettings(p.settings);
-    toast("Imported project" + (name ? " (" + name + ")" : ""));
+    openAskModal("Replace font?",
+      "Replace the current font with the one from" + (name ? " " + name : "") + "? The project's settings are applied too.",
+      "Replace", function () {
+        setFont(p.font);
+        if (p.settings) applyImportedSettings(p.settings);
+        toast("Imported project" + (name ? " (" + name + ")" : ""));
+      });
     return true;
   }
   // Apply imported settings: same per-key type rules as loadSettings.
@@ -1756,10 +1832,13 @@
   function loadSample(idx) {
     var s = fetchedSamples[idx];
     if (!s) { toast("Unknown sample", true); return; }
-    if (!confirm("Open sample " + s.name + "? It replaces the current font; the sample's settings are applied too.")) return;
-    setFont(s.font);
-    if (s.settings) applyImportedSettings(s.settings);
-    toast("Loaded sample " + s.name);
+    openAskModal("Open sample " + s.name + "?",
+      "It replaces the current font; the sample's settings are applied too.",
+      "Open", function () {
+        setFont(s.font);
+        if (s.settings) applyImportedSettings(s.settings);
+        toast("Loaded sample " + s.name);
+      });
   }
   // First-run preload (DECISIONS #78): only when SERVED and there's no saved font.
   // A saved font always wins; the identity guard below means this can't clobber a
@@ -1930,6 +2009,30 @@
   function openAboutModal() { el.aboutModal.hidden = false; }
   function closeAboutModal() { el.aboutModal.hidden = true; }
 
+  // ---------- modal infrastructure (chunk [AE], DECISIONS #88) ----------
+  // Every modal backdrop shares the same close paths: the × button, its
+  // Cancel button, a mousedown on the backdrop itself, and Escape. wireModal()
+  // wires all of those and registers the backdrop so anyModalOpen() /
+  // closeAllModals() treat all modals as ONE Escape layer. A new modal needs
+  // only its markup (index.html), its el entries, and one wireModal() call in
+  // init() — no more per-modal close boilerplate.
+  var modalRegistry = [];
+  function wireModal(backdrop, closers) {
+    modalRegistry.push(backdrop);
+    for (var i = 0; i < closers.length; i++)
+      closers[i].addEventListener("click", function () { backdrop.hidden = true; });
+    backdrop.addEventListener("mousedown", function (e) {
+      if (e.target === backdrop) backdrop.hidden = true;
+    });
+  }
+  function anyModalOpen() {
+    for (var i = 0; i < modalRegistry.length; i++) if (!modalRegistry[i].hidden) return true;
+    return false;
+  }
+  function closeAllModals() {
+    for (var i = 0; i < modalRegistry.length; i++) modalRegistry[i].hidden = true;
+  }
+
   // ---------- Changelog / what's new (DECISIONS #73) ----------
   // The last-run version is app metadata, not a user setting: its own
   // localStorage key, never part of the .bitforge project file.
@@ -2097,6 +2200,12 @@
       miResize: $("mi-resize"), rzModal: $("rz-modal"), rzClose: $("rz-close"), rzResult: $("rz-result"),
       rzWarn: $("rz-warn"), rzTop: $("rz-top"), rzBottom: $("rz-bottom"), rzLeft: $("rz-left"),
       rzRight: $("rz-right"), rzApply: $("rz-apply"), rzCancel: $("rz-cancel"),
+      newModal: $("new-modal"), newClose: $("new-close"), newW: $("new-w"), newH: $("new-h"),
+      newResult: $("new-result"), newCreate: $("new-create"), newCancel: $("new-cancel"),
+      cpModal: $("cp-modal"), cpClose: $("cp-close"), cpTitle: $("cp-title"), cpNote: $("cp-note"),
+      cpInput: $("cp-input"), cpResult: $("cp-result"), cpOk: $("cp-ok"), cpCancel: $("cp-cancel"),
+      askModal: $("ask-modal"), askClose: $("ask-close"), askTitle: $("ask-title"),
+      askText: $("ask-text"), askYes: $("ask-yes"), askCancel: $("ask-cancel"),
       btnClear: $("btn-clear"), btnUndo: $("btn-undo"), btnRedo: $("btn-redo"),
       stUnfinished: $("st-unfinished"), stWip: $("st-wip"), stDone: $("st-done"),
       editor: $("editor"), editLabel: $("edit-label"),
@@ -2154,22 +2263,24 @@
     });
     document.addEventListener("keydown", function (e) {
       if (e.key === "Escape") {
-        closeMenus(); closeAboutModal(); closePropsModal(); closeResizeModal(); closeChangelogModal(); closeSampleModal();
-        // Deselect too — but only when nothing else claimed the Escape
-        // (a menu/modal above would have closed itself and takes priority).
-        var busy = false, i;
-        for (i = 0; i < menuPairs.length; i++) if (menuPairs[i][0].classList.contains("open")) busy = true;
-        if (!busy) {
-          if (!el.aboutModal.hidden || !el.propsModal.hidden || !el.rzModal.hidden || !el.clModal.hidden || !el.sampleModal.hidden) busy = true;
-          else if (!el.keysCard.hidden) busy = true;
-        }
-        if (!busy && state.selRect) clearSel();
+        // Snapshot FIRST: whatever is open CLAIMS the Escape (closes itself)
+        // and the selection must survive; only a fully idle Escape deselects.
+        // (Pre-[AE] the open-check ran after the closes, so it was dead code
+        // and Escape with a modal open also cleared the selection — the
+        // documented intent was "Esc deselects when no menu or modal is open".)
+        var i, menuBusy = false;
+        for (i = 0; i < menuPairs.length; i++) if (menuPairs[i][0].classList.contains("open")) menuBusy = true;
+        var modalBusy = anyModalOpen(), keysBusy = !el.keysCard.hidden;
+        closeMenus();
+        closeAllModals();
+        if (menuBusy || modalBusy || keysBusy) return;
+        if (state.selRect) clearSel();
       }
     });
     function menuItem(id, fn) {
       el[id].addEventListener("click", function () { closeMenus(); fn(); });
     }
-    menuItem("miNew", newFont);
+    menuItem("miNew", openNewModal);
     menuItem("miOpenPng", onOpenClick);
     menuItem("miOpenBdf", onOpenBdfClick);
     menuItem("miOpenProject", onOpenProjectClick);
@@ -2202,47 +2313,43 @@
     menuItem("miAboutBitforge", openAboutModal);
     menuItem("miChangelog", function () { openChangelogModal(BF_CHANGELOG, false); });
 
-    // About modal: close via the × button or a click on the backdrop itself
-    // (document-level outside-click / Escape are handled above; browser-only
-    // under the jsc stub).
-    el.aboutClose.addEventListener("click", closeAboutModal);
-    el.aboutModal.addEventListener("mousedown", function (e) {
-      if (e.target === el.aboutModal) closeAboutModal();
-    });
+    // Modal close wiring (chunk [AE], DECISIONS #88): every backdrop shares
+    // the same paths — × / Cancel button(s) / backdrop mousedown — wired once
+    // via wireModal(); Escape treats all modals as one layer (handler above).
+    // Action buttons (Save / Apply / Full changelog…) are wired separately.
+    wireModal(el.aboutModal, [el.aboutClose]);
+    wireModal(el.clModal, [el.clClose, el.clOk]);
+    wireModal(el.propsModal, [el.propsClose, el.propsCancel]);
+    wireModal(el.rzModal, [el.rzClose, el.rzCancel]);
+    wireModal(el.sampleModal, [el.sampleClose]);
+    wireModal(el.newModal, [el.newClose, el.newCancel]);
+    wireModal(el.cpModal, [el.cpClose, el.cpCancel]);
+    wireModal(el.askModal, [el.askClose, el.askCancel]);
 
-    // Changelog modal: same close paths; “Full changelog…” switches the
-    // what's-new view to the full list.
-    el.clClose.addEventListener("click", closeChangelogModal);
-    el.clOk.addEventListener("click", closeChangelogModal);
+    // Changelog: “Full changelog…” switches the what's-new view to the full list.
     el.clFull.addEventListener("click", function () { openChangelogModal(BF_CHANGELOG, false); });
-    el.clModal.addEventListener("mousedown", function (e) {
-      if (e.target === el.clModal) closeChangelogModal();
-    });
 
-    // Properties modal: same close paths as the About modal.
-    el.propsClose.addEventListener("click", closePropsModal);
-    el.propsCancel.addEventListener("click", closePropsModal);
+    // Properties modal: Save applies the name (close paths are wireModal'd above).
     el.propsSave.addEventListener("click", saveProps);
-    el.propsModal.addEventListener("mousedown", function (e) {
-      if (e.target === el.propsModal) closePropsModal();
-    });
 
-    // Resize modal: same close paths; live result readout on input.
-    el.rzClose.addEventListener("click", closeResizeModal);
-    el.rzCancel.addEventListener("click", closeResizeModal);
+    // Resize modal: Apply does the (possibly two-step) resize; live result readout.
     el.rzApply.addEventListener("click", applyResizeAction);
-    el.rzModal.addEventListener("mousedown", function (e) {
-      if (e.target === el.rzModal) closeResizeModal();
-    });
-
-    // Sample picker modal (DECISIONS #77): same close paths as the others.
-    el.sampleClose.addEventListener("click", closeSampleModal);
-    el.sampleModal.addEventListener("mousedown", function (e) {
-      if (e.target === el.sampleModal) closeSampleModal();
-    });
     var rzInputs = ["rzTop", "rzBottom", "rzLeft", "rzRight"];
     for (var rzi = 0; rzi < rzInputs.length; rzi++)
       el[rzInputs[rzi]].addEventListener("input", rzRender);
+
+    // New-font modal (chunk [AE]): live size readout on input.
+    el.newCreate.addEventListener("click", createNewFont);
+    el.newW.addEventListener("input", newRender);
+    el.newH.addEventListener("input", newRender);
+
+    // Codepoint-target modal (chunk [AE]): live result on input; Enter = OK.
+    el.cpOk.addEventListener("click", cpOk);
+    el.cpInput.addEventListener("input", cpRender);
+    el.cpInput.addEventListener("keydown", function (e) { if (e.key === "Enter") cpOk(); });
+
+    // Ask/confirm modal (chunk [AE]).
+    el.askYes.addEventListener("click", askConfirm);
 
     // Edit-tab status buttons (DECISIONS #50): mark the current glyph, then
     // move on to the next one (arrows / atlas click). Re-clicking the active
@@ -2377,7 +2484,7 @@
 
     // File ops + tabs (DECISIONS #48). Ctrl+N / Ctrl+O are reserved by the
     // browser (new window / open file — not interceptable), hence Alt there.
-    shortcuts.register({ combo: "Alt+n", description: "New blank font", handler: newFont });
+    shortcuts.register({ combo: "Alt+n", description: "New blank font", handler: openNewModal });
     shortcuts.register({ combo: "Alt+o", description: "Open PNG atlas", handler: onOpenClick });
     shortcuts.register({ combo: "Alt+Shift+o", description: "Open BDF font", handler: onOpenBdfClick });
     shortcuts.register({ combo: "Alt+p", description: "Open project file", handler: onOpenProjectClick });
@@ -2463,6 +2570,11 @@
       copyGlyph: copyGlyphToClipboard, glyphCanvas: glyphCanvas, applyResize: applyResize,
       mirrorAction: mirrorAction, copyToCodepointAction: copyToCodepointAction, parseCodeInput: parseCodeInput,
       setTool: setTool, setSel: setSel, clearSel: clearSel, selAction: selAction, selCopyTo: selCopyTo,
+      // chunk [AE] in-app dialogs (DECISIONS #88): drive the three shared modals
+      openNewModal: openNewModal, closeNewModal: closeNewModal, createNewFont: createNewFont, newRender: newRender,
+      openCodepointModal: openCodepointModal, closeCodepointModal: closeCodepointModal, cpRender: cpRender, cpOk: cpOk,
+      openAskModal: openAskModal, closeAskModal: closeAskModal, askConfirm: askConfirm,
+      anyModalOpen: anyModalOpen, closeAllModals: closeAllModals,
       pasteMode: pasteMode, setPasteMode: setPasteMode,
       onEditorDown: onEditorDown, onEditorMove: onEditorMove, onEditorUp: onEditorUp,
       getLastToast: function () { return lastToast; },

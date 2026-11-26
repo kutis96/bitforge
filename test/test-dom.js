@@ -165,7 +165,13 @@ test("dom: project export/import roundtrips font + settings through the seam", f
   assertEqual(o.version, 1, "header version");
   assertEqual(o.font.w, f.width, "font dims in the export");
   assertEqual(o.settings.pvText, "hello", "settings included in the export");
-  assert(app.importProjectText(JSON.stringify(o), "test.bitforge"), "import succeeds");
+  var els = globalThis.__stub.els;
+  // Valid import opens the in-app ask modal (chunk [AE]); Replace commits it.
+  assert(app.importProjectText(JSON.stringify(o), "test.bitforge"), "import proceeds (ask modal opens)");
+  assertEqual(els["ask-modal"].hidden, false, "ask modal open");
+  assertEqual(els["ask-yes"].textContent, "Replace", "yes-label is Replace");
+  globalThis.__stub.dispatch("ask-yes", "click", {});
+  assertEqual(els["ask-modal"].hidden, true, "modal closed after Replace");
   assertEqual(BF.getPixel(app.state.font, 0x41, 1, 2), 1, "ink restored");
   assertEqual(app.state.font.status[0x41], 2, "status restored");
   assertEqual(app.state.font.guidelines.length, 1, "guideline restored");
@@ -173,11 +179,13 @@ test("dom: project export/import roundtrips font + settings through the seam", f
   assertEqual(app.settingsGet("pvText"), "hello", "preview text restored");
   assertEqual(app.state.scale, 4, "scale restored into state");
   assert(app.getLastToast().indexOf("Imported project") === 0, "toast: " + app.getLastToast());
-  // user cancels the replace confirm -> import is a no-op
-  var stub = globalThis.__stub;
-  stub.setConfirm(false);
-  assertEqual(app.importProjectText(JSON.stringify(o), "again.bitforge"), false, "canceled import is a no-op");
-  stub.setConfirm(true);
+  // User cancels the replace (ask modal) -> import is a no-op.
+  var before2 = JSON.stringify(BF.fontToBlob(app.state.font));
+  var toast2 = app.getLastToast();
+  assert(app.importProjectText(JSON.stringify(o), "again.bitforge"), "canceled import still opens the ask modal");
+  globalThis.__stub.dispatch("ask-cancel", "click", {});
+  assertEqual(JSON.stringify(BF.fontToBlob(app.state.font)), before2, "canceled import leaves the font alone");
+  assertEqual(app.getLastToast(), toast2, "no new toast after cancel");
   // leave the shared font clean for the QA summary-count test (it runs later)
   app.setStatus(0x41, 0);
 });
@@ -640,7 +648,7 @@ test("dom: mousedown on a menu item must NOT close the menu (real-browser click 
 
 test("dom: About modal head + browser tab show the app version (DECISIONS #56)", function () {
   assert(/^\d+\.\d+\.\d+$/.test(BF.VERSION), "BF.VERSION is semver-ish: " + BF.VERSION);
-  assertEqual(BF.VERSION, "0.27.6", "pinned version — bump this test when you bump the app");
+  assertEqual(BF.VERSION, "0.27.7", "pinned version — bump this test when you bump the app");
   var els = globalThis.__stub.els;
   assertEqual(els["about-title"].textContent, "bitforge " + BF.VERSION, "modal head shows name + version");
   assertEqual(document.title, "bitforge " + BF.VERSION, "browser tab shows name + version");
@@ -1058,8 +1066,9 @@ test("dom: mirror — H/V flip the selected glyph, Ctrl+Z restores", function ()
   for (var i = 0; i < before.length; i++) BF.setPixel(f, 0x41, i % w, (i / w) | 0, before[i]);
 });
 
-test("dom: copy-to-codepoint — duplicates, selects target, refuses bad input", function () {
+test("dom: copy-to-codepoint — modal form, duplicates, selects target, refuses bad input", function () {
   var app = globalThis.__stub.app;
+  var els = globalThis.__stub.els;
   var f = app.state.font;
   app.selectGlyph(0x42);
   BF.clearGlyph(f, 0x42);
@@ -1068,31 +1077,44 @@ test("dom: copy-to-codepoint — duplicates, selects target, refuses bad input",
   for (var y = 0; y < f.height; y++) for (var x = 0; x < f.width; x++) before62.push(BF.getPixel(f, 0x62, x, y));
   f.status[0x62] = 2; // target status must survive the copy
 
-  globalThis.prompt = function () { return "62"; };
+  // Open the shared codepoint modal (chunk [AE]); type a valid target; OK.
   app.copyToCodepointAction();
+  assertEqual(els["cp-modal"].hidden, false, "codepoint modal opens");
+  assert(els["cp-note"].textContent.indexOf("0x42") !== -1, "note names the source: " + els["cp-note"].textContent);
+  els["cp-input"].value = "62";
+  globalThis.__stub.dispatch("cp-input", "input", {});
+  assert(els["cp-result"].textContent.indexOf("0x62") !== -1, "live result shows 0x62: " + els["cp-result"].textContent);
+  globalThis.__stub.dispatch("cp-ok", "click", {});
+  assertEqual(els["cp-modal"].hidden, true, "modal closed after OK");
   assertEqual(app.state.selected, 0x62, "target becomes the selection");
   assertEqual(BF.getPixel(f, 0x62, 0, 5), 1, "target got the ink");
   assertEqual(f.status[0x62], 2, "target status untouched");
   var t = app.getLastToast();
   assert(t.indexOf("0x42") !== -1 && t.indexOf("0x62") !== -1, "toast names both codes: " + t);
 
-  // Same codepoint as the selection is refused.
-  globalThis.prompt = function () { return "62"; };
+  // Same codepoint as the source is refused (modal stays open, then cancel).
+  app.selectGlyph(0x62); // now 0x62 is the source
   app.copyToCodepointAction();
+  els["cp-input"].value = "62";
+  globalThis.__stub.dispatch("cp-input", "input", {});
+  assert(els["cp-result"].textContent.indexOf("same codepoint") !== -1, "live result flags it: " + els["cp-result"].textContent);
+  globalThis.__stub.dispatch("cp-ok", "click", {});
+  assertEqual(els["cp-modal"].hidden, false, "modal stays open on same-codepoint");
   assert(app.getLastToast().indexOf("same codepoint") !== -1, "same-code refused: " + app.getLastToast());
+  globalThis.__stub.dispatch("cp-cancel", "click", {});
+  assertEqual(els["cp-modal"].hidden, true, "cancel closes the modal");
 
   // Garbage input is refused and changes nothing.
   BF.setPixel(f, 0x62, 1, 6, 1);
-  globalThis.prompt = function () { return "nope"; };
   app.copyToCodepointAction();
+  els["cp-input"].value = "nope";
+  globalThis.__stub.dispatch("cp-input", "input", {});
+  assert(els["cp-result"].textContent.indexOf("invalid") !== -1, "live result flags invalid: " + els["cp-result"].textContent);
+  globalThis.__stub.dispatch("cp-ok", "click", {});
+  assertEqual(els["cp-modal"].hidden, false, "modal stays open on garbage");
   assert(app.getLastToast().indexOf("one char, or hex") !== -1, "garbage refused: " + app.getLastToast());
   assertEqual(BF.getPixel(f, 0x62, 1, 6), 1, "garbage input left the target alone");
-
-  // Cancel (null) does nothing.
-  globalThis.prompt = function () { return null; };
-  app.copyToCodepointAction();
-  assertEqual(BF.getPixel(f, 0x62, 1, 6), 1, "cancel left the font alone");
-  delete globalThis.prompt;
+  globalThis.__stub.dispatch("cp-cancel", "click", {});
 
   // Cleanup: restore 0x62 (ink + status) and blank the source again.
   for (var i = 0; i < before62.length; i++) BF.setPixel(f, 0x62, i % f.width, (i / f.width) | 0, before62[i]);
@@ -1202,9 +1224,15 @@ test("dom: selection copy-to — exact paste, target selected, status survives",
   BF.setPixel(f, 0x64, 6, 6, 1);
   f.status[0x64] = 2;
 
-  globalThis.prompt = function () { return "64"; };
+  // Shared codepoint modal (chunk [AE]): the note names the selection.
   app.selCopyTo();
-  delete globalThis.prompt;
+  var els = globalThis.__stub.els;
+  assertEqual(els["cp-modal"].hidden, false, "codepoint modal opens");
+  assert(els["cp-note"].textContent.indexOf("selection") !== -1, "note names the selection: " + els["cp-note"].textContent);
+  els["cp-input"].value = "64";
+  globalThis.__stub.dispatch("cp-input", "input", {});
+  globalThis.__stub.dispatch("cp-ok", "click", {});
+  assertEqual(els["cp-modal"].hidden, true, "modal closed after OK");
 
   assertEqual(BF.getPixel(f, 0x64, 1, 2), 1, "ink pasted");
   assertEqual(BF.getPixel(f, 0x64, 3, 2), 1, "ink pasted (2)");
@@ -1234,6 +1262,25 @@ test("dom: selection — Esc deselects when nothing else is open", function () {
   globalThis.__stub.docDispatch("keydown", { key: "Escape" });
   assertEqual(app.state.selRect, null, "Esc cleared the selection");
   assert(els["selbar"].hidden, "bar hidden");
+  app.setTool("paint");
+});
+
+test("dom: Escape with a modal open closes the modal but KEEPS the selection (chunk [AE] fix)", function () {
+  var app = globalThis.__stub.app;
+  var els = globalThis.__stub.els;
+  app.setTool("select");
+  app.setSel({ x: 0, y: 0, w: 2, h: 2 });
+  assertEqual(app.state.selRect !== null, true, "selection active");
+  app.openAskModal("Test?", "Does the selection survive the Escape?", "Yes", function () {});
+  assertEqual(els["ask-modal"].hidden, false, "ask modal open");
+  globalThis.__stub.docDispatch("keydown", { key: "Escape" });
+  assertEqual(els["ask-modal"].hidden, true, "Escape closed the modal");
+  assertEqual(app.state.selRect !== null, true, "selection SURVIVES — the modal claimed the Escape");
+  assert(els["selbar"].hidden === false, "selection bar still visible");
+  // A fully idle Escape still deselects.
+  globalThis.__stub.docDispatch("keydown", { key: "Escape" });
+  assertEqual(app.state.selRect, null, "idle Escape cleared the selection");
+  assert(els["selbar"].hidden, "bar hidden after idle Escape");
   app.setTool("paint");
 });
 
@@ -1369,4 +1416,55 @@ test("dom: addGuide clamps presets into 0..dim inclusive", function () {
     while (f.guidelines.length > savedLen) f.guidelines.pop();
     app.drawEditor();
   }
+});
+
+test("dom: new-font modal — one form for width+height, live readout, create/cancel (chunk [AE])", function () {
+  var app = globalThis.__stub.app;
+  var els = globalThis.__stub.els;
+  var before = app.state.font;
+
+  // Open: prefilled with the current font's dims, live readout.
+  app.openNewModal();
+  assertEqual(els["new-modal"].hidden, false, "modal open");
+  assertEqual(els["new-w"].value, "8", "prefilled width");
+  assertEqual(els["new-h"].value, "16", "prefilled height");
+  assertEqual(els["new-result"].textContent, "\u2192 8\u00d716", "live readout 8\u00d716");
+
+  // Live readout follows the inputs; out-of-range is flagged inline.
+  els["new-w"].value = "20";
+  app.newRender();
+  assertEqual(els["new-result"].textContent, "\u2192 20\u00d716", "readout follows the width");
+  els["new-w"].value = "9999";
+  app.newRender();
+  assert(/^invalid \u2014 width must be an integer 1\.\..*\(got 9999\)/.test(els["new-result"].textContent),
+    "9999 flagged invalid inline: " + els["new-result"].textContent);
+
+  // Invalid Create is refused: modal stays open, font untouched, error toast.
+  app.createNewFont();
+  assertEqual(els["new-modal"].hidden, false, "invalid create keeps the modal open");
+  assertEqual(app.state.font, before, "invalid create left the font alone");
+  assert(/^width must be an integer 1\.\..*\(got 9999\)/.test(app.getLastToast()), "error toast shown: " + app.getLastToast());
+
+  // Cancel closes; the font is still untouched.
+  app.closeNewModal();
+  assertEqual(els["new-modal"].hidden, true, "cancel closed the modal");
+  assertEqual(app.state.font, before, "cancel left the font alone");
+
+  // Valid Create replaces the font.
+  app.openNewModal();
+  els["new-w"].value = "12"; els["new-h"].value = "24";
+  app.createNewFont();
+  assertEqual(els["new-modal"].hidden, true, "create closed the modal");
+  assert(app.state.font !== before, "create replaced the font object");
+  assertEqual(app.state.font.width, 12, "new width 12");
+  assertEqual(app.state.font.height, 24, "new height 24");
+  assertEqual(app.getLastToast(), "New 12\u00d724 font", "create toast");
+
+  // Restore 8x16 for the test files that run after this one (shared app instance).
+  app.openNewModal();
+  assertEqual(els["new-w"].value, "12", "prefill follows the CURRENT font (12)");
+  els["new-w"].value = "8"; els["new-h"].value = "16";
+  app.createNewFont();
+  assertEqual(app.state.font.width, 8, "restored width 8");
+  assertEqual(app.state.font.height, 16, "restored height 16");
 });

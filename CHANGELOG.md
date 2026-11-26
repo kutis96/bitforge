@@ -44,6 +44,19 @@ Rules:
 - Run `./test/run-tests.sh` before committing — the changelog data-sanity
   test is the safety net.
 
+## 0.27.7 (2026-11-26)
+
+- No more browser popups: every “type a value” and “are you sure?” dialog is
+  now part of the app. **New font** (File → New blank font, `Alt+N`) asks for
+  width and height in **one form** with a live size readout, instead of a
+  chain of popups; **Copy to codepoint** and the selection’s **Paste to
+  codepoint** ask for the target codepoint in one dialog (Enter confirms);
+  and opening a project or a sample now asks in-app before replacing the
+  current font. Invalid input is flagged right in the dialog and it stays
+  open until the value is fixed.
+- `Esc` now closes the topmost dialog and **keeps your selection** — before,
+  it could silently clear a selection while a dialog was open.
+
 ## 0.27.6 (2026-11-25)
 
 - The Preview tab head grew four controls: **wrap** (off = one long line with

@@ -168,17 +168,11 @@
   // (no microtask flushing under jsc).
   root.navigator = { clipboard: null };
   root.ClipboardItem = function (o) { this.data = o; };
-  // confirm() for replace-on-import flows: answers "yes" by default; tests
-  // flip it with __stub.setConfirm(false) to simulate the user canceling.
-  var confirmAnswer = true;
-  root.confirm = function () { return confirmAnswer; };
-
   root.__stub = {
     els: els,
     runInit: function () { documentStub._ready(); },
     downloads: [],         // filenames passed to a.download + click()
     blob: null,            // fake canvas.toBlob result (null = failed)
-    setConfirm: function (v) { confirmAnswer = v != null ? !!v : true; },
     clipboardCalls: [],    // ClipboardItem arrays passed to navigator.clipboard.write
     setClipboard: function (mode) {
       if (mode === "available")
