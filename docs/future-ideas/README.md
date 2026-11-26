@@ -22,6 +22,11 @@ what "doing it" would require.
 | #   | Idea | Status |
 |-----|------|--------|
 | [001](001-grammar-based-nonsense.md) | Grammar-based (SCFG) + length-bounded nonsense text generation | parked |
+| [002](002-region-stamp.md) | Region stamp — copy a rect/row of one glyph, stamp it onto another (or a codepoint range) | parked |
+| [003](003-authored-sample-text.md) | Hand-authored preview text for the sample fonts (e.g. Small & Cozy) | parked |
+| [004](004-svg-export.md) | SVG export / SVG logo render of a sample font | parked |
+| [005](005-glyph-weight.md) | Glyph "weight" readout / face-balance histogram | parked |
+| [006](006-connectivity-qa.md) | Holes & connectivity QA (likely out of scope for bitforge) | parked |
 
 ## Statuses
 
