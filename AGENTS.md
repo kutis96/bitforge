@@ -9,6 +9,8 @@ This file is the entry point for agents (and human contributors) picking up work
 3. [docs/STATUS.md](docs/STATUS.md) — the de-facto handoff document: Current-state checklist (**the single source of chunk positions and version numbers**), Versions table, Completed log (per-chunk detail), Plan (what's left, incl. the accumulated browser-verify lists).
 4. [docs/TESTING.md](docs/TESTING.md) — read before touching `js/core.js` or adding/changing tests.
 
+> **Parked ideas** live in [docs/future-ideas/](docs/future-ideas/README.md) — a backlog of interesting, non-committed features (**not** decisions, not scheduled work). Adding a new one: numbered `NNN-<slug>.md` + an index row + the template, per that folder's README (docs-only commit; no version/changelog).
+
 ## Hard constraints (do not break)
 
 - **Vanilla JS only.** No Node, TypeScript, bundlers, frameworks, or external libraries.
