@@ -172,9 +172,10 @@ noisy diffs). The export picks which properties to write:
   only, **no `settings` key**. The **source-control** default —
   **Export project (clean)…** (`Alt+Shift+P`).
 - **sample** — clean **+** the sample-presentation settings (`selCode`, `pvText`).
-  For sample files. Exposed as the **Sample presentation (clean export)** toggle
-  in the Project menu (`cleanPresentation` setting, default off): with it on, a
-  clean export is exactly a sample.
+  For sample files. Exposed as the **Include text sample (clean export)**
+  checkbox in the Project menu (directly under the clean export;
+  `cleanPresentation` setting, default off): with it on, a clean export is
+  exactly a sample.
 - **full** — **everything** (all 16 settings, personal) — the pre-0.29.0
   behavior — **Export project (full)…** (`Alt+Shift+F`).
 

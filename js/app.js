@@ -1644,8 +1644,8 @@
   function exportProject(mode) {
     downloadText(projectExportText(mode), BF.filenameBase(state.font.name) + PROJECT_EXT);
   }
-  // "Sample presentation (clean export)" menu toggle — a personal pref through
-  // the settings API (DECISIONS #40), default OFF: a clean export is clean.
+  // "Include text sample (clean export)" menu checkbox — a personal pref
+  // through the settings API (DECISIONS #40), default OFF: a clean export is clean.
   function setCleanPresentation(v) {
     settingsSet("cleanPresentation", !!v);
     syncCleanPresentationMenu();

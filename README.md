@@ -55,7 +55,7 @@ python3 tools/verify-ttf.py yourfont.ttf          # or a .bitforge project
 ### `.bitforge` project file
 A JSON snapshot for work in progress: the font plus the things a PNG can't carry — editor guidelines, per-glyph status, QA silences, and app settings. The PNG remains the primary interchange for *finished* fonts.
 
-Exports come in three curated modes: **clean** (the font source only — no personal view prefs, so shared files diff cleanly), **sample** (clean + start glyph + preview demo text, via the *Sample presentation (clean export)* toggle) and **full** (everything, the old behavior). Import is unchanged across all three — a setting missing from the file simply keeps your current value. The full format reference, including the property→mode matrix, lives in [docs/FILE-FORMAT.md](docs/FILE-FORMAT.md).
+Exports come in three curated modes: **clean** (the font source only — no personal view prefs, so shared files diff cleanly), **sample** (clean + start glyph + preview demo text, via the *Include text sample (clean export)* checkbox) and **full** (everything, the old behavior). Import is unchanged across all three — a setting missing from the file simply keeps your current value. The full format reference, including the property→mode matrix, lives in [docs/FILE-FORMAT.md](docs/FILE-FORMAT.md).
 
 ## Preview markup
 

@@ -52,10 +52,10 @@ Rules:
   props — with no personal view prefs, so shared files stay diff-friendly.
   **Export project (full)…** (`Alt+Shift+F`) writes everything (all
   settings), exactly as before.
-- A **Sample presentation (clean export)** toggle in the Project menu adds
-  the *start glyph* and *preview demo text* to a clean export — for sharing a
-  face as a ready-to-open sample. The toggle state is a personal preference
-  (persisted with your settings; off by default).
+- An **Include text sample (clean export)** checkbox under the clean export
+  adds the *preview demo text* + *start glyph* to it — for sharing a face as a
+  ready-to-open sample. Its state is a personal preference (persisted with
+  your settings; off by default).
 - **Opening `.bitforge` files is unchanged**: clean and sample files simply
   leave your personal view settings as they are (a missing setting keeps its
   current value).

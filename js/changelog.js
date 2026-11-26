@@ -16,7 +16,7 @@
 var BF_CHANGELOG = [
   { version: "0.29.0", date: "2026-11-26", changes: [
     "The `.bitforge` project export is now curated: **Export project (clean)** (`Alt+Shift+P`) writes the font source only — data, name, guidelines, status, QA silences, check props — without personal view prefs, so shared files diff cleanly. **Export project (full)** (`Alt+Shift+F`) keeps everything, as before."
-  , "A **Sample presentation (clean export)** toggle in the Project menu adds the start glyph + preview demo text to a clean export — for sharing a face as a ready-to-open sample."
+  , "An **Include text sample (clean export)** checkbox under the clean export adds the preview demo text + start glyph to it — for sharing a face as a ready-to-open sample."
   , "Opening `.bitforge` files works exactly as before — clean and sample files simply leave your personal view settings untouched."
   ] },
   { version: "0.28.0", date: "2026-11-26", changes: [
