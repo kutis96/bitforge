@@ -240,30 +240,38 @@ test("ttf: head — v1.0 (54 bytes), spec offsets, em, magic, bbox, loca format"
   assertEqual(t.loca.len, 5 * (long ? 4 : 2), "loca size = 5 offsets (4 glyphs + 1)");
 });
 
-test("ttf: hhea — EXACTLY 36 bytes, 18 FWORDs at spec offsets", function () {
-  // hhea v1.0 is EXACTLY 36 bytes (verified field-by-field against Geneva /
-  // Monaco / Symbol): 18 FWORDs (2 bytes each) in this order:
-  //   0  version(2)         2  fontRevision(2)
-  //   4  unitsPerEm(2)      6  xAvgCharWidth(2)
-  //   8  minLSB(2)         10  minRSB(2)
-  //  12  maxAdvance(2)     14  spacing(2)
-  //  16  xMin(2)           18  yMin(2)
-  //  20  xMax(2)           22  yMax(2)
-  //  24  macStyle(2)       26  flags(2)
-  //  28  reserved[3] (6 bytes, 28/30/32)
-  //  34  numberOfHMetrics(2)
-  // (version/fontRevision are FWORDs — 1.0 == value 1, NOT 4-byte fixed.)
+test("ttf: hhea — EXACTLY 36 bytes, canonical layout at spec offsets", function () {
+  // hhea v1.0 is EXACTLY 36 bytes — canonical layout per the OpenType spec,
+  // verified field-by-field against fontTools' hheaFormat (the oracle):
+  //   0  tableVersion(4) = 0x00010000 — 4-byte fixed 1.0, NOT two FWORDs
+  //   4  ascent(2)  6  descent(2)  8  lineGap(2)
+  //  10  advanceWidthMax(2)
+  //  12  minLeftSideBearing(2)  14  minRightSideBearing(2)  16  xMaxExtent(2)
+  //  18  caretSlopeRise(2)  20  caretSlopeRun(2)  22  caretOffset(2)
+  //  24  reserved0..reserved3 (4 × 2 bytes)
+  //  32  metricDataFormat(2)  34  numberOfHMetrics(2)
+  // (The previous test asserted the fabricated "18 FWORDs" layout — hhea has
+  // no unitsPerEm/font-bbox/macStyle; those live in head. Readers of the
+  // canonical layout read ascent/descent from bytes 4..8 — that's the
+  // baseline/line-box bug this test now guards.)
   var b = TTF.build(sampleFont(), "bf-test"), t = ttfTables(b), h = t.hhea;
-  assertEqual(h.len, 36, "hhea = 36 bytes (CoreText rejects other lengths)");
-  assertEqual(t16(b, h.off + 0), 1, "version FWORD = 1.0");
-  assertEqual(t16(b, h.off + 4), 1024, "unitsPerEm = 16px * 64 (== head.upem)");
-  assertEqual(t16(b, h.off + 6), 512, "xAvgCharWidth = width*upx (8*64)");
-  assertEqual(t16(b, h.off + 12), 512, "maxAdvance = 8 * 64");
-  // font bbox @16/18/20/22 must match head's bbox (A: x 0..512, y 448..832)
-  assertEqual(t16s(b, h.off + 16), 0, "xMin");
-  assertEqual(t16s(b, h.off + 18), 448, "yMin");
-  assertEqual(t16s(b, h.off + 20), 512, "xMax");
-  assertEqual(t16s(b, h.off + 22), 832, "yMax");
+  assertEqual(h.len, 36, "hhea = 36 bytes (spec: 4 + 16 × 2)");
+  assertEqual(t32(b, h.off + 0), 0x00010000, "tableVersion = 1.0 (4-byte fixed)");
+  assertEqual(t16s(b, h.off + 4), 832, "ascent = base*upx = 13*64");
+  assertEqual(t16s(b, h.off + 6), -192, "descent = -(height-base)*upx = -3*64");
+  assertEqual(t16s(b, h.off + 8), 0, "lineGap = 0");
+  assertEqual(t16(b, h.off + 10), 512, "advanceWidthMax = width*upx = 8*64");
+  assertEqual(t16s(b, h.off + 12), 0, "minLeftSideBearing = 0 ('A' bar at x=0, notdef empty)");
+  assertEqual(t16s(b, h.off + 14), 0, "minRightSideBearing = adv - xMax = 512 - 512");
+  assertEqual(t16s(b, h.off + 16), 512, "xMaxExtent = font xMax ('B' pixel at x=7)");
+  assertEqual(t16s(b, h.off + 18), 1, "caretSlopeRise = 1 (MUST be nonzero)");
+  assertEqual(t16s(b, h.off + 20), 0, "caretSlopeRun = 0");
+  assertEqual(t16s(b, h.off + 22), 0, "caretOffset = 0");
+  assertEqual(t16s(b, h.off + 24), 0, "reserved0 = 0");
+  assertEqual(t16s(b, h.off + 26), 0, "reserved1 = 0");
+  assertEqual(t16s(b, h.off + 28), 0, "reserved2 = 0");
+  assertEqual(t16s(b, h.off + 30), 0, "reserved3 = 0");
+  assertEqual(t16s(b, h.off + 32), 0, "metricDataFormat = 0");
   assertEqual(t16(b, h.off + 34), 4, "numberOfHMetrics = 4 slots");
 });
 

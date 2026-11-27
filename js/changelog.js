@@ -14,6 +14,10 @@
  * (date "" = pre-dated history, not shown in the UI)
  */
 var BF_CHANGELOG = [
+  { version: "0.30.0", date: "2026-11-27", changes: [
+    "**Export TTF font** (and the dogfooding preview) now sits on the baseline correctly in real apps: the `hhea` table was being written in a layout that doesn't exist in the spec, so strict readers measured a 1.5em line box and a misplaced baseline. The table now uses the canonical layout, with ascent/descent that exactly bound the face (from the baseline guide, or the `H−3` preset when it has none) — matching the `OS/2` values the face already carried."
+  , "Also fixed: `head.flags` no longer claims the face starts at x=0 unless it does, and the bundled verifier (`tools/verify-ttf.py`) reads `loca` correctly for bare `.ttf` input and now checks the `hhea` fields a strict renderer relies on."
+  ] },
   { version: "0.29.0", date: "2026-11-26", changes: [
     "The `.bitforge` project export is now curated: **Export project (clean)** (`Alt+Shift+P`) writes the font source only — data, name, guidelines, status, QA silences, check props — without personal view prefs, so shared files diff cleanly. **Export project (full)** (`Alt+Shift+F`) keeps everything, as before."
   , "An **Include text sample (clean export)** checkbox under the clean export adds the preview demo text + start glyph to it — for sharing a face as a ready-to-open sample."

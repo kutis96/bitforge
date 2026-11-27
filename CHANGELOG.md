@@ -44,6 +44,35 @@ Rules:
 - Run `./test/run-tests.sh` before committing — the changelog data-sanity
   test is the safety net.
 
+## 0.30.0 (2026-11-27)
+
+- **Export TTF font** (and the dogfooding preview) now sits on the baseline
+  correctly in real apps. Root cause: the `hhea` table was written in a
+  layout that doesn't exist in the OpenType spec ("18 FWORDs" — `hhea` has no
+  `unitsPerEm`/font-bbox/`macStyle`; those live in `head`), so readers of the
+  canonical layout measured ascent 1024 / descent 512 (a 1.5em line box) out
+  of our `upem`/average bytes — the face sat above/below the baseline and
+  below the underline. The table now uses the canonical 36-byte layout
+  (oracle: fontTools' `hheaFormat`), with `ascent`/`descent` that exactly
+  bound the face — the baseline source is the face's `base`-labeled guide
+  when it has one, else the `H−3` preset convention (user decision, Option A)
+  — matching the `OS/2` values the face already carried. `caretSlopeRise`
+  is 1 (nonzero — fontTools' decompile fails otherwise).
+- `head.flags` bit 1 ("all glyphs left-side-bearing at x=0") is now set only
+  when the font's `xMin` actually is 0 (was hardcoded on).
+- `tools/verify-ttf.py`: bare-`.ttf` mode now decodes SHORT `loca` as
+  `offset × 2` (was `× 16` — 136/156 spcct16 records failed to parse) and
+  reads `indexToLocFormat` at `head+50` (was `head+42` = `yMax`); the shared
+  structural check now verifies the `hhea` fields a strict renderer relies
+  on (`len 36`, `tableVersion 1.0`, `ascent > 0`, `descent < 0`,
+  `caretSlopeRise == 1`, `numberOfHMetrics == maxp.numGlyphs`) — the guard
+  that catches this bug class even when a lenient oracle (CoreText) accepts
+  the font.
+- Verified: 261/261 test suite; CoreText verifier green on both samples
+  (all hard checks); OTS sanitizer: "File sanitized successfully!" with zero
+  warnings on both. The **Beta** badge stays until the user confirms it in
+  proper font-authoring tools.
+
 ## 0.29.0 (2026-11-26)
 
 - The **`.bitforge` project export** is now curated into two modes:

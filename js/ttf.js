@@ -111,7 +111,7 @@
 
   function buildGlyphs(font, codes, upx, base) {
     // Returns { glyf: Writer, loca: Writer, maxPoints, maxContours,
-    // hmtx: Writer, xMin, yMin, xMax, yMax }
+    // hmtx: Writer, xMin, yMin, xMax, yMax, minLsb }
     //
     // Glyph layout: slot 0 = .notdef, slots 1..M = the mapped codes (ascending).
     //   - Every EMPTY glyph (.notdef / blank code) is a ZERO-LENGTH glyph:
@@ -211,8 +211,11 @@
     for (slot = 0; slot < numGlyphs; slot++) {
       hmtx.u16(adv); hmtx.i16(lsbs[slot]); // lsb = the glyph's xMin (0 if empty)
     }
+    var minLsb = 0;
+    for (i = 0; i < lsbs.length; i++) if (lsbs[i] < minLsb) minLsb = lsbs[i];
     return { glyf: glyf, loca: loca, hmtx: hmtx, maxPoints: maxPts,
-             maxContours: maxCont, xMin: fXMin, yMin: fYMin, xMax: fXMax, yMax: fYMax };
+             maxContours: maxCont, xMin: fXMin, yMin: fYMin, xMax: fXMax, yMax: fYMax,
+             minLsb: minLsb };
   }
 
   // cmap format 4, single (3,1) subtable. `codes` = mapped codes ascending;
@@ -357,7 +360,7 @@
     h.u32(0x00010000); // fontRevision 1.0
     h.u32(0);          // checkSumAdjustment — patched in build()
     h.u32(0x5f0f3cf5); // magic
-    h.u16(0x0003);     // flags
+    h.u16(xMin === 0 ? 0x0003 : 0x0001); // flags: bit0 macStyle-ok (0==0); bit1 (all LSBs at x=0) ONLY when the font bbox actually starts at x=0
     h.u16(font.height * upx); // unitsPerEm
     h.u32(0); h.u32(0);       // created (8-byte LongDateTime, deterministic: 0)
     h.u32(0); h.u32(0);       // modified (8-byte LongDateTime)
@@ -370,33 +373,41 @@
     return h.array();
   }
 
-  function buildHhea(font, upx, base, numGlyphs, xMin, yMin, xMax, yMax) {
-    // hhea is EXACTLY 36 bytes (OpenType spec, confirmed field-by-field
-    // against Geneva / Monaco / Symbol): 18 FWORDs (2 bytes each) in this
-    // order — version, fontRevision, unitsPerEm, xAvgCharWidth, minLSB,
-    // minRSB, maxAdvance, spacing, xMin, yMin, xMax, yMax, macStyle, flags,
-    // reserved[3], numberOfHMetrics.
-    // NOTE: version & fontRevision are FWORDs (1.0 == value 1), NOT 4-byte
-    // fixed points; unitsPerEm MUST equal head.upem.
-    var em = font.height * upx;
+  function buildHhea(font, upx, base, numGlyphs, minLsb, xMax) {
+    // hhea v1.0 is EXACTLY 36 bytes — canonical layout per the OpenType spec,
+    // verified field-by-field against fontTools' hheaFormat (the oracle; the
+    // previous "18 FWORDs" layout does not exist in the spec — hhea has no
+    // unitsPerEm / font bbox / macStyle, those live in head — and readers of
+    // the real layout read ascent=1024/descent=512 out of our upem/avg bytes,
+    // producing 1.5em line boxes and a misplaced baseline):
+    //   0  tableVersion(4) = 0x00010000 — 4-byte fixed 1.0, NOT two FWORDs
+    //   4  ascent(2)  6  descent(2)  8  lineGap(2)
+    //  10  advanceWidthMax(2)
+    //  12  minLeftSideBearing(2)  14  minRightSideBearing(2)  16  xMaxExtent(2)
+    //  18  caretSlopeRise(2)  20  caretSlopeRun(2)  22  caretOffset(2)
+    //  24  reserved0..reserved3 (4 × 2 bytes)
+    //  32  metricDataFormat(2)  34  numberOfHMetrics(2)
+    // ascent/descent exactly bound all possible ink: row 0 maps to
+    // y = base*upx (top of the font box), row height-1 to y = (base-height)*upx.
+    // caretSlopeRise MUST be nonzero (1) — 0 made fontTools' decompile fail.
+    var asc = base * upx;
+    var desc = -(font.height - base) * upx;
     var adv = font.width * upx;
     var h = new Writer();
-    h.u16(1);            // version FWORD = 1.0       @0
-    h.u16(0);            // fontRevision FWORD        @2
-    h.u16(em);           // unitsPerEm (== head.upem) @4
-    h.i16(adv);          // xAvgCharWidth             @6
-    h.i16(0);            // minLSB                    @8
-    h.i16(0);            // minRSB                    @10
-    h.u16(adv);          // maxAdvance                @12
-    h.i16(0);            // spacing                   @14
-    h.i16(xMin);         // xMin                      @16
-    h.i16(yMin);         // yMin                      @18
-    h.i16(xMax);         // xMax                      @20
-    h.i16(yMax);         // yMax                      @22
-    h.u16(0);            // macStyle                  @24
-    h.u16(0);            // flags                     @26
-    h.u16(0); h.u16(0); h.u16(0); // reserved[3]      @28 @30 @32
-    h.u16(numGlyphs);    // numberOfHMetrics          @34
+    h.u32(0x00010000); // tableVersion 1.0
+    h.i16(asc);        // ascent
+    h.i16(desc);       // descent (negative FWORD)
+    h.i16(0);          // lineGap
+    h.u16(adv);        // advanceWidthMax
+    h.i16(minLsb);     // minLeftSideBearing
+    h.i16(adv - xMax); // minRightSideBearing
+    h.i16(xMax);       // xMaxExtent
+    h.i16(1);          // caretSlopeRise
+    h.i16(0);          // caretSlopeRun
+    h.i16(0);          // caretOffset
+    h.u16(0); h.u16(0); h.u16(0); h.u16(0); // reserved0..reserved3
+    h.u16(0);          // metricDataFormat
+    h.u16(numGlyphs);  // numberOfHMetrics
     return h.array();
   }
 
@@ -536,7 +547,7 @@
       ["cmap", buildCmap(codes)],
       ["glyf", g.glyf.array()],
       ["head", buildHead(font, upx, base, numGlyphs, longLoca, xMin, yMin, xMax, yMax)],
-      ["hhea", buildHhea(font, upx, base, numGlyphs, xMin, yMin, xMax, yMax)],
+      ["hhea", buildHhea(font, upx, base, numGlyphs, g.minLsb, xMax)],
       ["hmtx", g.hmtx.array()],
       ["loca", g.loca.array()],
       ["maxp", buildMaxp(numGlyphs, g.maxPoints, g.maxContours)],

@@ -516,6 +516,10 @@ def check_sfnt_structure(rep, path):
         fields after fsType for EVERY version ⇒ the table needs ≥ 78 bytes;
         for version 4, ≥ 96; fsSelection bit 0 is ITALIC — it must agree
         with head.macStyle bit 1;
+      - hhea: EXACTLY 36 bytes, tableVersion 0x00010000, ascent > 0,
+        descent < 0, caretSlopeRise == 1, numberOfHMetrics == maxp.numGlyphs
+        (CoreText is lenient about hhea content — this is the guard that
+        catches the 0.30.0 baseline/line-box class of bug before it ships);
       - cmap: the final segment's start AND end must be 0xFFFF.
     Runs in BOTH modes, before the CoreText load (independent of it)."""
     with open(path, "rb") as f:
@@ -577,6 +581,33 @@ def check_sfnt_structure(rep, path):
             fsel = struct.unpack(">H", buf[off + 62:off + 64])[0] if ln >= 64 else 0
             if bool(fsel & 0x0001) != bool(macStyle & 0x0002):
                 problems.append("OS/2.fsSelection ITALIC bit disagrees with head.macStyle")
+    # hhea — canonical 36-byte layout (fontTools' hheaFormat is the oracle).
+    # CoreText reads hhea leniently, which is exactly how the broken "18
+    # FWORDs" layout shipped; check the fields a strict renderer relies on:
+    # ascent/descent (the line box) and caretSlopeRise (fontTools decompile
+    # fails when it is 0).
+    if b"hhea" in tables:
+        off, ln = tables[b"hhea"]
+        if ln != 36:
+            problems.append("hhea len %d != 36 (spec)" % ln)
+        else:
+            if struct.unpack(">I", buf[off:off + 4])[0] != 0x00010000:
+                problems.append("hhea tableVersion %08X != 00010000" % struct.unpack(">I", buf[off:off + 4])[0])
+            asc = struct.unpack(">h", buf[off + 4:off + 6])[0]
+            if asc <= 0:
+                problems.append("hhea ascent %d <= 0" % asc)
+            desc = struct.unpack(">h", buf[off + 6:off + 8])[0]
+            if desc >= 0:
+                problems.append("hhea descent %d >= 0 (must be negative)" % desc)
+            if struct.unpack(">h", buf[off + 18:off + 20])[0] != 1:
+                problems.append("hhea caretSlopeRise != 1 (fontTools decompile requires nonzero)")
+            if b"maxp" in tables:
+                moff, mlen = tables[b"maxp"]
+                if mlen >= 6:
+                    ng = struct.unpack(">H", buf[moff + 4:moff + 6])[0]
+                    nhm = struct.unpack(">H", buf[off + 34:off + 36])[0]
+                    if nhm != ng:
+                        problems.append("hhea numberOfHMetrics %d != maxp numGlyphs %d" % (nhm, ng))
     # cmap — final segment [0xFFFF, 0xFFFF].
     if b"cmap" in tables:
         coff, _ = tables[b"cmap"]
@@ -600,8 +631,8 @@ def check_sfnt_structure(rep, path):
                 break
         except struct.error:
             problems.append("cmap: malformed (could not parse segments)")
-    rep.add("sfnt structure (OTS invariants: directory, OS/2, cmap terminator)",
-            not problems, "; ".join(problems) if problems else "directory, OS/2 and cmap terminator all OTS-conformant")
+    rep.add("sfnt structure (OTS invariants: directory, OS/2, hhea, cmap terminator)",
+            not problems, "; ".join(problems) if problems else "directory, OS/2, hhea and cmap terminator all OTS-conformant")
 
 
 def check_bitforge_mode(ttf_path, gt, expected_family):
@@ -768,7 +799,9 @@ def check_ttf_mode(ttf_path):
     rep.add("numGlyphs", num_glyphs >= 1, "file says %d" % num_glyphs)
 
     loca_off, loca_len = tables["loca"]
-    loca_fmt = struct.unpack_from(">h", buf, tables["head"][0] + 42)[0]
+    # indexToLocFormat is at head+50 (after fontDirectionHint@48) — head+42
+    # is yMax, which was silently read as the format and mis-sized the loca.
+    loca_fmt = struct.unpack_from(">h", buf, tables["head"][0] + 50)[0]
     stride = 4 if loca_fmt == 1 else 2
     if loca_len != (num_glyphs + 1) * stride:
         rep.add("loca table size", False, "len %s, expected %s (%d offsets × %s)"
@@ -778,7 +811,11 @@ def check_ttf_mode(ttf_path):
     offs = [struct.unpack_from(">I" if stride == 4 else ">H", buf, loca_off + i * stride)[0]
             for i in range(num_glyphs + 1)]
     if stride == 2:
-        offs = [o * 16 for o in offs]
+        # SHORT loca stores byte_offset / 2 — the reader multiplies by 2
+        # (fontTools decompile: `2*l`; Apple TRM: "an offset of 100 would
+        # represent 200 bytes"). The old ×16 made 136/156 spcct16 records
+        # fail to parse.
+        offs = [o * 2 for o in offs]
 
     glyf_off, glyf_len = tables["glyf"]
     nhm = struct.unpack_from(">H", buf, tables["hhea"][0] + 34)[0]
@@ -787,7 +824,10 @@ def check_ttf_mode(ttf_path):
     bad_adv, bad_bbox, skipped = [], [], []
     for i in range(num_glyphs):
         g = (CGGlyph * 1)(i)
-        adv_units = struct.unpack_from(">H", buf, hmtx_off + 2 * min(i, nhm - 1))[0] if hmtx_len >= 2 * min(i, nhm - 1) + 2 else None
+        # Each horizontalMetric is 4 bytes (advance u16 + lsb i16) — a 2-byte
+        # stride reads the LSBs as advances (this check then "fails" with
+        # lsb-sized values like 0.125 = 128/1024).
+        adv_units = struct.unpack_from(">H", buf, hmtx_off + 4 * min(i, nhm - 1))[0] if hmtx_len >= 4 * min(i, nhm - 1) + 2 else None
         if adv_units is not None:
             a = advance_for(ctfont, i)
             want = adv_units / float(upem)
