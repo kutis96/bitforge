@@ -33,6 +33,52 @@ test("dogfood: toggle tags <html>, syncs the menu check; off clears both", funct
   } finally { bfDogfoodRestore(); }
 });
 
+test("dogfood: guideline changes schedule a live rebuild (on: yes, off: no)", function () {
+  // Guideline mutations are font mutations (bumpFontVersion): with dogfood
+  // ON they must queue the debounced TTF rebuild (the baseline guide drives
+  // ascent/descent); with dogfood OFF they must not.
+  var app = globalThis.__stub.app;
+  var f = app.state.font;
+  var savedLen = f.guidelines.length;
+  var savedLock = app.state.glocked;
+  try {
+    // OFF: no rebuild may be queued.
+    app.settingsSet("dogfood", false);
+    app.applyDogfood();
+    assertEqual(app.dogfoodPending(), false, "clean start: no rebuild queued");
+    app.addGuide("baseline");
+    assertEqual(app.dogfoodPending(), false, "off: addGuide does not schedule a rebuild");
+    app.deleteGuide(f.guidelines.length - 1);
+    assertEqual(app.dogfoodPending(), false, "off: deleteGuide does not schedule a rebuild");
+
+    // ON: every guideline mutation queues the debounced rebuild.
+    app.settingsSet("dogfood", true);
+    app.applyDogfood();
+    assertEqual(app.dogfoodPending(), false, "on: clean start, no rebuild queued");
+
+    app.addGuide("baseline");
+    assertEqual(app.dogfoodPending(), true, "on: addGuide schedules a rebuild");
+
+    var g = f.guidelines[f.guidelines.length - 1];
+    var gOff0 = g.off;
+    app.state.glocked = false;
+    var S = 22; // editorScale for the 8x16 test font (same as the [AB] edge-guide test)
+    app.onEditorDown({ clientX: 5, clientY: gOff0 * S, button: 0, preventDefault: function () {} });
+    app.onEditorMove({ clientX: 5, clientY: (gOff0 - 1) * S, preventDefault: function () {} });
+    app.onEditorUp();
+    assertEqual(g.off, gOff0 - 1, "guide moved one row up (drag flow executed)");
+    assertEqual(app.dogfoodPending(), true, "on: moveGuide (drag) schedules a rebuild");
+
+    app.deleteGuide(f.guidelines.length - 1);
+    assertEqual(app.dogfoodPending(), true, "on: deleteGuide schedules a rebuild");
+    assertEqual(f.guidelines.length, savedLen, "guidelines restored to the original set");
+  } finally {
+    app.state.glocked = savedLock;
+    while (f.guidelines.length > savedLen) f.guidelines.pop();
+    bfDogfoodRestore();
+  }
+});
+
 test("dogfood: injected @font-face uses family bf-dogfood with an embedded TTF", function () {
   var app = globalThis.__stub.app;
   try {

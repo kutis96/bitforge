@@ -297,6 +297,14 @@ Requirements and design decisions agreed with the user. **Treat these as fixed**
    - **Badge:** the **Beta** badge on **Export TTF font** / **Dogfood this font** STAYS — the user drops it after testing in proper font-authoring tools (their words, 2026-11-25).
    - **Docs:** README (TTF section softened — no more "known limitation"), STATUS (handover/state/versions/completed + [then] flipped), changelogs in both files.
 
+## Dogfood rebuild on guideline changes (0.31.0)
+93. **Guideline mutations trigger the live dogfood rebuild (DECISIONS #93, version 0.31.0)** (user request, 2026-11-27 — "we should trigger the font re-render for dogfooding when guidelines are adjusted. This way one could easily observe the changes that does. Currently, after adjusting the guidelines, I need to toggle dogfooding on and off, or make changes to the font for it to show through."): guidelines are font data — they drive the TTF baseline (`baselineOf()` reads the `base`-labeled h-guide → ascent/descent + outline y-positions, #92) and the QA bounds check (N.3) — so their mutation paths now go through the established font-mutation hook.
+   - **Fix:** `addGuide()` / `deleteGuide()` / `moveGuide()` (the only three guideline mutators; resize already bumped, `setFont` already calls `applyDogfood`) now call **`bumpFontVersion()`** = `state.fontVersion++` + `updateQaBadge()` + `scheduleDogfood()` (400 ms debounced `applyDogfood()`, no-op when dogfood is off). `moveGuide` bumps on every mouse-move where the offset changed; the debounce coalesces a whole drag into one rebuild 400 ms after the last move — dragging stays smooth.
+   - **Side benefit (latent gap closed):** guideline changes now also mark the **QA report stale** — the guideline-bounds check's result changes when the guides move, but the staleness indicator didn't react before (guideline paths never bumped `fontVersion`). Same one-line cause, same fix.
+   - **Test seams:** `dogfoodPending()` (is a debounced rebuild queued — `dogfoodTimer !== null`) + `deleteGuide` added to the `__stub.app` interface (addGuide/moveGuide were already there). New `test-dogfood.js` test "guideline changes schedule a live rebuild (on: yes, off: no)" pins: off → add/move/delete queue nothing; on → all three queue (move via the real `onEditorDown/Move/Up` drag flow, guide verified to land one row up); guidelines restored in `finally`.
+   - **Tests:** 262/262. **Docs:** STATUS (handover/state/versions/completed), changelogs in both files.
+   - **Browser-verify (user):** with dogfooding on, drag the red `base` guide up/down — the UI's line spacing/baseline should shift live (~400 ms after letting go); add/remove guides likewise.
+
 ## Deferred (both since implemented)
 46. **Edge-ink lint — DONE in [N.2]** (#60). Was deferred until a per-glyph *silence* mechanism existed (shipped in [N.1]).
 47. **Guideline-violation report — DONE in [N.3]** (#61). Was deferred until the QA infra (chunk J) was proven.

@@ -44,6 +44,22 @@ Rules:
 - Run `./test/run-tests.sh` before committing — the changelog data-sanity
   test is the safety net.
 
+## 0.31.0 (2026-11-27)
+
+- **Dogfooding now follows guideline changes live.** Guideline mutations
+  (`addGuide` / `deleteGuide` / `moveGuide`) are now treated as font
+  mutations: with **Dogfood this font** on, they queue the debounced TTF
+  rebuild (~400 ms after the last change), so dragging the `base` baseline
+  guide (or adding/removing any guide) moves the face's baseline and line
+  box in the live preview without toggling the mode or redrawing pixels.
+  `moveGuide` bumps on every mouse-move; the debounce keeps dragging smooth
+  (one rebuild 400 ms after the last move). Guideline changes also mark the
+  **QA report stale** — the guideline-bounds checks depend on the guides
+  (previously they didn't, a small latent gap closed by the same change).
+- Test seam: `dogfoodPending()` (is a debounced rebuild queued?) added to
+  the stub app interface; `deleteGuide` exported there; new `test-dogfood.js`
+  test pins the on/off scheduling. **262/262**.
+
 ## 0.30.0 (2026-11-27)
 
 - **Export TTF font** (and the dogfooding preview) now sits on the baseline

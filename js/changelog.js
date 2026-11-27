@@ -14,6 +14,9 @@
  * (date "" = pre-dated history, not shown in the UI)
  */
 var BF_CHANGELOG = [
+  { version: "0.31.0", date: "2026-11-27", changes: [
+    "**Dogfooding now follows guideline changes live:** add, remove or drag a guide (in particular the `base` baseline guide) and the dogfood face rebuilds automatically (debounced, ~400 ms after the last change) — no more toggling dogfooding off/on or redrawing pixels to see the effect on the baseline and line box. Guideline changes also mark the QA report **stale**, since the bounds checks depend on them."
+  ] },
   { version: "0.30.0", date: "2026-11-27", changes: [
     "**Export TTF font** (and the dogfooding preview) now sits on the baseline correctly in real apps: the `hhea` table was being written in a layout that doesn't exist in the spec, so strict readers measured a 1.5em line box and a misplaced baseline. The table now uses the canonical layout, with ascent/descent that exactly bound the face (from the baseline guide, or the `H−3` preset when it has none) — matching the `OS/2` values the face already carried."
   , "Also fixed: `head.flags` no longer claims the face starts at x=0 unless it does, and the bundled verifier (`tools/verify-ttf.py`) reads `loca` correctly for bare `.ttf` input and now checks the `hhea` fields a strict renderer relies on."

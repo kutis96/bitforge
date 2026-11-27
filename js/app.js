@@ -995,10 +995,12 @@
     var max = p.o === "h" ? state.font.height : state.font.width;
     state.font.guidelines.push({ o: p.o, off: clamp(p.off(state.font), 0, max), label: p.label, color: p.color });
     renderGuideList(); drawEditor(); saveLS();
+    bumpFontVersion(); // guidelines ARE font data: the QA bounds check and the dogfood baseline (TTF ascent/descent) must follow
   }
   function deleteGuide(idx) {
     state.font.guidelines.splice(idx, 1);
     renderGuideList(); drawEditor(); saveLS();
+    bumpFontVersion(); // same as addGuide — guidelines drive the QA bounds + dogfood baseline
   }
   function renderGuideList() {
     var box = el.glist;
@@ -1045,7 +1047,7 @@
     var v = (g.o === "h") ? Math.round((evt.clientY - r.top) / s) : Math.round((evt.clientX - r.left) / s);
     // 0..dim inclusive — the far edge is a valid guide position (DECISIONS #86).
     v = clamp(v, 0, (g.o === "h") ? f.height : f.width);
-    if (v !== g.off) { g.off = v; guideDrag.moved = true; drawEditor(); renderGuideList(); }
+    if (v !== g.off) { g.off = v; guideDrag.moved = true; drawEditor(); renderGuideList(); bumpFontVersion(); } // bump on every move: dogfood rebuild is debounced (scheduleDogfood), so dragging stays smooth
   }
 
   // ---------- editor interaction ----------
@@ -2632,7 +2634,7 @@
     globalThis.__stub.app = { state: state, shortcuts: shortcuts, selectGlyph: selectGlyph, toggleKeysCard: toggleKeysCard,
       setStatus: setStatus, qaRefresh: qaRefresh, qaRows: qaComputeRows, qaStale: qaStale, atlasCellAt: atlasCellAt,
       toggleSilence: toggleSilence, qaChecks: qaChecks, guidePresets: GUIDE_PRESETS,
-      addGuide: addGuide, moveGuide: moveGuide, guidelineAt: guidelineAt, drawEditor: drawEditor,
+      addGuide: addGuide, deleteGuide: deleteGuide, moveGuide: moveGuide, guidelineAt: guidelineAt, drawEditor: drawEditor,
       qaPropValue: qaPropValue, qaPropInputId: qaPropInputId, onQaPropChange: onQaPropChange,
       importBdfText: importBdfText, exportBdf: exportBdf,
       importProjectText: importProjectText, projectExportText: projectExportText, exportProject: exportProject,
@@ -2663,6 +2665,7 @@
       exportTtf: exportTtf,
       dogfoodCSS: dogfoodCSS, applyDogfood: applyDogfood, toggleDogfood: toggleDogfood,
       syncDogfoodMenu: syncDogfoodMenu, scheduleDogfood: scheduleDogfood,
+      dogfoodPending: function () { return dogfoodTimer !== null; }, // a debounced rebuild is queued
       dogfoodStyle: function () { return dogfoodStyleEl; },
       whatsNew: whatsNew, openChangelogModal: openChangelogModal, closeChangelogModal: closeChangelogModal,
       changelogVersionKey: VERSION_KEY,
