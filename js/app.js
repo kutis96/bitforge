@@ -59,6 +59,7 @@
 
   // ---------- font lifecycle ----------
   function setFont(font) {
+    materializeGuides(font); // DECISIONS #94: the 7 semantic guides are always present (missing ones materialized hidden)
     state.font = font;
     state.history = [];
     state.redo = [];
@@ -68,6 +69,7 @@
     qaReset();
     redrawAll();
     renderGuideList();
+    syncGuideButtons();
     saveLS();
     applyDogfood(); // font identity changed → the dogfood face (if on) must follow
   }
@@ -754,6 +756,7 @@
     return BF_TTF.buildFontFace(state.font, "bf-dogfood");
   }
   function applyDogfood() {
+    if (dogfoodTimer) { clearTimeout(dogfoodTimer); dogfoodTimer = null; } // a manual rebuild supersedes any queued one (keeps dogfoodPending() truthful)
     var on = !!settingsGet("dogfood") && !!state.font;
     try {
       var docEl = document.documentElement;
@@ -780,8 +783,8 @@
   // is wasteful; 400 ms after the last edit is "live" enough.
   function scheduleDogfood() {
     if (!settingsGet("dogfood")) return;
-    clearTimeout(dogfoodTimer);
-    dogfoodTimer = setTimeout(function () { applyDogfood(); }, 400);
+    if (dogfoodTimer) clearTimeout(dogfoodTimer);
+    dogfoodTimer = setTimeout(function () { dogfoodTimer = null; applyDogfood(); }, 400);
   }
   function toggleDogfood() {
     settingsSet("dogfood", !settingsGet("dogfood"));
@@ -839,6 +842,7 @@
     var gs = f.guidelines;
     for (var gi = 0; gi < gs.length; gi++) {
       var g = gs[gi];
+      if (g.hid) continue; // DECISIONS #94: hidden = view state only; not drawn (but still drives QA + metrics)
       ctx.strokeStyle = g.color; ctx.lineWidth = 1; ctx.beginPath();
       if (g.o === "h") { var gy2 = Math.min(g.off * s, c.height - 1) + 0.5; ctx.moveTo(0, gy2); ctx.lineTo(c.width, gy2); }
       else { var gx2 = Math.min(g.off * s, c.width - 1) + 0.5; ctx.moveTo(gx2, 0); ctx.lineTo(gx2, c.height); }
@@ -976,16 +980,41 @@
     // the line: above/left = index < off, below/right = index >= off
     // (DECISIONS #65). Each of the four presets leaves exactly 1px outside
     // the line (row 0 / row h-1 / col 0 / col w-1).
-    ascender:  { label: BF.GUIDE_BOUND_LABELS.top,    o: "h", color: "#888888", off: function (f) { return 1; } },
-    cap:       { label: "cap",  o: "h", color: "#2255cc", off: function (f) { return Math.max(1, Math.round(f.height * 0.12)); } },
-    xheight:   { label: "x",    o: "h", color: "#2255cc", off: function (f) { return Math.round(f.height * 0.40); } },
-    baseline:  { label: "base", o: "h", color: "#dd2222", off: function (f) { return f.height - 3; } },
-    descender: { label: BF.GUIDE_BOUND_LABELS.bottom, o: "h", color: "#888888", off: function (f) { return f.height - 1; } },
-    left:      { label: BF.GUIDE_BOUND_LABELS.left,   o: "v", color: "#cc8800", off: function (f) { return 1; } },
-    right:     { label: BF.GUIDE_BOUND_LABELS.right,  o: "v", color: "#cc8800", off: function (f) { return f.width - 1; } },
+    // `semantic` (DECISIONS #94): unique per font, ALWAYS present, the button
+    // is a visibility toggle (never adds). hnew/vnew are custom-guide ADDERS.
+    ascender:  { label: BF.GUIDE_BOUND_LABELS.top,    o: "h", color: "#888888", semantic: true, off: function (f) { return 1; } },
+    cap:       { label: "cap",  o: "h", color: "#2255cc", semantic: true, off: function (f) { return Math.max(1, Math.round(f.height * 0.12)); } },
+    xheight:   { label: "x",    o: "h", color: "#2255cc", semantic: true, off: function (f) { return Math.round(f.height * 0.40); } },
+    baseline:  { label: "base", o: "h", color: "#dd2222", semantic: true, off: function (f) { return f.height - 3; } },
+    descender: { label: BF.GUIDE_BOUND_LABELS.bottom, o: "h", color: "#888888", semantic: true, off: function (f) { return f.height - 1; } },
+    left:      { label: BF.GUIDE_BOUND_LABELS.left,   o: "v", color: "#cc8800", semantic: true, off: function (f) { return 1; } },
+    right:     { label: BF.GUIDE_BOUND_LABELS.right,  o: "v", color: "#cc8800", semantic: true, off: function (f) { return f.width - 1; } },
     hnew:      { label: "H",    o: "h", color: "#444444", off: function (f) { return Math.round(f.height / 2); } },
     vnew:      { label: "V",    o: "v", color: "#444444", off: function (f) { return Math.round(f.width / 2); } }
   };
+  // Semantic guide LABELS (the unique-always-present ones) — derived from the
+  // preset table (single source of truth) for the delete guard + chip policy.
+  var SEMANTIC_LABELS = {};
+  for (var _gk in GUIDE_PRESETS)
+    if (GUIDE_PRESETS.hasOwnProperty(_gk) && GUIDE_PRESETS[_gk].semantic) SEMANTIC_LABELS[GUIDE_PRESETS[_gk].label] = true;
+
+  // DECISIONS #94: every app font carries the 7 semantic guides (unique per
+  // label, always present). Materialize the MISSING ones at preset positions,
+  // HIDDEN (decision 4 — new/imported fonts feel like today's: clean canvas);
+  // existing guides are kept as-is (visible state included); duplicates from
+  // old files are left for the user to delete (decision 3). Idempotent — the
+  // label is the key. Runs at setFont (every font-replacement path).
+  function materializeGuides(font) {
+    for (var key in GUIDE_PRESETS) {
+      var p = GUIDE_PRESETS[key];
+      if (!p || !p.semantic) continue;
+      var present = false;
+      for (var i = 0; i < font.guidelines.length; i++)
+        if (font.guidelines[i].label === p.label) { present = true; break; }
+      if (!present)
+        font.guidelines.push({ o: p.o, off: p.off(font), label: p.label, color: p.color, hid: true });
+    }
+  }
 
   function addGuide(key) {
     var p = GUIDE_PRESETS[key];
@@ -993,14 +1022,42 @@
     // Valid range is 0..max INCLUSIVE: a guide sits between pixels, so the
     // far edge (off = max) is a real position (DECISIONS #86).
     var max = p.o === "h" ? state.font.height : state.font.width;
+    if (p.semantic) {
+      // DECISIONS #94: semantic guides are ALWAYS present — the button is a
+      // VISIBILITY TOGGLE, not an adder. Hidden is a view state only: the
+      // guide still drives the TTF baseline + QA bounds (decision 2), so a
+      // toggle must NOT bump the font version (no QA staleness, no rebuild).
+      var g = BF.guideCanonical(state.font, p.label);
+      if (!g) {
+        // Missing (a font that bypassed setFont): create at the preset
+        // position, VISIBLE — the user clicked to see it. Structural change
+        // (a QA bound may gain a side) → bump.
+        state.font.guidelines.push({ o: p.o, off: clamp(p.off(state.font), 0, max), label: p.label, color: p.color, hid: false });
+        bumpFontVersion();
+      } else {
+        g.hid = !g.hid;
+      }
+      renderGuideList(); drawEditor(); syncGuideButtons(); saveLS();
+      return;
+    }
+    // Custom guides (+H / +V): append as before — structural → bump (#93).
     state.font.guidelines.push({ o: p.o, off: clamp(p.off(state.font), 0, max), label: p.label, color: p.color });
     renderGuideList(); drawEditor(); saveLS();
     bumpFontVersion(); // guidelines ARE font data: the QA bounds check and the dogfood baseline (TTF ascent/descent) must follow
   }
   function deleteGuide(idx) {
-    state.font.guidelines.splice(idx, 1);
-    renderGuideList(); drawEditor(); saveLS();
-    bumpFontVersion(); // same as addGuide — guidelines drive the QA bounds + dogfood baseline
+    var gs = state.font.guidelines, g = gs[idx];
+    if (!g) return;
+    // DECISIONS #94: the canonical SEMANTIC guide is part of the font and is
+    // not deletable (hide it with its button instead); duplicates and custom
+    // guides are. Removing a duplicate can change the canonical → must bump.
+    if (SEMANTIC_LABELS[g.label] && BF.guideCanonical(state.font, g.label) === g) {
+      toast("That guide is part of the font — use its button to hide it instead", true);
+      return;
+    }
+    gs.splice(idx, 1);
+    renderGuideList(); drawEditor(); syncGuideButtons(); saveLS();
+    bumpFontVersion();
   }
   function renderGuideList() {
     var box = el.glist;
@@ -1009,19 +1066,47 @@
     var gs = state.font.guidelines;
     for (var i = 0; i < gs.length; i++) {
       var g = gs[i];
+      var isSemantic = !!SEMANTIC_LABELS[g.label];
+      var isDup = isSemantic && BF.guideCanonical(state.font, g.label) !== g;
       var chip = document.createElement("span");
-      chip.className = "gchip";
+      chip.className = "gchip" + (g.hid ? " off" : "") + (isDup ? " dup" : "");
       chip.style.borderColor = g.color;
+      chip.title = isDup
+        ? "extra duplicate — remove it (the other \"" + g.label + "\" stays)"
+        : isSemantic
+          ? (g.hid ? "hidden — show it with its button; still drives QA + TTF metrics"
+                   : "part of the font — hide it with its button (hidden still drives QA + TTF metrics)")
+          : (g.hid ? "hidden custom guide" : "custom guide — drag to move, × to remove");
       var lab = document.createElement("b"); lab.textContent = g.label;
       var off = document.createElement("i"); off.textContent = " " + g.off;
-      var del = document.createElement("button"); del.className = "gdel"; del.textContent = "\u00d7";
-      (function (idx) { del.addEventListener("click", function () { deleteGuide(idx); }); })(i);
-      chip.appendChild(lab); chip.appendChild(off); chip.appendChild(del);
+      chip.appendChild(lab); chip.appendChild(off);
+      // × for custom guides and duplicates; the canonical semantic guide is
+      // permanent (DECISIONS #94 — decision 3: duplicates shown for removal).
+      if (isDup || !isSemantic) {
+        var del = document.createElement("button"); del.className = "gdel"; del.textContent = "\u00d7";
+        (function (idx) { del.addEventListener("click", function () { deleteGuide(idx); }); })(i);
+        chip.appendChild(del);
+      }
       box.appendChild(chip);
     }
     if (gs.length === 0) {
       var none = document.createElement("span"); none.className = "gnone"; none.textContent = "no guides";
       box.appendChild(none);
+    }
+  }
+  // DECISIONS #94: the 7 semantic buttons show their guide's visibility state
+  // (dimmed when hidden). guideBtns is built at init; called on font
+  // replacement, toggle, and any guide mutation.
+  var guideBtns = [];
+  function syncGuideButtons() {
+    for (var i = 0; i < guideBtns.length; i++) {
+      var kb = guideBtns[i], p = GUIDE_PRESETS[kb.key];
+      if (!p || !p.semantic || !kb.el.classList || !state.font) continue;
+      var g = BF.guideCanonical(state.font, p.label);
+      kb.el.classList.toggle("off", !g || g.hid === true);
+      kb.el.title = (g && !g.hid)
+        ? "Hide the " + p.label + " guide (always part of the font; hidden still drives QA + metrics)"
+        : "Show the " + p.label + " guide (always part of the font; drives QA + metrics)";
     }
   }
   function guidelineAt(evt) {
@@ -1032,6 +1117,7 @@
     var gs = f.guidelines;
     for (var i = 0; i < gs.length; i++) {
       var g = gs[i];
+      if (g.hid) continue; // DECISIONS #94: hidden guides aren't drawn → not grabbable either
       // Hit-test at the DRAWN position (far edge sits at dim*s-0.5, not dim*s+0.5)
       // so an edge guide stays grabbable (DECISIONS #86).
       var pos = (g.o === "h") ? Math.min(g.off * s, c.height - 1) : Math.min(g.off * s, c.width - 1);
@@ -2457,7 +2543,12 @@
     });
     var gbtns = document.querySelectorAll(".gadd button");
     for (var gi = 0; gi < gbtns.length; gi++)
-      gbtns[gi].addEventListener("click", function () { addGuide(this.getAttribute("data-g")); });
+      (function (btn) {
+        var key = btn.getAttribute("data-g");
+        guideBtns.push({ key: key, el: btn }); // DECISIONS #94: syncGuideButtons tracks state
+        btn.addEventListener("click", function () { addGuide(key); });
+      })(gbtns[gi]);
+    syncGuideButtons();
 
     el.btnJump.addEventListener("click", doJump);
     el.jump.addEventListener("keydown", function (e) { if (e.key === "Enter") doJump(); });
@@ -2635,6 +2726,7 @@
       setStatus: setStatus, qaRefresh: qaRefresh, qaRows: qaComputeRows, qaStale: qaStale, atlasCellAt: atlasCellAt,
       toggleSilence: toggleSilence, qaChecks: qaChecks, guidePresets: GUIDE_PRESETS,
       addGuide: addGuide, deleteGuide: deleteGuide, moveGuide: moveGuide, guidelineAt: guidelineAt, drawEditor: drawEditor,
+      materializeGuides: materializeGuides, renderGuideList: renderGuideList, syncGuideButtons: syncGuideButtons, semanticLabels: SEMANTIC_LABELS,
       qaPropValue: qaPropValue, qaPropInputId: qaPropInputId, onQaPropChange: onQaPropChange,
       importBdfText: importBdfText, exportBdf: exportBdf,
       importProjectText: importProjectText, projectExportText: projectExportText, exportProject: exportProject,

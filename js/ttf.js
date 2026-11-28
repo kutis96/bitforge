@@ -64,13 +64,13 @@
   // The baseline grid line (between rows off-1 and off, 0-indexed from the
   // top): the font's own "base" horizontal guide when it has one, else the
   // app's baseline preset (height - 3), clamped to 1..height-1.
+  // Duplicate "base" guides resolve via BF.guideCanonical (last in array
+  // order — the same rule this loop always used; DECISIONS #94 made it the
+  // single documented source of truth, shared with guideBounds).
   function baselineOf(font) {
-    var off = null, i;
-    if (font.guidelines)
-      for (i = 0; i < font.guidelines.length; i++) {
-        var g = font.guidelines[i];
-        if (g && g.o === "h" && g.label === "base") off = g.off;
-      }
+    var off = null, g;
+    if (font.guidelines) g = BF.guideCanonical(font, "base");
+    if (g) off = g.off;
     if (off == null) off = font.height - 3;
     if (off < 1) off = 1;
     if (off > font.height - 1) off = font.height - 1;

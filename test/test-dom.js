@@ -152,42 +152,58 @@ test("dom: preview settings persist via the settings API", function () {
 test("dom: project export/import roundtrips font + settings through the seam", function () {
   var app = globalThis.__stub.app;
   var f = app.state.font;
-  // give the current font something to carry: ink, status, a guide, a silence
-  BF.setPixel(f, 0x41, 1, 2, 1);
-  app.setStatus(0x41, 2);
-  f.guidelines.push({ o: "h", off: 5, label: "base", color: "#333333" });
-  f.silences["edge"] = { 65: true };
-  app.settingsSet("pvText", "hello");
-  app.settingsSet("pvScale", 4);
-  var o = JSON.parse(app.projectExportText("full")); // the settings-carrying mode (DECISIONS #91)
-  assertEqual(o.app, "bitforge", "header app");
-  assertEqual(o.kind, "font-project", "header kind");
-  assertEqual(o.version, 1, "header version");
-  assertEqual(o.font.w, f.width, "font dims in the export");
-  assertEqual(o.settings.pvText, "hello", "settings included in the export");
-  var els = globalThis.__stub.els;
-  // Valid import opens the in-app ask modal (chunk [AE]); Replace commits it.
-  assert(app.importProjectText(JSON.stringify(o), "test.bitforge"), "import proceeds (ask modal opens)");
-  assertEqual(els["ask-modal"].hidden, false, "ask modal open");
-  assertEqual(els["ask-yes"].textContent, "Replace", "yes-label is Replace");
-  globalThis.__stub.dispatch("ask-yes", "click", {});
-  assertEqual(els["ask-modal"].hidden, true, "modal closed after Replace");
-  assertEqual(BF.getPixel(app.state.font, 0x41, 1, 2), 1, "ink restored");
-  assertEqual(app.state.font.status[0x41], 2, "status restored");
-  assertEqual(app.state.font.guidelines.length, 1, "guideline restored");
-  assert(app.state.font.silences["edge"][65], "silence restored");
-  assertEqual(app.settingsGet("pvText"), "hello", "preview text restored");
-  assertEqual(app.state.scale, 4, "scale restored into state");
-  assert(app.getLastToast().indexOf("Imported project") === 0, "toast: " + app.getLastToast());
-  // User cancels the replace (ask modal) -> import is a no-op.
-  var before2 = JSON.stringify(BF.fontToBlob(app.state.font));
-  var toast2 = app.getLastToast();
-  assert(app.importProjectText(JSON.stringify(o), "again.bitforge"), "canceled import still opens the ask modal");
-  globalThis.__stub.dispatch("ask-cancel", "click", {});
-  assertEqual(JSON.stringify(BF.fontToBlob(app.state.font)), before2, "canceled import leaves the font alone");
-  assertEqual(app.getLastToast(), toast2, "no new toast after cancel");
-  // leave the shared font clean for the QA summary-count test (it runs later)
-  app.setStatus(0x41, 0);
+  var savedFont = f; // restore for the later tests (the import replaces state.font)
+  var savedLen = f.guidelines.length;
+  try {
+    // give the current font something to carry: ink, status, a guide (a
+    // duplicate 'base' — DECISIONS #94 keeps duplicates), a silence
+    BF.setPixel(f, 0x41, 1, 2, 1);
+    app.setStatus(0x41, 2);
+    f.guidelines.push({ o: "h", off: 5, label: "base", color: "#333333" });
+    f.silences["edge"] = { 65: true };
+    app.settingsSet("pvText", "hello");
+    app.settingsSet("pvScale", 4);
+    var o = JSON.parse(app.projectExportText("full")); // the settings-carrying mode (DECISIONS #91)
+    assertEqual(o.app, "bitforge", "header app");
+    assertEqual(o.kind, "font-project", "header kind");
+    assertEqual(o.version, 1, "header version");
+    assertEqual(o.font.w, f.width, "font dims in the export");
+    assertEqual(o.settings.pvText, "hello", "settings included in the export");
+    var els = globalThis.__stub.els;
+    // Valid import opens the in-app ask modal (chunk [AE]); Replace commits it.
+    assert(app.importProjectText(JSON.stringify(o), "test.bitforge"), "import proceeds (ask modal opens)");
+    assertEqual(els["ask-modal"].hidden, false, "ask modal open");
+    assertEqual(els["ask-yes"].textContent, "Replace", "yes-label is Replace");
+    globalThis.__stub.dispatch("ask-yes", "click", {});
+    assertEqual(els["ask-modal"].hidden, true, "modal closed after Replace");
+    assertEqual(BF.getPixel(app.state.font, 0x41, 1, 2), 1, "ink restored");
+    assertEqual(app.state.font.status[0x41], 2, "status restored");
+    assertEqual(app.state.font.guidelines.length, savedLen + 1, "guidelines restored (incl. the duplicate base)");
+    var dup = null;
+    for (var gi = 0; gi < app.state.font.guidelines.length; gi++) {
+      var gg = app.state.font.guidelines[gi];
+      if (gg.label === "base" && gg.off === 5) dup = gg;
+    }
+    assert(dup, "the duplicate base@5 guide survived the round-trip");
+    assert(app.state.font.silences["edge"][65], "silence restored");
+    assertEqual(app.settingsGet("pvText"), "hello", "preview text restored");
+    assertEqual(app.state.scale, 4, "scale restored into state");
+    assert(app.getLastToast().indexOf("Imported project") === 0, "toast: " + app.getLastToast());
+    // User cancels the replace (ask modal) -> import is a no-op.
+    var before2 = JSON.stringify(BF.fontToBlob(app.state.font));
+    var toast2 = app.getLastToast();
+    assert(app.importProjectText(JSON.stringify(o), "again.bitforge"), "canceled import still opens the ask modal");
+    globalThis.__stub.dispatch("ask-cancel", "click", {});
+    assertEqual(JSON.stringify(BF.fontToBlob(app.state.font)), before2, "canceled import leaves the font alone");
+    assertEqual(app.getLastToast(), toast2, "no new toast after cancel");
+  } finally {
+    // leave the shared font clean for the later tests (esp. the QA
+    // summary-count test) — finally, so a mid-test failure can't skip it
+    app.state.font = savedFont;
+    app.setStatus(0x41, 0);
+    while (savedFont.guidelines.length > savedLen) savedFont.guidelines.pop();
+    app.renderGuideList(); app.drawEditor(); app.syncGuideButtons();
+  }
 });
 
 test("dom: project import rejects malformed files with a toast", function () {
@@ -648,7 +664,7 @@ test("dom: mousedown on a menu item must NOT close the menu (real-browser click 
 
 test("dom: About modal head + browser tab show the app version (DECISIONS #56)", function () {
   assert(/^\d+\.\d+\.\d+$/.test(BF.VERSION), "BF.VERSION is semver-ish: " + BF.VERSION);
-  assertEqual(BF.VERSION, "0.31.0", "pinned version — bump this test when you bump the app");
+  assertEqual(BF.VERSION, "0.32.0", "pinned version — bump this test when you bump the app");
   var els = globalThis.__stub.els;
   assertEqual(els["about-title"].textContent, "bitforge " + BF.VERSION, "modal head shows name + version");
   assertEqual(document.title, "bitforge " + BF.VERSION, "browser tab shows name + version");
@@ -1474,4 +1490,199 @@ test("dom: new-font modal — one form (name + width + height), live readout, cr
   assertEqual(app.state.font.height, 16, "restored height 16");
   assertEqual(app.state.font.name, "font", "blank name fell back to default");
   assertEqual(app.getLastToast(), "New 8\u00d716 font", "blank-name create toast omits the name");
+});
+
+// ---------- guide model: unique semantic guides + visibility toggles (DECISIONS #94) ----------
+// Shared-font note: the new-font modal test above leaves a FRESH 8\u00d716 font —
+// setFont ran, so the 7 semantic guides are materialized HIDDEN (decision 4).
+// Every test below restores the shared font exactly (try/finally).
+
+function bfGuideChipFor(els, label) {
+  var kids = els["glist"].children;
+  for (var i = 0; i < kids.length; i++) {
+    var c = kids[i];
+    if (c.children && c.children.length && c.children[0].textContent === label) return c;
+  }
+  return null;
+}
+
+test("dom: guide model — materializeGuides: 7 unique semantic, hidden, idempotent", function () {
+  var app = globalThis.__stub.app;
+  var f = BF.makeFont(8, 16);
+  app.materializeGuides(f);
+  app.materializeGuides(f); // idempotent — the label is the key
+  assertEqual(f.guidelines.length, 7, "exactly the 7 semantic guides (no duplicates)");
+  var seen = {};
+  for (var i = 0; i < f.guidelines.length; i++) {
+    var g = f.guidelines[i];
+    assert(!seen[g.label], "unique label: " + g.label);
+    seen[g.label] = true;
+    assertEqual(g.hid, true, g.label + " starts hidden (decision 4)");
+  }
+  var want = ["asc", "cap", "x", "base", "desc", "L", "R"];
+  for (i = 0; i < want.length; i++)
+    assert(!!seen[want[i]], "semantic present: " + want[i]);
+  // Existing guides are kept as-is — position AND visibility (old files keep their state).
+  var f2 = BF.makeFont(8, 16);
+  f2.guidelines.push({ o: "h", off: 9, label: "base", color: "#dd2222" }); // visible, custom position
+  app.materializeGuides(f2);
+  assertEqual(f2.guidelines.length, 7, "only the 6 missing are added");
+  assertEqual(f2.guidelines[0].off, 9, "existing base kept its position");
+  assert(!f2.guidelines[0].hid, "existing base kept its visibility");
+});
+
+test("dom: guide model — semantic button is a visibility toggle: no bump, button + chip reflect state", function () {
+  var app = globalThis.__stub.app, els = globalThis.__stub.els;
+  var f = app.state.font;
+  var base = BF.guideCanonical(f, "base");
+  assert(base, "shared font has the materialized base guide");
+  var hid0 = base.hid === true;
+  var len0 = f.guidelines.length;
+  var v0 = app.state.fontVersion;
+  try {
+    app.addGuide("baseline");
+    assertEqual(f.guidelines.length, len0, "toggle never adds a guide");
+    assertEqual(base.hid === true, !hid0, "base visibility flipped");
+    assertEqual(app.state.fontVersion, v0, "toggle does NOT bump (view-only by design)");
+    // Button dimmed iff the guide is hidden; chip carries the off/dup state.
+    var btns = document.querySelectorAll(".gadd button");
+    var btn = null;
+    for (var bi = 0; bi < btns.length; bi++)
+      if (btns[bi]["data-g"] === "baseline") { btn = btns[bi]; break; }
+    assert(btn, "the baseline preset button exists");
+    assertEqual(btn.classList.contains("off"), base.hid === true, "button dimmed iff hidden");
+    var chip = bfGuideChipFor(els, "base");
+    assert(chip, "a base chip is listed");
+    assertEqual(chip.className.indexOf(" off") !== -1, base.hid === true, "chip 'off' iff hidden");
+    // The canonical semantic chip has NO × (decision 3: only duplicates/customs are removable).
+    var kids = chip.children;
+    var hasDel = false;
+    for (var i = 0; i < kids.length; i++)
+      if (kids[i].textContent === "\u00d7") hasDel = true;
+    assert(!hasDel, "canonical base chip carries no \u00d7");
+    app.addGuide("baseline"); // back
+    assertEqual(base.hid === true, hid0, "second toggle restores the state");
+  } finally {
+    base.hid = hid0;
+    app.renderGuideList(); app.drawEditor(); app.syncGuideButtons();
+  }
+});
+
+test("dom: guide model — clicking a missing semantic guide creates it VISIBLE and bumps once", function () {
+  var app = globalThis.__stub.app;
+  var f = app.state.font;
+  var saved = f.guidelines.slice();
+  var v0 = app.state.fontVersion;
+  var idx = -1;
+  for (var i = 0; i < f.guidelines.length; i++) if (f.guidelines[i].label === "cap") idx = i;
+  assert(idx >= 0, "cap present in the shared font");
+  f.guidelines.splice(idx, 1); // simulate a pre-#94 file missing the guide
+  try {
+    assertEqual(BF.guideCanonical(f, "cap"), null, "cap is now missing");
+    app.addGuide("cap");
+    var g = BF.guideCanonical(f, "cap");
+    assert(g, "cap created by the click");
+    assertEqual(f.guidelines.length, saved.length, "exactly one guide added");
+    assert(!g.hid, "created VISIBLE (the user clicked to see it)");
+    assertEqual(app.state.fontVersion, v0 + 1, "create-when-missing is structural -> bumps once");
+  } finally {
+    f.guidelines.length = 0;
+    for (var j = 0; j < saved.length; j++) f.guidelines.push(saved[j]);
+    app.renderGuideList(); app.drawEditor(); app.syncGuideButtons();
+  }
+});
+
+test("dom: guide model — delete guard: canonical semantic survives; duplicate + custom go", function () {
+  var app = globalThis.__stub.app;
+  var f = app.state.font;
+  var saved = f.guidelines.slice();
+  var base = BF.guideCanonical(f, "base");
+  var bIdx = -1;
+  for (var i = 0; i < f.guidelines.length; i++) if (f.guidelines[i] === base) bIdx = i;
+  var before = f.guidelines.length;
+  try {
+    app.deleteGuide(bIdx);
+    assertEqual(f.guidelines.length, before, "canonical base NOT deleted (guard)");
+    // A duplicate (inserted BEFORE the canonical, so the canonical stays canonical) is deletable.
+    f.guidelines.splice(bIdx, 0, { o: "h", off: 5, label: "base", color: "#dd2222" });
+    app.deleteGuide(bIdx);
+    assertEqual(f.guidelines.length, before, "duplicate removed");
+    assert(f.guidelines.indexOf(base) !== -1, "the canonical base is still there");
+    // A custom guide is add/remove as before (and bumps each way — #93).
+    app.addGuide("hnew");
+    assertEqual(f.guidelines.length, before + 1, "custom added");
+    app.deleteGuide(f.guidelines.length - 1);
+    assertEqual(f.guidelines.length, before, "custom removed");
+  } finally {
+    f.guidelines.length = 0;
+    for (var j = 0; j < saved.length; j++) f.guidelines.push(saved[j]);
+    app.renderGuideList(); app.drawEditor(); app.syncGuideButtons();
+  }
+});
+
+test("dom: guide model — chips: duplicate marked 'dup' with \u00d7, canonical without", function () {
+  var app = globalThis.__stub.app, els = globalThis.__stub.els;
+  var f = app.state.font;
+  var saved = f.guidelines.slice();
+  var bIdx = -1;
+  for (var i = 0; i < f.guidelines.length; i++) if (f.guidelines[i].label === "base") bIdx = i;
+  // Insert a duplicate AFTER the first base -> last-in-array is canonical, the first is the dup.
+  f.guidelines.splice(bIdx + 1, 0, { o: "h", off: 5, label: "base", color: "#dd2222" });
+  app.renderGuideList();
+  try {
+    var chips = [];
+    var kids = els["glist"].children;
+    for (i = 0; i < kids.length; i++) {
+      var c = kids[i];
+      if (c.children && c.children.length && c.children[0].textContent === "base") chips.push(c);
+    }
+    assertEqual(chips.length, 2, "two base chips");
+    var dups = 0, dels = 0;
+    for (i = 0; i < chips.length; i++) {
+      if (chips[i].className && chips[i].className.indexOf("dup") !== -1) dups++;
+      var ck = chips[i].children;
+      for (var k = 0; k < ck.length; k++)
+        if (ck[k].textContent === "\u00d7") dels++;
+    }
+    assertEqual(dups, 1, "exactly one base chip marked dup");
+    assertEqual(dels, 1, "exactly one base chip carries the \u00d7 (the duplicate)");
+  } finally {
+    f.guidelines.length = 0;
+    for (var j = 0; j < saved.length; j++) f.guidelines.push(saved[j]);
+    app.renderGuideList(); app.drawEditor(); app.syncGuideButtons();
+  }
+});
+
+test("dom: guide model — hidden guides are not drawn and not grabbable", function () {
+  var app = globalThis.__stub.app, els = globalThis.__stub.els;
+  var f = app.state.font;
+  var base = BF.guideCanonical(f, "base");
+  assert(base, "shared font has the materialized base guide");
+  var hid0 = base.hid === true, off0 = base.off, lock0 = app.state.glocked;
+  try {
+    app.state.glocked = false;
+    base.off = 13; // the 8\u00d716 preset position; no other guide sits on this row
+    var S = 22, y = 13 * S + 0.5; // guides AND the grid line at boundary 13 draw here
+    // The guide's line coincides with the grid line's y — so count points: the
+    // grid contributes exactly 2 (moveTo+lineTo); a drawn guide adds 2 more.
+    function linePts(yy) {
+      var ctx = els["editor"]._ctx;
+      var n0 = ctx.path.length;
+      app.drawEditor();
+      var pts = ctx.path.slice(n0);
+      var n = 0;
+      for (var i = 0; i < pts.length; i++)
+        if (Math.abs(pts[i][1] - yy) < 0.001) n++;
+      return n;
+    }
+    base.hid = true;
+    assertEqual(linePts(y), 2, "hidden base: only the grid line at that boundary");
+    assert(!app.guidelineAt({ clientX: 5, clientY: y }), "hidden base is NOT grabbable");
+    base.hid = false;
+    assertEqual(linePts(y), 4, "visible base: grid line + the guide's own line");
+    assert(app.guidelineAt({ clientX: 5, clientY: y }) === base, "visible base is grabbable");
+  } finally {
+    base.hid = hid0; base.off = off0; app.state.glocked = lock0;
+    app.renderGuideList(); app.drawEditor(); app.syncGuideButtons();
+  }
 });

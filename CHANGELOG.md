@@ -44,6 +44,13 @@ Rules:
 - Run `./test/run-tests.sh` before committing — the changelog data-sanity
   test is the safety net.
 
+## 0.32.0 (2026-11-28)
+
+- **Guideline bar buttons now show/hide guides instead of adding duplicates.** The seven standard guides (`asc`, `cap`, `x`, `base`, `desc`, `L`, `R`) are now *semantic*: unique per font and always present — a new or imported font materializes any missing ones, hidden, so the canvas looks exactly as before. Their bar buttons are **visibility toggles** (dimmed while hidden) and never add a guide; `+H`/`+V` still append extra **custom** guides, which remain freely add/remove.
+- **Hiding a guide is a view state only.** A hidden guide is not drawn and cannot be grabbed, but it **still drives the QA bound checks and the TTF baseline/metrics** — toggling it changes nothing about the font, the QA report, or the dogfood preview (no version bump, no rebuild, no staleness).
+- **Old files with duplicate same-name guides** open unchanged: the *canonical* one — `base`/`cap`/`x`: last in the list; `asc`/`desc`/`L`/`R`: the outermost — is exactly what the TTF baseline and the QA checks have always used, so loading changes no metric and no QA result. The extras show in the guide chip list with a **×** for removal (the canonical one cannot be deleted — hide it instead).
+- Internal: the dogfood rebuild's pending state is now truthful — `applyDogfood()` supersedes any queued debounced rebuild and the timer no longer lingers after firing (a `dogfoodPending()` bookkeeping bug); the headless DOM stub's `setTimeout`/`clearTimeout` fakes now behave like a browser's (truthy tokens, never fire) — see TESTING.md.
+
 ## 0.31.0 (2026-11-27)
 
 - **Dogfooding now follows guideline changes live.** Guideline mutations

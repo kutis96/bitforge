@@ -285,6 +285,7 @@ button.iconbtn svg { display: block; }
 .guides .glock { display: inline-flex; gap: 4px; align-items: center; color: var(--muted); }
 .guides .gadd { display: inline-flex; gap: 3px; flex-wrap: wrap; }
 .guides .gadd button { padding: 1px 6px; font-size: 11px; }
+.guides .gadd button.off { opacity: 0.45; } /* DECISIONS #94: semantic guide hidden */
 .guides .glist { display: inline-flex; gap: 4px; flex-wrap: wrap; margin-left: auto; }
 .gchip {
   display: inline-flex; align-items: center; gap: 2px;
@@ -293,6 +294,8 @@ button.iconbtn svg { display: block; }
 }
 .gchip b { font-weight: 700; }
 .gchip i { font-style: normal; color: var(--muted); }
+.gchip.off { opacity: 0.55; }            /* DECISIONS #94: hidden guide (still drives QA + metrics) */
+.gchip.dup b { color: #a00; }            /* DECISIONS #94: removable duplicate */
 .gdel {
   border: none; background: transparent; padding: 0 2px; cursor: pointer;
   font-size: 13px; line-height: 1; color: #a00;

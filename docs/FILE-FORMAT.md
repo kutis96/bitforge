@@ -92,10 +92,31 @@ chars, trimmed. Flows into export filenames and the BDF header. Missing/invalid
 → `font`. (DECISIONS #70)
 
 <a name="g"></a>**`g`** — **editor guidelines**: an array of
-`{ o: "h"|"v", off, label, color }`. `o` = orientation; `off` = the grid boundary
+`{ o: "h"|"v", off, label, color, hid? }`. `o` = orientation; `off` = the grid boundary
 **between** pixels, valid `0..dim` inclusive (0 = near cell edge, `dim` = far
-edge); `label`/`color` for display. Editor-only, never exported to ROM/image.
-(DECISIONS #28, #86)
+edge); `label`/`color` for display; **`hid`** (optional boolean, since 0.32.0)
+= visibility — **absent means visible**; `true` = hidden. Hiding is a *view*
+state only: a hidden guide is not drawn and not draggable, but it **still
+drives the TTF baseline/metrics and the QA bound checks** (DECISIONS #94,
+decision 2). Editor-only, never exported to ROM/image. (DECISIONS #28, #86)
+
+**Semantic-guide uniqueness contract (since 0.32.0, DECISIONS #94):** the 7
+preset labels — `asc`, `cap`, `x`, `base`, `desc`, `L`, `R` — are *semantic*
+guides: **unique per font and always present** in every font the app loads or
+creates. `setFont` (every font-replacement path) *materializes* the missing
+ones at their preset positions, **hidden**; guides already in the file are kept
+as-is (position and visibility included); duplicates from pre-0.32.0 files are
+left in place for the user to delete (the canonical one survives, extras show a
+× in the chip list). Which of several same-label guides is *canonical* is
+`BF.guideCanonical`: `base`/`cap`/`x` = **last in array order**, `asc`/`desc`/
+`L`/`R` = **outermost** — exactly what the TTF baseline (`baselineOf`) and the
+QA bound checks (`guideBounds`) each always picked, so loading an old file
+changes no metric and no QA result. The semantic buttons in the guideline bar
+are **visibility toggles** (never add); `+H`/`+V` still append custom guides
+(labels `H`/`V`/anything else), which stay freely add/remove. A visibility
+toggle is NOT a font mutation (no version bump, no QA staleness, no dogfood
+rebuild); creating a missing semantic guide, adding/removing custom guides,
+removing a duplicate, or moving any guide IS a mutation.
 
 <a name="s"></a>**`s`** — **per-glyph status**: an array of 256 values,
 `0`=unfinished, `1`=wip, `2`=done. Workflow metadata; never exported to

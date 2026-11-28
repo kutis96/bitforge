@@ -33,48 +33,65 @@ test("dogfood: toggle tags <html>, syncs the menu check; off clears both", funct
   } finally { bfDogfoodRestore(); }
 });
 
-test("dogfood: guideline changes schedule a live rebuild (on: yes, off: no)", function () {
-  // Guideline mutations are font mutations (bumpFontVersion): with dogfood
-  // ON they must queue the debounced TTF rebuild (the baseline guide drives
-  // ascent/descent); with dogfood OFF they must not.
+test("dogfood: guideline changes schedule a live rebuild (structural yes, toggle no)", function () {
+  // DECISIONS #94 semantics: a VISIBILITY TOGGLE is view-only (no bump —
+  // hidden guides still drive the TTF baseline + QA bounds, by design). A
+  // STRUCTURAL change (custom add/remove, a guide move) is a font mutation:
+  // with dogfood ON it queues the debounced TTF rebuild; with dogfood OFF it
+  // must not.
   var app = globalThis.__stub.app;
   var f = app.state.font;
   var savedLen = f.guidelines.length;
   var savedLock = app.state.glocked;
+  var base = BF.guideCanonical(f, "base");
+  var baseOff0 = base ? base.off : null;
+  var baseHid0 = base ? base.hid === true : false;
   try {
-    // OFF: no rebuild may be queued.
+    assert(base, "shared app font has a materialized base guide (setFont ran)");
+
+    // OFF: nothing may be queued.
     app.settingsSet("dogfood", false);
     app.applyDogfood();
     assertEqual(app.dogfoodPending(), false, "clean start: no rebuild queued");
-    app.addGuide("baseline");
-    assertEqual(app.dogfoodPending(), false, "off: addGuide does not schedule a rebuild");
+    app.addGuide("baseline"); // visibility toggle
+    assertEqual(app.dogfoodPending(), false, "off: semantic toggle does not schedule");
+    app.addGuide("hnew");     // custom add (structural)
+    assertEqual(app.dogfoodPending(), false, "off: custom add does not schedule");
     app.deleteGuide(f.guidelines.length - 1);
-    assertEqual(app.dogfoodPending(), false, "off: deleteGuide does not schedule a rebuild");
+    assertEqual(app.dogfoodPending(), false, "off: custom delete does not schedule");
 
-    // ON: every guideline mutation queues the debounced rebuild.
+    // ON: structural changes queue the debounced rebuild; toggles do not.
     app.settingsSet("dogfood", true);
     app.applyDogfood();
     assertEqual(app.dogfoodPending(), false, "on: clean start, no rebuild queued");
 
-    app.addGuide("baseline");
-    assertEqual(app.dogfoodPending(), true, "on: addGuide schedules a rebuild");
+    app.addGuide("baseline"); // toggle (view-only)
+    assertEqual(app.dogfoodPending(), false, "on: visibility toggle does NOT schedule (view-only by design)");
 
-    var g = f.guidelines[f.guidelines.length - 1];
-    var gOff0 = g.off;
+    app.addGuide("hnew");
+    assertEqual(app.dogfoodPending(), true, "on: custom add schedules a rebuild");
+    app.deleteGuide(f.guidelines.length - 1);
+    assertEqual(app.dogfoodPending(), true, "on: custom delete schedules a rebuild");
+    app.applyDogfood(); // manual rebuild: supersedes the queued one (no real-time wait needed)
+    assertEqual(app.dogfoodPending(), false, "applyDogfood flushes the pending rebuild");
+
+    // Move: make the base guide visible (toggle — no schedule), then drag it.
+    if (base.hid) app.addGuide("baseline");
+    assertEqual(app.dogfoodPending(), false, "on: the enabling toggle queued nothing");
     app.state.glocked = false;
     var S = 22; // editorScale for the 8x16 test font (same as the [AB] edge-guide test)
-    app.onEditorDown({ clientX: 5, clientY: gOff0 * S, button: 0, preventDefault: function () {} });
-    app.onEditorMove({ clientX: 5, clientY: (gOff0 - 1) * S, preventDefault: function () {} });
+    app.onEditorDown({ clientX: 5, clientY: baseOff0 * S, button: 0, preventDefault: function () {} });
+    app.onEditorMove({ clientX: 5, clientY: (baseOff0 - 1) * S, preventDefault: function () {} });
     app.onEditorUp();
-    assertEqual(g.off, gOff0 - 1, "guide moved one row up (drag flow executed)");
+    assertEqual(base.off, baseOff0 - 1, "base guide moved one row up (drag flow executed)");
     assertEqual(app.dogfoodPending(), true, "on: moveGuide (drag) schedules a rebuild");
 
-    app.deleteGuide(f.guidelines.length - 1);
-    assertEqual(app.dogfoodPending(), true, "on: deleteGuide schedules a rebuild");
     assertEqual(f.guidelines.length, savedLen, "guidelines restored to the original set");
   } finally {
     app.state.glocked = savedLock;
+    if (base) { base.off = baseOff0; base.hid = baseHid0; } // restore the shared font exactly
     while (f.guidelines.length > savedLen) f.guidelines.pop();
+    app.renderGuideList(); app.drawEditor(); app.syncGuideButtons();
     bfDogfoodRestore();
   }
 });

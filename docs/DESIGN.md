@@ -38,7 +38,7 @@ Font {
   width:      int              // px per glyph, default 8
   height:     int              // px per glyph, default 16
   data:       Uint8Array(256 * height * width)   // 1 = ink, 0 = transparent; row-major per glyph
-  guidelines: [{ o: "h"|"v", off: int, label: str, color: cssColor }]   // editor-only, see below
+  guidelines: [{ o: "h"|"v", off: int, label: str, color: cssColor, hid?: bool }]   // editor-only, see below
   status:     Uint8Array(256)  // 0 = unfinished (default), 1 = WIP, 2 = done; missing => unfinished
 }
 ```
@@ -47,6 +47,7 @@ Font {
 - Per-row bitmask is **derived on demand** (for Verilog export) from the pixel grid — not stored separately.
 - `1` = ink (black), `0` = transparent (white/background).
 - `guidelines` are **editor-only** helpers (see below): they persist in `localStorage` with the font but are **never** written to PNG or Verilog output.
+- **Guide model (DECISIONS #94, 0.32.0):** the 7 preset labels (`asc` `cap` `x` `base` `desc` `L` `R`) are **semantic** — unique per font, always present (`setFont` materializes missing ones hidden), their bar buttons are **visibility toggles** (`hid`, absent = visible). Hidden is a view state only: not drawn/draggable, but still drives the TTF baseline + QA bounds. `+H`/`+V` append **custom** guides (freely add/remove). Canonical pick among duplicates: `base/cap/x` = last in array order, `asc/desc/L/R` = outermost (what `baselineOf`/`guideBounds` each always picked — `BF.guideCanonical`).
 - `status` is **workflow metadata** (glyph status, see QA): persisted with the font, never exported to any ROM/image format. Absent in old saves ⇒ all unfinished (forward-compatible).
 
 ## UI / layout

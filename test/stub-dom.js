@@ -153,9 +153,15 @@
     removeItem: function (k) { delete store[k]; }
   };
 
-  // jsc lacks these browser globals (toast() uses clearTimeout)
-  if (!root.clearTimeout) root.clearTimeout = function () {};
-  if (!root.setTimeout) root.setTimeout = function () { return 0; };
+  // jsc has a NATIVE setTimeout (returns undefined, and may fire if an event
+  // loop runs) but no clearTimeout. Override BOTH, unconditionally: headless
+  // tests must be synchronous and deterministic, and the app's `timer !== null`
+  // pending-checks (toast, scheduleDogfood) need a truthy token — like a real
+  // browser's — so `if (timer)` guards work. Timers never fire here; app code
+  // that must act now does so synchronously (e.g. applyDogfood flushes it).
+  var __timerId = 0;
+  root.clearTimeout = function () {};
+  root.setTimeout = function () { return ++__timerId; };
 
   root.Image = function () { this.naturalWidth = 0; this.naturalHeight = 0; };
   root.URL = { createObjectURL: function () { return "blob:stub"; }, revokeObjectURL: function () {} };

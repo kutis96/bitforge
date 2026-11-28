@@ -477,6 +477,17 @@ test("ttf: baseline — 'base' guide wins, default h-3, clamped to 1..h-1", func
   f.guidelines = [];
 });
 
+test("ttf: baselineOf with duplicate 'base' guides — the canonical (last in array) wins [94]", function () {
+  var f = sampleFont();
+  f.guidelines = [
+    { o: "h", off: 5,  label: "base", color: "#dd2222" },
+    { o: "h", off: 9,  label: "base", color: "#dd2222" },
+    { o: "h", off: 11, label: "base", color: "#dd2222" }
+  ];
+  assertEqual(TTF.baselineOf(f), 11, "the canonical guide (last in array order) wins — matches BF.guideCanonical");
+  f.guidelines = [];
+});
+
 test("ttf: upxOf — em stays near 1024 and exact to the pixel", function () {
   assertEqual(TTF.upxOf(16), 64, "16 -> 64 (em 1024)");
   assertEqual(TTF.upxOf(12), 85, "12 -> 85 (em 1020)");

@@ -111,3 +111,65 @@ test("guide: blank glyph and missing bounds produce no violations", function () 
   BF.setPixel(g2, 10, 3, 0, 1);
   assertEqual(BF.guideViolations(g2, 10).length, 0, "no guides -> no bounds -> no violations");
 });
+
+// ---------- DECISIONS #94: canonical guide + duplicates + hid ----------
+
+test("guide: guideCanonical resolves duplicates per the consumer's historical rule", function () {
+  // base / cap / x -> LAST in array order (what baselineOf always picked)
+  var f = BF.makeFont(8, 16);
+  f.guidelines.push({ o: "h", off: 10, label: "base", color: "#dd2222" });
+  f.guidelines.push({ o: "h", off: 12, label: "base", color: "#dd2222" });
+  f.guidelines.push({ o: "h", off: 8,  label: "base", color: "#dd2222" });
+  assertEqual(BF.guideCanonical(f, "base").off, 8, "base: last in array order wins");
+  // asc / desc / L / R -> OUTERMOST (what guideBounds always picked)
+  f.guidelines.length = 0;
+  f.guidelines.push({ o: "h", off: 4, label: GB.top, color: "#888888" });
+  f.guidelines.push({ o: "h", off: 1, label: GB.top, color: "#888888" });
+  f.guidelines.push({ o: "h", off: 13, label: GB.bottom, color: "#888888" });
+  f.guidelines.push({ o: "h", off: 15, label: GB.bottom, color: "#888888" });
+  f.guidelines.push({ o: "v", off: 2, label: GB.left, color: "#cc8800" });
+  f.guidelines.push({ o: "v", off: 1, label: GB.left, color: "#cc8800" });
+  f.guidelines.push({ o: "v", off: 5, label: GB.right, color: "#cc8800" });
+  f.guidelines.push({ o: "v", off: 7, label: GB.right, color: "#cc8800" });
+  assertEqual(BF.guideCanonical(f, GB.top).off, 1, "asc: topmost wins");
+  assertEqual(BF.guideCanonical(f, GB.bottom).off, 15, "desc: lowest wins");
+  assertEqual(BF.guideCanonical(f, GB.left).off, 1, "L: leftmost wins");
+  assertEqual(BF.guideCanonical(f, GB.right).off, 7, "R: rightmost wins");
+  assertEqual(BF.guideCanonical(f, "cap"), null, "cap absent -> null");
+});
+
+test("guide: guideDuplicates excludes exactly the canonical one", function () {
+  var f = BF.makeFont(8, 16);
+  var a = { o: "h", off: 10, label: "base", color: "#dd2222" };
+  var b = { o: "h", off: 12, label: "base", color: "#dd2222" };
+  var c = { o: "h", off: 8,  label: "base", color: "#dd2222" };
+  f.guidelines.push(a, b, c);
+  var dups = BF.guideDuplicates(f, "base");
+  assertEqual(dups.length, 2, "two duplicates of three");
+  assert(dups[0] === a && dups[1] === b, "array order kept; the canonical (c, last) is excluded");
+  assertEqual(BF.guideDuplicates(f, "cap").length, 0, "no cap guides -> no dups");
+  // outermost canonical for bound labels
+  f.guidelines.length = 0;
+  var t1 = { o: "h", off: 4, label: GB.top, color: "#888888" };
+  var t2 = { o: "h", off: 1, label: GB.top, color: "#888888" };
+  f.guidelines.push(t1, t2);
+  var dd = BF.guideDuplicates(f, GB.top);
+  assertEqual(dd.length, 1, "one duplicate");
+  assert(dd[0] === t1, "the non-outermost (t1) is the duplicate");
+});
+
+test("guide: hid survives blob round-trip and clone (absent = visible)", function () {
+  var f = BF.makeFont(8, 16);
+  f.guidelines.push({ o: "h", off: 13, label: "base", color: "#dd2222", hid: true });
+  f.guidelines.push({ o: "h", off: 1, label: "asc", color: "#888888" }); // no hid -> visible
+  var f2 = BF.fontFromBlob(BF.fontToBlob(f));
+  assertEqual(f2.guidelines.length, 2, "both guides round-trip");
+  assertEqual(f2.guidelines[0].hid, true, "hid: true survives");
+  assert(!f2.guidelines[1].hid, "missing hid -> visible (false)");
+  // malformed hid values are coerced to visible
+  var f3 = BF.fontFromBlob({ w: 8, h: 16, g: [{ o: "h", off: 5, label: "x", color: "#000", hid: "yes" }] });
+  assert(!f3.guidelines[0].hid, "hid: \"yes\" (not true) -> visible");
+  // cloneFont copies the flag
+  var f4 = BF.cloneFont ? BF.cloneFont(f) : null;
+  if (f4) assertEqual(f4.guidelines[0].hid, true, "cloneFont copies hid");
+});

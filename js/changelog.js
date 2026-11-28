@@ -14,6 +14,11 @@
  * (date "" = pre-dated history, not shown in the UI)
  */
 var BF_CHANGELOG = [
+  { version: "0.32.0", date: "2026-11-28", changes: [
+    "**Guideline buttons now show/hide guides instead of adding duplicates.** The seven standard guides (`asc`, `cap`, `x`, `base`, `desc`, `L`, `R`) are unique per font and always present — their bar buttons are **visibility toggles** (dimmed while hidden) and never add a guide; `+H`/`+V` still append extra custom guides, freely removable as before. New and imported fonts get any missing standard guides materialized hidden, so the canvas looks exactly as before."
+  , "**Hiding a guide is a view state only:** it is not drawn and cannot be dragged, but it still drives the **QA bound checks** and the **TTF baseline** — toggling it changes nothing about the font, the QA report, or the dogfood preview."
+  , "Old project files with **duplicate same-name guides** open unchanged: the canonical one (the one the TTF baseline and QA checks have always used) keeps governing, and the extras appear in the guide list with a × for removal."
+  ] },
   { version: "0.31.0", date: "2026-11-27", changes: [
     "**Dogfooding now follows guideline changes live:** add, remove or drag a guide (in particular the `base` baseline guide) and the dogfood face rebuilds automatically (debounced, ~400 ms after the last change) — no more toggling dogfooding off/on or redrawing pixels to see the effect on the baseline and line box. Guideline changes also mark the QA report **stale**, since the bounds checks depend on them."
   ] },

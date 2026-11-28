@@ -26,7 +26,7 @@
    * (1-indexed) in the STATUS.md "Current state" list; PATCH = 0 for a single
    * chunk, the sub-index for a wave (chunk L.3 shipped 0.12.3). Bump in the
    * same commit as the chunk — a headless test pins the exact value. */
-  var VERSION = "0.31.0";
+  var VERSION = "0.32.0";
 
   /* ============================================================
    * [1] Font model
@@ -538,6 +538,42 @@
   // the user sees, so QA details can reference the guide by name.
   var GUIDE_BOUND_LABELS = { top: "asc", bottom: "desc", left: "L", right: "R" };
 
+  // The ONE guide a consumer should use for a given label (DECISIONS #94).
+  //   base / cap / x  -> the LAST in array order (preserves baselineOf's pick)
+  //   asc / desc / L / R -> the OUTERMOST (topmost/bottommost/leftmost/
+  //                         rightmost — preserves guideBounds's pick)
+  // null when the font has no guide with that label. This is the single
+  // source of truth for duplicate resolution — previously the two consumers
+  // (TTF baseline: last-in-array; QA bounds: outermost) each had their own
+  // unspoken rule, so duplicated same-labelled guides were order-dependent.
+  function guideCanonical(font, label) {
+    var gs = font.guidelines, n = gs.length, i, g;
+    var last = null, outer = null;
+    var isTop = label === GUIDE_BOUND_LABELS.top, isBottom = label === GUIDE_BOUND_LABELS.bottom;
+    var isLeft = label === GUIDE_BOUND_LABELS.left, isRight = label === GUIDE_BOUND_LABELS.right;
+    for (i = 0; i < n; i++) {
+      g = gs[i];
+      if (!g || g.label !== label) continue;
+      last = g;
+      if (isTop && (outer === null || g.off < outer.off)) outer = g;
+      if (isBottom && (outer === null || g.off > outer.off)) outer = g;
+      if (isLeft && (outer === null || g.off < outer.off)) outer = g;
+      if (isRight && (outer === null || g.off > outer.off)) outer = g;
+    }
+    return (isTop || isBottom || isLeft || isRight) ? outer : last;
+  }
+
+  // All guides with a given label EXCEPT the canonical one (DECISIONS #94),
+  // in array order. These are the removable duplicates (old files allowed
+  // repeated preset clicks); the app shows them with an × so the user can
+  // converge to the unique semantic guide.
+  function guideDuplicates(font, label) {
+    var c = guideCanonical(font, label), out = [], gs = font.guidelines, i;
+    for (i = 0; i < gs.length; i++)
+      if (gs[i] && gs[i].label === label && gs[i] !== c) out.push(gs[i]);
+    return out;
+  }
+
   // Which guides form the bounds of the cell? Returns
   // { top, bottom, left, right } where each is { off, label } or null:
   //   top    = topmost (smallest off) guide labelled GUIDE_BOUND_LABELS.top
@@ -545,16 +581,21 @@
   //   left   = leftmost  (smallest off) guide labelled GUIDE_BOUND_LABELS.left
   //   right  = rightmost (largest off)  guide labelled GUIDE_BOUND_LABELS.right
   // A font without the preset guide on a side has no bound on that side.
+  // (Duplicate resolution goes through guideCanonical — DECISIONS #94 —
+  // which preserves this exact outermost behavior.)
   function guideBounds(font) {
-    var top = null, bottom = null, left = null, right = null, g;
-    for (var i = 0; i < font.guidelines.length; i++) {
-      g = font.guidelines[i];
-      if (g.o === "h" && g.label === GUIDE_BOUND_LABELS.top && (top === null || g.off < top.off)) top = { off: g.off, label: g.label };
-      if (g.o === "h" && g.label === GUIDE_BOUND_LABELS.bottom && (bottom === null || g.off > bottom.off)) bottom = { off: g.off, label: g.label };
-      if (g.o === "v" && g.label === GUIDE_BOUND_LABELS.left && (left === null || g.off < left.off)) left = { off: g.off, label: g.label };
-      if (g.o === "v" && g.label === GUIDE_BOUND_LABELS.right && (right === null || g.off > right.off)) right = { off: g.off, label: g.label };
+    var out = { top: null, bottom: null, left: null, right: null };
+    var sides = [
+      ["top", GUIDE_BOUND_LABELS.top],
+      ["bottom", GUIDE_BOUND_LABELS.bottom],
+      ["left", GUIDE_BOUND_LABELS.left],
+      ["right", GUIDE_BOUND_LABELS.right]
+    ];
+    for (var i = 0; i < sides.length; i++) {
+      var g = guideCanonical(font, sides[i][1]);
+      if (g) out[sides[i][0]] = { off: g.off, label: g.label };
     }
-    return { top: top, bottom: bottom, left: left, right: right };
+    return out;
   }
 
   // Which bounds does the glyph's ink cross? Returns [{ bound, label, over }]
@@ -652,7 +693,10 @@
           // (a corrupt 999 used to be kept and drew off-canvas).
           var gmax = (e.o === "h") ? font.height : font.width;
           e.off = (e.off < 0) ? 0 : ((e.off > gmax) ? gmax : e.off);
-          font.guidelines.push({ o: e.o, off: e.off, label: String(e.label != null ? e.label : e.o), color: String(e.color != null ? e.color : "#444444") });
+          // hid = visibility toggle (DECISIONS #94): optional, absent =
+          // visible. Hidden is a VIEW state only — the guide still drives the
+          // TTF baseline and the QA bounds; it just isn't drawn.
+          font.guidelines.push({ o: e.o, off: e.off, label: String(e.label != null ? e.label : e.o), color: String(e.color != null ? e.color : "#444444"), hid: e.hid === true });
         }
       }
     }
@@ -726,7 +770,7 @@
     out.data.set(font.data);
     for (var i = 0; i < font.guidelines.length; i++) {
       var g = font.guidelines[i];
-      out.guidelines.push({ o: g.o, off: g.off, label: g.label, color: g.color });
+      out.guidelines.push({ o: g.o, off: g.off, label: g.label, color: g.color, hid: g.hid === true });
     }
     out.status.set(font.status);
     for (var sid in font.silences) {
@@ -1054,6 +1098,8 @@
     activeEdges: activeEdges,
     // guideline-violation QA
     GUIDE_BOUND_LABELS: GUIDE_BOUND_LABELS,
+    guideCanonical: guideCanonical,
+    guideDuplicates: guideDuplicates,
     guideBounds: guideBounds,
     guideViolations: guideViolations,
     // project file
